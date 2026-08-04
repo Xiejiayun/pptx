@@ -18507,288 +18507,881 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+      },
       "declaredIn": "MediaProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserOnlineVideoState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/media-source.internal.ts",
+            "pattern": "export async function resolveMediaCreationInputs("
+          },
+          {
+            "path": "packages/codecs/src/media-create.internal.ts",
+            "pattern": "export function normalizeMediaCreateRequest("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedOnlineVideoState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PptxGenJS media defects while native creation remains strict"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "edits, canonicalizes, isolates, and removes PptxGenJS legacy media safely"
+          }
+        ]
       },
       "id": "interface:MediaProps@property:cover",
       "kind": "property",
       "name": "cover",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddMediaOptions.poster",
+        "MediaModel.posterPartUri",
+        "MediaModel.replacePoster"
+      ],
+      "note": "PptxGenJS exposes a permissive cover data string with a large built-in fallback; native exposes a typed poster MediaSource with content detection, a canonical default, replacement, and strict pre-mutation validation.",
       "optional": true,
       "owner": "MediaProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+      },
       "declaredIn": "DataOrPathProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserOnlineVideoState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/media-source.internal.ts",
+            "pattern": "export async function resolveMediaCreationInputs("
+          },
+          {
+            "path": "packages/codecs/src/media-create.internal.ts",
+            "pattern": "export function normalizeMediaCreateRequest("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedOnlineVideoState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PptxGenJS media defects while native creation remains strict"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "edits, canonicalizes, isolates, and removes PptxGenJS legacy media safely"
+          }
+        ]
       },
       "id": "interface:MediaProps@property:data",
       "kind": "property",
       "name": "data",
-      "native": [],
-      "note": "",
+      "native": [
+        "MediaModel.replaceSource",
+        "MediaSource",
+        "PptxDocument.addAudio",
+        "PptxDocument.addVideo",
+        "SlideModel.addAudio",
+        "SlideModel.addVideo"
+      ],
+      "note": "PptxGenJS selects between permissive optional data/path fields and caller extension hints; native accepts one typed MediaSource, resolves or detects it before mutation, and exposes atomic embedded/external replacement.",
       "optional": true,
       "owner": "MediaProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+      },
       "declaredIn": "MediaProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserOnlineVideoState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/media-source.internal.ts",
+            "pattern": "export async function resolveMediaCreationInputs("
+          },
+          {
+            "path": "packages/codecs/src/media-create.internal.ts",
+            "pattern": "export function normalizeMediaCreateRequest("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedOnlineVideoState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PptxGenJS media defects while native creation remains strict"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "edits, canonicalizes, isolates, and removes PptxGenJS legacy media safely"
+          }
+        ]
       },
       "id": "interface:MediaProps@property:extn",
       "kind": "property",
       "name": "extn",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddMediaOptions.contentType",
+        "AddMediaOptions.fileName",
+        "AddMediaOptions.transcode",
+        "MediaModel.mediaPartUri"
+      ],
+      "note": "PptxGenJS lets extn override emitted file naming independently of content; native keeps contentType, fileName, detected bytes, and optional transcode output consistent as one strict media descriptor.",
       "optional": true,
       "owner": "MediaProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserOnlineVideoState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/media-source.internal.ts",
+            "pattern": "export async function resolveMediaCreationInputs("
+          },
+          {
+            "path": "packages/codecs/src/media-create.internal.ts",
+            "pattern": "export function normalizeMediaCreateRequest("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedOnlineVideoState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PptxGenJS media defects while native creation remains strict"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "edits, canonicalizes, isolates, and removes PptxGenJS legacy media safely"
+          }
+        ]
       },
       "id": "interface:MediaProps@property:h",
       "kind": "property",
       "name": "h",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddMediaOptions.height",
+        "MediaModel.setTransform",
+        "MediaModel.transform.height"
+      ],
+      "note": "PptxGenJS exposes implicit-inch x/y/w/h with truthy defaults; native exposes x/y/width/height in explicit EMU or inches() units and preserves strict editable MediaModel.transform state.",
       "optional": true,
       "owner": "MediaProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+      },
       "declaredIn": "MediaProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserOnlineVideoState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/media-source.internal.ts",
+            "pattern": "export async function resolveMediaCreationInputs("
+          },
+          {
+            "path": "packages/codecs/src/media-create.internal.ts",
+            "pattern": "export function normalizeMediaCreateRequest("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedOnlineVideoState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PptxGenJS media defects while native creation remains strict"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "edits, canonicalizes, isolates, and removes PptxGenJS legacy media safely"
+          }
+        ]
       },
       "id": "interface:MediaProps@property:link",
       "kind": "property",
       "name": "link",
-      "native": [],
-      "note": "",
+      "native": [
+        "MediaModel.externalUrl",
+        "MediaSource",
+        "PptxDocument.addVideo",
+        "SlideModel.addVideo"
+      ],
+      "note": "PptxGenJS online media writes a loosely validated external video target plus poster with no playback state; native addVideo accepts a strict HTTP(S) MediaSource, preserves the same external target/poster/reopen result, and adds editable canonical playback and timing state.",
       "optional": true,
       "owner": "MediaProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+      },
       "declaredIn": "ObjectNameProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserOnlineVideoState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/media-source.internal.ts",
+            "pattern": "export async function resolveMediaCreationInputs("
+          },
+          {
+            "path": "packages/codecs/src/media-create.internal.ts",
+            "pattern": "export function normalizeMediaCreateRequest("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedOnlineVideoState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PptxGenJS media defects while native creation remains strict"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "edits, canonicalizes, isolates, and removes PptxGenJS legacy media safely"
+          }
+        ]
       },
       "id": "interface:MediaProps@property:objectName",
       "kind": "property",
       "name": "objectName",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddMediaOptions.name",
+        "MediaModel.name"
+      ],
+      "note": "PptxGenJS exposes objectName with permissive coercion and writer-time escaping; native exposes XML-safe AddMediaOptions.name and editable MediaModel.name state.",
       "optional": true,
       "owner": "MediaProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+      },
       "declaredIn": "MediaProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserOnlineVideoState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/media-source.internal.ts",
+            "pattern": "export async function resolveMediaCreationInputs("
+          },
+          {
+            "path": "packages/codecs/src/media-create.internal.ts",
+            "pattern": "export function normalizeMediaCreateRequest("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedOnlineVideoState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PptxGenJS media defects while native creation remains strict"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "edits, canonicalizes, isolates, and removes PptxGenJS legacy media safely"
+          }
+        ]
       },
       "id": "interface:MediaProps@property:path",
       "kind": "property",
       "name": "path",
-      "native": [],
-      "note": "",
+      "native": [
+        "MediaModel.replaceSource",
+        "MediaSource",
+        "PptxDocument.addAudio",
+        "PptxDocument.addVideo",
+        "SlideModel.addAudio",
+        "SlideModel.addVideo"
+      ],
+      "note": "PptxGenJS selects between permissive optional data/path fields and caller extension hints; native accepts one typed MediaSource, resolves or detects it before mutation, and exposes atomic embedded/external replacement.",
       "optional": true,
       "owner": "MediaProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+      },
       "declaredIn": "MediaProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserOnlineVideoState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/media-source.internal.ts",
+            "pattern": "export async function resolveMediaCreationInputs("
+          },
+          {
+            "path": "packages/codecs/src/media-create.internal.ts",
+            "pattern": "export function normalizeMediaCreateRequest("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedOnlineVideoState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PptxGenJS media defects while native creation remains strict"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "edits, canonicalizes, isolates, and removes PptxGenJS legacy media safely"
+          }
+        ]
       },
       "id": "interface:MediaProps@property:type",
       "kind": "property",
       "name": "type",
-      "native": [],
-      "note": "",
+      "native": [
+        "MediaKind",
+        "MediaModel.kind",
+        "PptxDocument.addAudio",
+        "PptxDocument.addVideo",
+        "SlideModel.addAudio",
+        "SlideModel.addVideo"
+      ],
+      "note": "PptxGenJS selects audio, video, or online inside one permissive MediaProps bag; native deliberately splits strict addAudio/addVideo operations, with online represented by an external HTTP(S) video source and live MediaModel state.",
       "optional": false,
       "owner": "MediaProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "MediaType"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserOnlineVideoState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/media-source.internal.ts",
+            "pattern": "export async function resolveMediaCreationInputs("
+          },
+          {
+            "path": "packages/codecs/src/media-create.internal.ts",
+            "pattern": "export function normalizeMediaCreateRequest("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedOnlineVideoState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PptxGenJS media defects while native creation remains strict"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "edits, canonicalizes, isolates, and removes PptxGenJS legacy media safely"
+          }
+        ]
       },
       "id": "interface:MediaProps@property:w",
       "kind": "property",
       "name": "w",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddMediaOptions.width",
+        "MediaModel.setTransform",
+        "MediaModel.transform.width"
+      ],
+      "note": "PptxGenJS exposes implicit-inch x/y/w/h with truthy defaults; native exposes x/y/width/height in explicit EMU or inches() units and preserves strict editable MediaModel.transform state.",
       "optional": true,
       "owner": "MediaProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserOnlineVideoState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/media-source.internal.ts",
+            "pattern": "export async function resolveMediaCreationInputs("
+          },
+          {
+            "path": "packages/codecs/src/media-create.internal.ts",
+            "pattern": "export function normalizeMediaCreateRequest("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedOnlineVideoState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PptxGenJS media defects while native creation remains strict"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "edits, canonicalizes, isolates, and removes PptxGenJS legacy media safely"
+          }
+        ]
       },
       "id": "interface:MediaProps@property:x",
       "kind": "property",
       "name": "x",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddMediaOptions.x",
+        "MediaModel.setTransform",
+        "MediaModel.transform.x"
+      ],
+      "note": "PptxGenJS exposes implicit-inch x/y/w/h with truthy defaults; native exposes x/y/width/height in explicit EMU or inches() units and preserves strict editable MediaModel.transform state.",
       "optional": true,
       "owner": "MediaProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+      },
       "declaredIn": "PositionProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserOnlineVideoState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/media-source.internal.ts",
+            "pattern": "export async function resolveMediaCreationInputs("
+          },
+          {
+            "path": "packages/codecs/src/media-create.internal.ts",
+            "pattern": "export function normalizeMediaCreateRequest("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedOnlineVideoState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PptxGenJS media defects while native creation remains strict"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "edits, canonicalizes, isolates, and removes PptxGenJS legacy media safely"
+          }
+        ]
       },
       "id": "interface:MediaProps@property:y",
       "kind": "property",
       "name": "y",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddMediaOptions.y",
+        "MediaModel.setTransform",
+        "MediaModel.transform.y"
+      ],
+      "note": "PptxGenJS exposes implicit-inch x/y/w/h with truthy defaults; native exposes x/y/width/height in explicit EMU or inches() units and preserves strict editable MediaModel.transform state.",
       "optional": true,
       "owner": "MediaProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Coord"
     },
     {
@@ -21112,10 +21705,9 @@
       "native": [
         "MediaModel",
         "SlideModel.addAudio",
-        "SlideModel.addOnlineVideo",
         "SlideModel.addVideo"
       ],
-      "note": "PptxGenJS exposes one generic callable addMedia property; native deliberately splits the capability into typed addAudio, addVideo, and addOnlineVideo operations.",
+      "note": "PptxGenJS exposes one generic callable addMedia property; native deliberately splits the capability into typed addAudio/addVideo operations and maps online links to strict external video sources.",
       "optional": false,
       "owner": "PresSlide",
       "readonly": false,
@@ -35036,7 +35628,6 @@
       "native": [
         "MediaModel",
         "SlideModel.addAudio",
-        "SlideModel.addOnlineVideo",
         "SlideModel.addVideo"
       ],
       "note": "PptxGenJS synchronously returns the owning slide and may retain or mutate caller state; native returns a typed live model, prepares asynchronous sources where required, and snapshots validated input.",
@@ -38109,80 +38700,246 @@
     },
     {
       "catalogKey": "audio",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+      },
       "declaredIn": "MediaType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserOnlineVideoState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/media-source.internal.ts",
+            "pattern": "export async function resolveMediaCreationInputs("
+          },
+          {
+            "path": "packages/codecs/src/media-create.internal.ts",
+            "pattern": "export function normalizeMediaCreateRequest("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedOnlineVideoState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PptxGenJS media defects while native creation remains strict"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "edits, canonicalizes, isolates, and removes PptxGenJS legacy media safely"
+          }
+        ]
       },
       "id": "union:MediaType#audio",
       "kind": "union-member",
       "name": "audio",
-      "native": [],
-      "note": "",
+      "native": [
+        "MediaKind",
+        "MediaModel.kind",
+        "PptxDocument.addAudio",
+        "PptxDocument.addVideo",
+        "SlideModel.addAudio",
+        "SlideModel.addVideo"
+      ],
+      "note": "PptxGenJS selects audio, video, or online inside one permissive MediaProps bag; native deliberately splits strict addAudio/addVideo operations, with online represented by an external HTTP(S) video source and live MediaModel state.",
       "optional": false,
       "owner": "MediaType",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'audio'"
     },
     {
       "catalogKey": "online",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+      },
       "declaredIn": "MediaType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserOnlineVideoState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/media-source.internal.ts",
+            "pattern": "export async function resolveMediaCreationInputs("
+          },
+          {
+            "path": "packages/codecs/src/media-create.internal.ts",
+            "pattern": "export function normalizeMediaCreateRequest("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedOnlineVideoState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PptxGenJS media defects while native creation remains strict"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "edits, canonicalizes, isolates, and removes PptxGenJS legacy media safely"
+          }
+        ]
       },
       "id": "union:MediaType#online",
       "kind": "union-member",
       "name": "online",
-      "native": [],
-      "note": "",
+      "native": [
+        "MediaModel.externalUrl",
+        "MediaSource",
+        "PptxDocument.addVideo",
+        "SlideModel.addVideo"
+      ],
+      "note": "PptxGenJS online media writes a loosely validated external video target plus poster with no playback state; native addVideo accepts a strict HTTP(S) MediaSource, preserves the same external target/poster/reopen result, and adds editable canonical playback and timing state.",
       "optional": false,
       "owner": "MediaType",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'online'"
     },
     {
       "catalogKey": "video",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+      },
       "declaredIn": "MediaType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserOnlineVideoState ="
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/codecs/src/media-source.internal.ts",
+            "pattern": "export async function resolveMediaCreationInputs("
+          },
+          {
+            "path": "packages/codecs/src/media-create.internal.ts",
+            "pattern": "export function normalizeMediaCreateRequest("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedOnlineVideoState ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks PptxGenJS media defects while native creation remains strict"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "edits, canonicalizes, isolates, and removes PptxGenJS legacy media safely"
+          }
+        ]
       },
       "id": "union:MediaType#video",
       "kind": "union-member",
       "name": "video",
-      "native": [],
-      "note": "",
+      "native": [
+        "MediaKind",
+        "MediaModel.kind",
+        "PptxDocument.addAudio",
+        "PptxDocument.addVideo",
+        "SlideModel.addAudio",
+        "SlideModel.addVideo"
+      ],
+      "note": "PptxGenJS selects audio, video, or online inside one permissive MediaProps bag; native deliberately splits strict addAudio/addVideo operations, with online represented by an external HTTP(S) video source and live MediaModel state.",
       "optional": false,
       "owner": "MediaType",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'video'"
     },
     {
@@ -86293,12 +87050,12 @@
   "complete": false,
   "counts": {
     "defect-excluded": 359,
-    "deliberate-difference": 325,
+    "deliberate-difference": 339,
     "deprecated-alias": 91,
     "stale": 0,
     "supported": 620,
     "unsupported": 0,
-    "unverified": 379
+    "unverified": 365
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -86527,17 +87284,6 @@
     "interface:ImageProps@property:rounding",
     "interface:ImageProps@property:shadow",
     "interface:ImageProps@property:transparency",
-    "interface:MediaProps@property:cover",
-    "interface:MediaProps@property:data",
-    "interface:MediaProps@property:extn",
-    "interface:MediaProps@property:h",
-    "interface:MediaProps@property:link",
-    "interface:MediaProps@property:objectName",
-    "interface:MediaProps@property:path",
-    "interface:MediaProps@property:type",
-    "interface:MediaProps@property:w",
-    "interface:MediaProps@property:x",
-    "interface:MediaProps@property:y",
     "interface:OptsChartGridLine@property:cap",
     "interface:PlaceholderProps@property:align",
     "interface:PlaceholderProps@property:margin",
@@ -86602,9 +87348,6 @@
     "union:Coord#number",
     "union:Margin#[number,number,number,number]",
     "union:Margin#number",
-    "union:MediaType#audio",
-    "union:MediaType#online",
-    "union:MediaType#video",
     "union:interface:IChartOpts@property:axisPos#b",
     "union:interface:IChartOpts@property:axisPos#l",
     "union:interface:IChartOpts@property:axisPos#r",

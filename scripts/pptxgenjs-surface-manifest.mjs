@@ -3163,7 +3163,7 @@ function slideSectionNative(id) {
     hidden: ['SlideModel.hidden'],
     chart: ['SlideModel.addChart', 'PptxDocument.addChart', 'ChartModel'],
     image: ['SlideModel.addImage', 'PptxDocument.addImage', 'ImageModel'],
-    media: ['SlideModel.addAudio', 'SlideModel.addVideo', 'SlideModel.addOnlineVideo', 'MediaModel'],
+    media: ['SlideModel.addAudio', 'SlideModel.addVideo', 'MediaModel'],
     shape: ['SlideModel.addShape', 'ShapeModel'],
     table: ['SlideModel.addTable', 'TableModel'],
     text: ['SlideModel.addText', 'ShapeModel'],
@@ -3213,7 +3213,7 @@ function slideSectionDifferenceNote(id) {
     return 'PptxGenJS treats declared numeric order zero as omitted and appends; native preserves zero as the first insertion index while matching documented positive indices.';
   }
   if (id === linePropertyId('PresSlide', 'addMedia')) {
-    return 'PptxGenJS exposes one generic callable addMedia property; native deliberately splits the capability into typed addAudio, addVideo, and addOnlineVideo operations.';
+    return 'PptxGenJS exposes one generic callable addMedia property; native deliberately splits the capability into typed addAudio/addVideo operations and maps online links to strict external video sources.';
   }
   if (/^method:Slide#add(?:Image|Media|Shape|Text)$/u.test(id)) {
     return 'PptxGenJS synchronously returns the owning slide and may retain or mutate caller state; native returns a typed live model, prepares asynchronous sources where required, and snapshots validated input.';
@@ -3896,6 +3896,154 @@ const IMAGE_SOURCE_SIZING_TRANSFORM_FAMILY_ENTRIES = Object.freeze(
   IMAGE_SOURCE_SIZING_TRANSFORM_IDS.map((id) => imageSourceSizingTransformEntry(id)),
 );
 
+const MEDIA_CORE_CONTROL_TITLE =
+  'locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1';
+const MEDIA_VALID_CONTROL_TITLE =
+  'matches valid PptxGenJS public audio and video media output semantically';
+const MEDIA_STRICTNESS_CONTROL_TITLE =
+  'locks PptxGenJS media defects while native creation remains strict';
+const MEDIA_LIFECYCLE_CONTROL_TITLE =
+  'edits, canonicalizes, isolates, and removes PptxGenJS legacy media safely';
+const MEDIA_CORE_IDS = Object.freeze([
+  ...['cover', 'data', 'extn', 'h', 'link', 'objectName', 'path', 'type', 'w', 'x', 'y']
+    .map((property) => linePropertyId('MediaProps', property)),
+  ...['audio', 'online', 'video'].map((value) => `union:MediaType#${value}`),
+]);
+
+function mediaCoreNative(id) {
+  if (id.endsWith('@property:cover')) {
+    return [
+      'AddMediaOptions.poster',
+      'MediaModel.posterPartUri',
+      'MediaModel.replacePoster',
+    ];
+  }
+  if (id.endsWith('@property:extn')) {
+    return [
+      'AddMediaOptions.contentType',
+      'AddMediaOptions.fileName',
+      'AddMediaOptions.transcode',
+      'MediaModel.mediaPartUri',
+    ];
+  }
+  if (id.endsWith('@property:objectName')) {
+    return ['AddMediaOptions.name', 'MediaModel.name'];
+  }
+  if (/@property:(?:x|y|w|h)$/u.test(id)) {
+    const property = id.slice(id.lastIndexOf(':') + 1);
+    const nativeProperty = property === 'w' ? 'width' : property === 'h' ? 'height' : property;
+    return [
+      `AddMediaOptions.${nativeProperty}`,
+      `MediaModel.transform.${nativeProperty}`,
+      'MediaModel.setTransform',
+    ];
+  }
+  if (id.endsWith('@property:data') || id.endsWith('@property:path')) {
+    return [
+      'MediaSource',
+      'PptxDocument.addAudio',
+      'PptxDocument.addVideo',
+      'SlideModel.addAudio',
+      'SlideModel.addVideo',
+      'MediaModel.replaceSource',
+    ];
+  }
+  if (id.endsWith('@property:link') || id.endsWith('#online')) {
+    return [
+      'MediaSource',
+      'PptxDocument.addVideo',
+      'SlideModel.addVideo',
+      'MediaModel.externalUrl',
+    ];
+  }
+  return [
+    'MediaKind',
+    'PptxDocument.addAudio',
+    'PptxDocument.addVideo',
+    'SlideModel.addAudio',
+    'SlideModel.addVideo',
+    'MediaModel.kind',
+  ];
+}
+
+function mediaCoreEvidence() {
+  return {
+    code: [{
+      path: 'packages/codecs/src/media-source.internal.ts',
+      pattern: 'export async function resolveMediaCreationInputs(',
+    }, {
+      path: 'packages/codecs/src/media-create.internal.ts',
+      pattern: 'export function normalizeMediaCreateRequest(',
+    }, {
+      path: 'packages/model/src/slide.ts',
+      pattern: 'async addVideo(source: MediaSource, options: AddMediaOptions = {}): Promise<MediaModel> {',
+    }],
+    tests: [
+      MEDIA_CORE_CONTROL_TITLE,
+      MEDIA_VALID_CONTROL_TITLE,
+      MEDIA_STRICTNESS_CONTROL_TITLE,
+      MEDIA_LIFECYCLE_CONTROL_TITLE,
+    ].map((title) => ({
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title,
+    })),
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const packedOnlineVideoState =',
+    }],
+    ooxml: [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: 'creates every public media source, MIME family, poster family, and external mode',
+    }],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'const browserOnlineVideoState =',
+    }],
+  };
+}
+
+function mediaCoreNote(id) {
+  if (id.endsWith('@property:cover')) {
+    return 'PptxGenJS exposes a permissive cover data string with a large built-in fallback; native exposes a typed poster MediaSource with content detection, a canonical default, replacement, and strict pre-mutation validation.';
+  }
+  if (id.endsWith('@property:extn')) {
+    return 'PptxGenJS lets extn override emitted file naming independently of content; native keeps contentType, fileName, detected bytes, and optional transcode output consistent as one strict media descriptor.';
+  }
+  if (id.endsWith('@property:objectName')) {
+    return 'PptxGenJS exposes objectName with permissive coercion and writer-time escaping; native exposes XML-safe AddMediaOptions.name and editable MediaModel.name state.';
+  }
+  if (/@property:(?:x|y|w|h)$/u.test(id)) {
+    return 'PptxGenJS exposes implicit-inch x/y/w/h with truthy defaults; native exposes x/y/width/height in explicit EMU or inches() units and preserves strict editable MediaModel.transform state.';
+  }
+  if (id.endsWith('@property:data') || id.endsWith('@property:path')) {
+    return 'PptxGenJS selects between permissive optional data/path fields and caller extension hints; native accepts one typed MediaSource, resolves or detects it before mutation, and exposes atomic embedded/external replacement.';
+  }
+  if (id.endsWith('@property:link') || id.endsWith('#online')) {
+    return 'PptxGenJS online media writes a loosely validated external video target plus poster with no playback state; native addVideo accepts a strict HTTP(S) MediaSource, preserves the same external target/poster/reopen result, and adds editable canonical playback and timing state.';
+  }
+  return 'PptxGenJS selects audio, video, or online inside one permissive MediaProps bag; native deliberately splits strict addAudio/addVideo operations, with online represented by an external HTTP(S) video source and live MediaModel state.';
+}
+
+function mediaCoreEntry(id) {
+  return {
+    id,
+    status: 'deliberate-difference',
+    native: mediaCoreNative(id),
+    evidence: mediaCoreEvidence(),
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: MEDIA_CORE_CONTROL_TITLE,
+    },
+    serialization: true,
+    client: true,
+    note: mediaCoreNote(id),
+  };
+}
+
+const MEDIA_CORE_FAMILY_ENTRIES = Object.freeze(
+  MEDIA_CORE_IDS.map((id) => mediaCoreEntry(id)),
+);
+
 const PLACEHOLDER_CORE_CONTROL_TITLE =
   'locks PlaceholderProps and text/image placeholder population against PptxGenJS 4.0.1';
 const PLACEHOLDER_DEFINITION_CONTROL_TITLE =
@@ -4403,6 +4551,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...MASTER_BACKGROUND_SLIDE_NUMBER_FAMILY_ENTRIES,
     ...SHAPE_TEXT_SHADOW_FAMILY_ENTRIES,
     ...IMAGE_SOURCE_SIZING_TRANSFORM_FAMILY_ENTRIES,
+    ...MEDIA_CORE_FAMILY_ENTRIES,
     ...PLACEHOLDER_CORE_FAMILY_ENTRIES,
     ...CHART_AREA_FILL_LINE_ENTRIES,
     ...DEPRECATED_CHART_AREA_ALIAS_ENTRIES,

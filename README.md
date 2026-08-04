@@ -194,7 +194,7 @@ PptxGenJS 4.0.1 的 4/4 个公开有效 data/path、audio/video、cover、`extn`
 
 LibreOffice 26.8 当前会在 save/reopen 时保留 9 页顺序与文案，但删除全部媒体、poster、media relationships 和 timing；回存件仍可 strict reopen 且为 0 errors / 0 warnings。这是已记录的客户端降级，不是 native 写出或 round-trip 保留承诺。本机 PowerPoint 16.112 自动打开对 gallery、LibreOffice 回存件与最小控制文件都返回同一 `-9074`，因此没有把该环境的 PowerPoint 往返误记为通过。
 
-媒体 timing 的下一层仍未支持 trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、online video、remote-fetch embedding、crop/rounding/shadow/hyperlink 与高级 placeholder 样式、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 认证。
+PptxGenJS 风格的 external online link 已由 `addVideo(HTTP(S) URL)` 覆盖：它保留 external video relationship、内嵌 poster 与 reopen 语义，并额外写入 native playback/timing。仍待 provider-specific online metadata、remote-fetch embedding、trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、crop/rounding/shadow/hyperlink 与高级 placeholder 样式、内建转码引擎及更广泛 PowerPoint/Keynote/Google Slides 认证。
 
 ## 创建和语义编辑原生图表
 

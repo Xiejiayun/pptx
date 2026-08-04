@@ -356,7 +356,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余媒体与全功能路线
 
-- 媒体后续：online video、remote-fetch embedding、trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、crop/rounding/shadow/hyperlink/advanced placeholder styles、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 客户端认证；media placeholder population 已完成。
+- PptxGenJS 风格 external online link 已由 `addVideo(HTTP(S) URL)` 覆盖，保留 external video relationship、内嵌 poster 与 reopen 语义，并额外生成 native playback/timing。媒体后续为 provider-specific online metadata、remote-fetch embedding、trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、crop/rounding/shadow/hyperlink/advanced placeholder styles、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 客户端认证；media placeholder population 已完成。
 - Native timing、标准 native chart、direct slide/layout/master background、slide number、default text color 与 named master/layout/placeholder 专项均已完成。PptxGenJS 全功能对等仍未完成，后续路线从 advanced text 开始。
 
 ## PptxGenJS 全功能对等：Native chart creation and semantic editing

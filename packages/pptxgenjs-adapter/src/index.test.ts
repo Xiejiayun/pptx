@@ -982,6 +982,80 @@ function comparableEmbeddedMediaState(state: EmbeddedMediaState) {
   };
 }
 
+function externalVideoState(document: PptxDocument, slideIndex: number) {
+  const slide = document.slides[slideIndex]!;
+  const model = slide.media.find(({ externalUrl }) => externalUrl !== undefined);
+  if (!model?.externalUrl || !model.posterPartUri) {
+    throw new Error('External video state was not found');
+  }
+  const xml = new TextDecoder().decode(
+    document.opcPackage.requirePart(slide.partUri).bytes,
+  );
+  const picture = [...xml.matchAll(/<p:pic(?:\s[^>]*)?>[\s\S]*?<\/p:pic>/g)]
+    .map((match) => match[0]!)
+    .find((candidate) => candidate.includes(`<p:cNvPr id="${model.shapeId}"`));
+  if (!picture) throw new Error(`External video picture ${model.shapeId} was not found`);
+  const videoRelationshipId = picture.match(
+    /<a:videoFile\b[^>]*\br:link="([^"]+)"/,
+  )?.[1];
+  const posterRelationshipId = picture.match(
+    /<a:blip\b[^>]*\br:embed="([^"]+)"/,
+  )?.[1];
+  const videoRelationship = slide.relationships.find(({ id }) => id === videoRelationshipId);
+  const posterRelationship = slide.relationships.find(({ id }) => id === posterRelationshipId);
+  const poster = document.opcPackage.requirePart(model.posterPartUri);
+  return {
+    name: model.name,
+    transform: model.transform,
+    settings: model.settings,
+    externalUrl: model.externalUrl,
+    mediaPartUri: model.mediaPartUri,
+    poster: {
+      contentType: poster.contentType,
+      extension: model.posterPartUri.slice(model.posterPartUri.lastIndexOf('.')),
+      bytes: [...poster.bytes],
+    },
+    relationships: {
+      video: {
+        type: videoRelationship?.type,
+        target: videoRelationship?.target,
+        targetMode: videoRelationship?.targetMode,
+      },
+      poster: {
+        type: posterRelationship?.type,
+        targetMode: posterRelationship?.targetMode,
+        resolvesToPoster: posterRelationship?.resolvedTarget === model.posterPartUri,
+      },
+    },
+    clickAction: picture.includes('action="ppaction://media"'),
+    aspectLocked: picture.includes('<a:picLocks noChangeAspect="1"/>'),
+    playbackExtension: picture.includes('urn:pptx-ooxml:media'),
+    timing: xml.includes('<p:timing>'),
+  };
+}
+
+function comparableExternalVideoState(state: ReturnType<typeof externalVideoState>) {
+  return {
+    name: state.name,
+    transform: state.transform,
+    externalUrl: state.externalUrl,
+    mediaPartUri: state.mediaPartUri,
+    poster: state.poster,
+    relationships: state.relationships,
+  };
+}
+
+function slideRelationshipsXml(document: PptxDocument, slideIndex: number): string {
+  const slidePartUri = document.slides[slideIndex]!.partUri;
+  const separator = slidePartUri.lastIndexOf('/');
+  const relationshipsPartUri = `${slidePartUri.slice(0, separator)}/_rels/${
+    slidePartUri.slice(separator + 1)
+  }.rels`;
+  return new TextDecoder().decode(
+    document.opcPackage.requirePart(relationshipsPartUri).bytes,
+  );
+}
+
 function directShapePaintState(xml: string): { fill: 'none'; line: 'empty' } {
   const properties = xml.match(/<p:spPr(?:\s[^>]*)?>([\s\S]*?)<\/p:spPr>/)?.[1];
   if (!properties) throw new Error('Shape properties were not found');
@@ -5493,6 +5567,103 @@ describe('importPptxGenJS', () => {
         .toEqual(nativeStates.map(comparableEmbeddedMediaState));
     } finally {
       await rm(directory, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it('locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1', async () => {
+    const link = 'https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&controls=0';
+    const generated = new PptxGenJS();
+    generated.addSlide().addMedia({
+      type: 'online',
+      link,
+      data: 'data:video/mp4;base64,AQID',
+      path: 'ignored-online-source.mp4',
+      extn: 'mp4',
+      cover: PNG_DATA_URI,
+      objectName: 'Online & overview',
+      x: 1,
+      y: 1.5,
+      w: 4,
+      h: 2.25,
+    });
+    const imported = await openPptxGenJSPublicOutput(generated);
+
+    const native = PptxDocument.create();
+    native.addSlide();
+    await native.addVideo(0, link, {
+      poster: PNG_DATA_URI,
+      name: 'Online & overview',
+      x: inches(1),
+      y: inches(1.5),
+      width: inches(4),
+      height: inches(2.25),
+    });
+
+    const importedState = externalVideoState(imported, 0);
+    const nativeState = externalVideoState(native, 0);
+    const importedRelationshipsXml = slideRelationshipsXml(imported, 0);
+    const nativeRelationshipsXml = slideRelationshipsXml(native, 0);
+    expect(importedRelationshipsXml).toContain(
+      `Target="${link}" TargetMode="External"`,
+    );
+    expect(importedRelationshipsXml).not.toContain('rel=0&amp;controls=0');
+    expect(nativeRelationshipsXml.match(/rel=0&amp;controls=0/g)).toHaveLength(1);
+    expect(nativeRelationshipsXml).not.toContain(`Target="${link}"`);
+    expect(nativeRelationshipsXml).not.toContain('&amp;amp;');
+    expect(comparableExternalVideoState(importedState))
+      .toEqual(comparableExternalVideoState(nativeState));
+    expect(importedState).toMatchObject({
+      settings: {},
+      clickAction: false,
+      aspectLocked: false,
+      playbackExtension: false,
+      timing: false,
+    });
+    expect(nativeState).toMatchObject({
+      settings: {
+        play: 'click',
+        loop: false,
+        hideWhenStopped: false,
+        volume: 1,
+      },
+      clickAction: true,
+      aspectLocked: true,
+      playbackExtension: true,
+      timing: true,
+    });
+
+    const reopenedImported = await PptxDocument.open(await imported.write());
+    const reopenedNative = await PptxDocument.open(await native.write());
+    const reopenedImportedState = externalVideoState(reopenedImported, 0);
+    const reopenedNativeState = externalVideoState(reopenedNative, 0);
+    expect(reopenedImportedState).toMatchObject({
+      externalUrl: link,
+      relationships: { video: { target: link } },
+    });
+    expect(reopenedNativeState).toMatchObject({
+      externalUrl: link,
+      relationships: { video: { target: link } },
+    });
+    expect(comparableExternalVideoState(reopenedImportedState))
+      .toEqual(comparableExternalVideoState(importedState));
+    expect(comparableExternalVideoState(reopenedNativeState))
+      .toEqual(comparableExternalVideoState(nativeState));
+
+    const publicRejected = new PptxGenJS().addSlide();
+    expect(() => publicRejected.addMedia({
+      type: 'online',
+      cover: PNG_DATA_URI,
+    } as PptxGenJSMediaOptions)).toThrow(/online videos require.*link/i);
+    expect(() => publicRejected.addMedia({
+      type: 'online',
+      link: 'javascript:alert(1)',
+      cover: PNG_DATA_URI,
+    })).not.toThrow();
+
+    const before = packageState(native);
+    for (const source of ['javascript:alert(1)', 'ftp://example.com/video.mp4']) {
+      await expect(native.addVideo(0, source, { poster: PNG_DATA_URI })).rejects.toThrow();
+      expect(packageState(native)).toEqual(before);
     }
   }, 20_000);
 

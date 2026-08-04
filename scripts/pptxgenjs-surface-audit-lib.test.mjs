@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1395);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1409);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(359).fill('defect-excluded'),
       ...Array(620).fill('supported'),
-      ...Array(325).fill('deliberate-difference'),
+      ...Array(339).fill('deliberate-difference'),
       ...Array(91).fill('deprecated-alias'),
     ].sort(),
   );
@@ -1180,6 +1180,55 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
       addTablePropertyId('DataOrPathProps', 'path'),
     ].some((id) => imageSourceSizingTransformIds.has(id)),
     false,
+  );
+  const mediaCoreExpected = [
+    ...['cover', 'data', 'extn', 'h', 'link', 'objectName', 'path', 'type', 'w', 'x', 'y']
+      .map((property) => addTablePropertyId('MediaProps', property)),
+    ...['audio', 'online', 'video'].map((value) => `union:MediaType#${value}`),
+  ].sort();
+  const mediaCoreIds = new Set(mediaCoreExpected);
+  assert.equal(mediaCoreIds.size, 14);
+  const mediaCoreEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => mediaCoreIds.has(id))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  assert.deepEqual(
+    mediaCoreEntries.map(({ id, status }) => ({ id, status })),
+    mediaCoreExpected.map((id) => ({ id, status: 'deliberate-difference' })),
+  );
+  assert.equal(
+    mediaCoreEntries.every(({ native, evidence, control, serialization, client }) =>
+      native.length > 0 && evidence.code.length >= 3 && evidence.tests.length === 4 &&
+      evidence.package.some(({ pattern }) => pattern === 'const packedOnlineVideoState =') &&
+      evidence.ooxml.some(({ pattern }) =>
+        pattern === 'creates every public media source, MIME family, poster family, and external mode') &&
+      evidence.clients.some(({ pattern }) => pattern === 'const browserOnlineVideoState =') &&
+      control.pattern ===
+        'locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1' &&
+      serialization === true && client === true),
+    true,
+  );
+  const mediaCoreById = new Map(mediaCoreEntries.map((entry) => [entry.id, entry]));
+  for (const id of [addTablePropertyId('MediaProps', 'link'), 'union:MediaType#online']) {
+    assert.equal(mediaCoreById.get(id)?.native.includes('MediaModel.externalUrl'), true);
+    assert.equal(mediaCoreById.get(id)?.native.some((name) => name.includes('addOnlineVideo')), false);
+  }
+  assert.equal(
+    [
+      addTablePropertyId('DataOrPathProps', 'data'),
+      addTablePropertyId('DataOrPathProps', 'path'),
+      addTablePropertyId('ImageProps', 'objectName'),
+      addTablePropertyId('PlaceholderProps', 'type'),
+    ].some((id) => mediaCoreIds.has(id)),
+    false,
+  );
+  const addMediaEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
+    id === addTablePropertyId('PresSlide', 'addMedia') || id === 'method:Slide#addMedia');
+  assert.equal(addMediaEntries.length, 2);
+  assert.equal(
+    addMediaEntries.every(({ native, note }) =>
+      native.every((name) => !name.includes('addOnlineVideo')) &&
+      !note.includes('addOnlineVideo')),
+    true,
   );
   const placeholderCoreExpected = [
     ...['name', 'type', 'x', 'y', 'w', 'h']

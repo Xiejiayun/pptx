@@ -904,11 +904,23 @@ const bytesVideo = await mediaDeck.addVideo(0, Uint8Array.of(17, 18, 19), {
   width: inches(4),
   height: inches(2.25),
 });
+const packedOnlineVideoLink =
+  'https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&controls=0';
+const packedOnlineVideo = await mediaDeck.addVideo(0, packedOnlineVideoLink, {
+  name: 'Packed online video',
+  altText: 'External online video relationship',
+  poster: mediaPngPoster,
+  posterContentType: 'image/png',
+  x: inches(2),
+  y: inches(5.5),
+  width: inches(4),
+  height: inches(2.25),
+});
 const packedMediaDeduplicated = deletedSharedAudio.mediaPartUri === pathAudio.mediaPartUri &&
   deletedSharedAudio.posterPartUri === pathAudio.posterPartUri;
 new MediaCodec(mediaDeck.opcPackage).delete(mediaSlide.partUri, deletedSharedAudio.shapeId);
 const packedMediaSharedPreserved = mediaDeck.opcPackage.hasPart(pathAudio.mediaPartUri) &&
-  mediaDeck.opcPackage.hasPart(pathAudio.posterPartUri) && mediaDeck.media(0).length === 6;
+  mediaDeck.opcPackage.hasPart(pathAudio.posterPartUri) && mediaDeck.media(0).length === 7;
 const packedMediaExpected = [
   [pathAudio, 'audio', 'audio/mpeg', '.mp3', 'image/png', '.png'],
   [bytesAudio, 'audio', 'audio/wav', '.wav', 'image/jpeg', '.jpg'],
@@ -942,33 +954,70 @@ const packedMediaImmediate = packedMediaExpected.every(
     mediaDeck.opcPackage.requirePart(model.posterPartUri).contentType === posterType &&
     packedMediaRelationshipsValid(mediaDeck, mediaSlide, model),
 );
+const packedOnlineRelationshipsValid = (deck, slide, model) =>
+  model.kind === 'video' && model.externalUrl === packedOnlineVideoLink &&
+  model.mediaPartUri === undefined && slide.relationships.some(({ type, target, targetMode }) =>
+    type.endsWith('/video') && target === packedOnlineVideoLink && targetMode === 'External') &&
+  slide.relationships.some(({ type, resolvedTarget, targetMode }) =>
+    type.endsWith('/image') && resolvedTarget === model.posterPartUri &&
+    targetMode === 'Internal') && deck.opcPackage.hasPart(model.posterPartUri);
 const mediaXml = new TextDecoder().decode(mediaDeck.opcPackage.requirePart(mediaSlide.partUri).bytes);
 const packedMediaXmlValid = (mediaXml.match(/<a:audioFile\\b/g) ?? []).length === 4 &&
-  (mediaXml.match(/<a:videoFile\\b/g) ?? []).length === 2 &&
+  (mediaXml.match(/<a:videoFile\\b/g) ?? []).length === 3 &&
   mediaXml.includes('name="Packed path audio"') &&
   mediaXml.includes('descr="Shared path narration"') &&
   mediaXml.includes('x="914400" y="1371600"') &&
-  mediaXml.includes('cx="1828800" cy="914400"');
+  mediaXml.includes('cx="1828800" cy="914400"') &&
+  mediaXml.includes('name="Packed online video"');
 await mediaDeck.writeFile('media-smoke.pptx');
 const reopenedMediaDeck = await PptxDocument.open(await mediaDeck.write());
 const reopenedMedia = [...reopenedMediaDeck.media(0)].sort((left, right) => left.shapeId - right.shapeId);
 const reopenedMediaXml = new TextDecoder().decode(
   reopenedMediaDeck.opcPackage.requirePart(reopenedMediaDeck.slides[0].partUri).bytes,
 );
-const packedMediaReopened = reopenedMedia.length === 6 && reopenedMedia.every((model, index) => {
+const reopenedMediaRelationshipsPartUri = reopenedMediaDeck.slides[0].partUri.replace(
+  /\\/([^/]+)$/u,
+  '/_rels/$1.rels',
+);
+const reopenedMediaRelationshipsXml = new TextDecoder().decode(
+  reopenedMediaDeck.opcPackage.requirePart(reopenedMediaRelationshipsPartUri).bytes,
+);
+const packedMediaReopened = reopenedMedia.length === 7 && reopenedMedia.slice(0, 6)
+  .every((model, index) => {
   const expected = packedMediaExpected[index];
   return model.kind === expected[1] && model.mediaPartUri.endsWith(expected[3]) &&
     reopenedMediaDeck.opcPackage.requirePart(model.mediaPartUri).contentType === expected[2] &&
     model.posterPartUri.endsWith(expected[5]) &&
     reopenedMediaDeck.opcPackage.requirePart(model.posterPartUri).contentType === expected[4] &&
     packedMediaRelationshipsValid(reopenedMediaDeck, reopenedMediaDeck.slides[0], model);
-}) && reopenedMedia[0].settings.play === 'auto' && reopenedMedia[0].settings.loop === true &&
+  }) && reopenedMedia[0].settings.play === 'auto' && reopenedMedia[0].settings.loop === true &&
   reopenedMedia[0].settings.hideWhenStopped === true && reopenedMedia[0].settings.volume === 0.25 &&
   reopenedMedia[4].settings.play === 'click' && reopenedMedia[4].settings.volume === 0.75 &&
   (reopenedMediaXml.match(/<a:audioFile\\b/g) ?? []).length === 4 &&
-  (reopenedMediaXml.match(/<a:videoFile\\b/g) ?? []).length === 2;
+  (reopenedMediaXml.match(/<a:videoFile\\b/g) ?? []).length === 3;
+const reopenedPackedOnlineVideo = reopenedMedia[6];
+const packedOnlineVideoState = packedOnlineRelationshipsValid(
+  mediaDeck,
+  mediaSlide,
+  packedOnlineVideo,
+) && packedOnlineVideo.name === 'Packed online video' &&
+  packedOnlineVideo.transform.x === inches(2) &&
+  packedOnlineVideo.transform.y === inches(5.5) &&
+  packedOnlineVideo.transform.width === inches(4) &&
+  packedOnlineVideo.transform.height === inches(2.25) &&
+  packedOnlineRelationshipsValid(
+    reopenedMediaDeck,
+    reopenedMediaDeck.slides[0],
+    reopenedPackedOnlineVideo,
+  ) && reopenedPackedOnlineVideo.name === packedOnlineVideo.name &&
+  reopenedPackedOnlineVideo.transform.x === packedOnlineVideo.transform.x &&
+  reopenedPackedOnlineVideo.transform.y === packedOnlineVideo.transform.y &&
+  reopenedPackedOnlineVideo.transform.width === packedOnlineVideo.transform.width &&
+  reopenedPackedOnlineVideo.transform.height === packedOnlineVideo.transform.height &&
+  reopenedMediaRelationshipsXml.includes('rel=0&amp;controls=0');
 const embeddedMedia = packedMediaDeduplicated && packedMediaSharedPreserved &&
-  packedMediaImmediate && packedMediaXmlValid && packedMediaReopened;
+  packedMediaImmediate && packedMediaXmlValid && packedMediaReopened &&
+  packedOnlineVideoState;
 if (!embeddedMedia) {
   throw new Error(JSON.stringify({
     packedMediaDeduplicated,
@@ -976,9 +1025,20 @@ if (!embeddedMedia) {
     packedMediaImmediate,
     packedMediaXmlValid,
     packedMediaReopened,
+    packedOnlineVideoState,
     mediaXml,
     reopenedMediaXml,
-    reopenedMedia,
+    reopenedMediaRelationshipsXml,
+    reopenedMedia: reopenedMedia.map((model) => ({
+      shapeId: model.shapeId,
+      kind: model.kind,
+      name: model.name,
+      mediaPartUri: model.mediaPartUri,
+      externalUrl: model.externalUrl,
+      posterPartUri: model.posterPartUri,
+      transform: model.transform,
+      settings: model.settings,
+    })),
   }));
 }
 const stableMediaDeck = PptxDocument.create();
@@ -10727,6 +10787,7 @@ const checks = {
   embeddedRasterImages,
   svgImages,
   embeddedMedia,
+  onlineMedia: packedOnlineVideoState,
   stableMediaLifecycle,
   nativeMediaTiming,
   nativeCharts,
@@ -17762,8 +17823,16 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     directory,
   );
   const mediaValidated = JSON.parse(mediaValidateResult.stdout);
+  const mediaWarningCodes = new Set(
+    mediaValidated.data?.diagnostics
+      ?.filter(({ severity }) => severity === 'warning')
+      .map(({ code }) => code) ?? [],
+  );
   if (!mediaValidated.ok || !mediaValidated.data?.valid ||
-      mediaValidated.data.errorCount !== 0 || mediaValidated.data.warningCount !== 0) {
+      mediaValidated.data.errorCount !== 0 || mediaValidated.data.warningCount !== 2 ||
+      mediaWarningCodes.size !== 2 ||
+      !mediaWarningCodes.has('OPC_EXTERNAL_RELATIONSHIP') ||
+      !mediaWarningCodes.has('MEDIA_EXTERNAL_NOT_PORTABLE')) {
     throw new Error(`CLI media validation failed: ${mediaValidateResult.stdout}`);
   }
   const stableMediaDeckPath = join(directory, 'stable-media-smoke.pptx');
@@ -19025,7 +19094,7 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
     process.stdout.write(`${JSON.stringify(summary)}\n`);
   };
   writeSummary(
-    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, verticalAlignments: apiChecks.verticalAlignments, verticalAlignmentState: apiChecks.verticalAlignmentState, tableVerticalAlignment: apiChecks.tableVerticalAlignment, tableVerticalAlignmentState: apiChecks.tableVerticalAlignmentState, tableTextDirection: apiChecks.tableTextDirection, tableTextDirectionState: apiChecks.tableTextDirectionState, tableHorizontalAlignment: apiChecks.tableHorizontalAlignment, tableHorizontalAlignmentState: apiChecks.tableHorizontalAlignmentState, schemeColors: apiChecks.schemeColors, schemeColorState: apiChecks.schemeColorState, outputTypes: apiChecks.outputTypes, outputTypeState: apiChecks.outputTypeState, writeOutputTypes: apiChecks.writeOutputTypes, writeOutputTypeState: apiChecks.writeOutputTypeState, nodeReadableStream: apiChecks.nodeReadableStream, nodeReadableStreamState: apiChecks.nodeReadableStreamState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, shapeTextPercentageCoordinates: apiChecks.shapeTextPercentageCoordinates, imagePercentageCoordinates: apiChecks.imagePercentageCoordinates, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, verticalAlignmentInspect: true, tableVerticalAlignmentInspect: true, tableTextDirectionInspect: true, tableHorizontalAlignmentInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, shapeFillInspect: true, shapeFillValidate: true, shapeFillSlides: true, shapeFillPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
+    `${JSON.stringify({ ok: true, tarball: basename(tarball), api: apiChecks, presentationVersion: apiChecks.presentationVersion, presentationVersionState, presentationLayouts: apiChecks.presentationLayouts, presentationLayoutState: apiChecks.presentationLayoutState, horizontalAlignments: apiChecks.horizontalAlignments, horizontalAlignmentState: apiChecks.horizontalAlignmentState, verticalAlignments: apiChecks.verticalAlignments, verticalAlignmentState: apiChecks.verticalAlignmentState, tableVerticalAlignment: apiChecks.tableVerticalAlignment, tableVerticalAlignmentState: apiChecks.tableVerticalAlignmentState, tableTextDirection: apiChecks.tableTextDirection, tableTextDirectionState: apiChecks.tableTextDirectionState, tableHorizontalAlignment: apiChecks.tableHorizontalAlignment, tableHorizontalAlignmentState: apiChecks.tableHorizontalAlignmentState, schemeColors: apiChecks.schemeColors, schemeColorState: apiChecks.schemeColorState, outputTypes: apiChecks.outputTypes, outputTypeState: apiChecks.outputTypeState, writeOutputTypes: apiChecks.writeOutputTypes, writeOutputTypeState: apiChecks.writeOutputTypeState, nodeReadableStream: apiChecks.nodeReadableStream, nodeReadableStreamState: apiChecks.nodeReadableStreamState, masterLayouts: apiChecks.masterLayouts, slideNumbers: apiChecks.slideNumbers, slideDefaultColor: apiChecks.slideDefaultColor, presetShapes: apiChecks.presetShapes, shapeTextPercentageCoordinates: apiChecks.shapeTextPercentageCoordinates, imagePercentageCoordinates: apiChecks.imagePercentageCoordinates, customGeometryPaths: apiChecks.customGeometryPaths, customGeometryGuideFormulas: apiChecks.customGeometryGuideFormulas, customGeometryAdjustmentHandles: apiChecks.customGeometryAdjustmentHandles, customGeometryConnectionSites: apiChecks.customGeometryConnectionSites, customGeometryTextRectangles: apiChecks.customGeometryTextRectangles, customGeometryEvaluator: apiChecks.customGeometryEvaluator, shapeAdjustments: apiChecks.shapeAdjustments, shapeShadows: apiChecks.shapeShadows, shapeFills: apiChecks.shapeFills, textShapeFills: apiChecks.textShapeFills, textShapeLines: apiChecks.textShapeLines, textShapeArrows: apiChecks.textShapeArrows, textShapeShadows: apiChecks.textShapeShadows, textShapeHyperlinks: apiChecks.textShapeHyperlinks, textShapePresetGeometry: apiChecks.textShapePresetGeometry, textShapeRectRadius: apiChecks.textShapeRectRadius, textShapeIsTextBox: apiChecks.textShapeIsTextBox, richTextBreakLine: apiChecks.richTextBreakLine, richTextRunHyperlinks: apiChecks.richTextRunHyperlinks, shapeLines: apiChecks.shapeLines, shapeArrows: apiChecks.shapeArrows, shapeHyperlinks: apiChecks.shapeHyperlinks, embeddedRasterImages: apiChecks.embeddedRasterImages, svgImages: apiChecks.svgImages, embeddedMedia: apiChecks.embeddedMedia, onlineMedia: apiChecks.onlineMedia, stableMediaLifecycle: apiChecks.stableMediaLifecycle, nativeMediaTiming: apiChecks.nativeMediaTiming, nativeCharts: apiChecks.nativeCharts, slideBackgrounds: apiChecks.slideBackgrounds, types: true, cli: doctor.data.version, presentationLayoutInspect: true, horizontalAlignmentInspect: true, verticalAlignmentInspect: true, tableVerticalAlignmentInspect: true, tableTextDirectionInspect: true, tableHorizontalAlignmentInspect: true, masterLayoutInspect: true, masterLayoutValidate: true, masterLayoutSlides: true, masterLayoutPartRead: true, masterLayoutDiff: true, svgInspect: true, svgValidate: true, mediaInspect: true, mediaValidate: true, stableMediaInspect: true, stableMediaValidate: true, nativeChartInspect: true, nativeChartValidate: true, nativeChartSlides: true, nativeChartPartRead: true, slideBackgroundInspect: true, slideBackgroundValidate: true, slideNumberInspect: true, slideNumberValidate: true, slideNumberSlides: true, slideNumberPartRead: true, slideDefaultColorInspect: true, slideDefaultColorValidate: true, slideDefaultColorSlides: true, slideDefaultColorPartRead: true, shapeFillInspect: true, shapeFillValidate: true, shapeFillSlides: true, shapeFillPartRead: true, textShapeFillInspect: true, textShapeFillValidate: true, textShapeFillSlides: true, textShapeFillPartRead: true, textShapeLineInspect: true, textShapeLineValidate: true, textShapeLineSlides: true, textShapeLinePartRead: true, textShapeArrowInspect: true, textShapeArrowValidate: true, textShapeArrowSlides: true, textShapeArrowPartRead: true, textShapeShadowInspect: true, textShapeShadowValidate: true, textShapeShadowSlides: true, textShapeShadowPartRead: true, textShapeHyperlinkInspect: true, textShapeHyperlinkValidate: true, textShapeHyperlinkSlides: true, textShapeHyperlinkPartRead: true, textShapeHyperlinkInternalValidate: true, textShapePresetGeometryValidate: true, textShapePresetGeometrySlides: true, textShapePresetGeometryPartRead: true, textShapeRectRadiusValidate: true, textShapeRectRadiusSlides: true, textShapeRectRadiusPartRead: true, textShapeIsTextBoxValidate: true, textShapeIsTextBoxSlides: true, textShapeIsTextBoxPartRead: true, textShapeIsTextBoxLayoutPartRead: true, textShapeIsTextBoxMasterPartRead: true, richTextRunHyperlinkInspect: true, richTextRunHyperlinkValidate: true, richTextRunHyperlinkSlides: true, richTextRunHyperlinkPartRead: true, richTextRunHyperlinkInternalValidate: true, richTextBreakLineValidate: true, richTextBreakLineSlides: true, richTextBreakLinePartRead: true })}\n`,
   );
 } finally {
   await rm(directory, { recursive: true, force: true });

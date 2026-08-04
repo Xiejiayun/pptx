@@ -6357,6 +6357,18 @@ async (page) => {
       const browserMediaMoveIdentity = mediaDocument.slides[0] === browserDuplicate
         && browserDuplicate.media[0] === browserDuplicateAudio;
       mediaDocument.moveSlide(0, 1);
+      const browserOnlineVideoLink =
+        'https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&controls=0';
+      await mediaDocument.addVideo(0, browserOnlineVideoLink, {
+        name: 'Browser online video',
+        altText: 'External online video relationship',
+        poster: mediaPngPoster,
+        posterContentType: 'image/png',
+        x: api.inches(6),
+        y: api.inches(4),
+        width: api.inches(4),
+        height: api.inches(2.25),
+      });
       const output = await document.writeBlob();
       const reopened = await api.PptxDocument.open(output);
       const reopenedSvgDocument = await api.PptxDocument.open(await svgDocument.writeBlob());
@@ -6409,14 +6421,41 @@ async (page) => {
       const mediaXml = new TextDecoder().decode(
         reopenedMediaDocument.opcPackage.requirePart(reopenedMediaSlide.partUri).bytes,
       );
+      const mediaRelationshipsPartUri = reopenedMediaSlide.partUri.replace(
+        /\/([^/]+)$/u,
+        '/_rels/$1.rels',
+      );
+      const mediaRelationshipsXml = new TextDecoder().decode(
+        reopenedMediaDocument.opcPackage.requirePart(mediaRelationshipsPartUri).bytes,
+      );
       const mediaState = reopenedMedia.map((model) => {
-        const mediaPart = reopenedMediaDocument.opcPackage.requirePart(model.mediaPartUri);
         const posterPart = reopenedMediaDocument.opcPackage.requirePart(model.posterPartUri);
-        const mediaRelationships = reopenedMediaSlide.relationships.filter(
-          ({ resolvedTarget }) => resolvedTarget === model.mediaPartUri,
-        );
         const posterRelationships = reopenedMediaSlide.relationships.filter(
           ({ resolvedTarget }) => resolvedTarget === model.posterPartUri,
+        );
+        if (model.externalUrl) {
+          const externalRelationships = reopenedMediaSlide.relationships.filter(
+            ({ target }) => target === model.externalUrl,
+          );
+          return {
+            kind: model.kind,
+            externalUrl: model.externalUrl,
+            mediaPartUri: model.mediaPartUri ?? null,
+            posterType: posterPart.contentType,
+            posterExtension: model.posterPartUri.slice(model.posterPartUri.lastIndexOf('.')),
+            transform: model.transform,
+            roles: [
+              externalRelationships.some(({ type, targetMode }) =>
+                type.endsWith('/video') && targetMode === 'External'),
+              posterRelationships.some(({ type, targetMode }) =>
+                type.endsWith('/image') && targetMode === 'Internal'),
+            ],
+            posterSignature: Array.from(posterPart.bytes.slice(0, 4)),
+          };
+        }
+        const mediaPart = reopenedMediaDocument.opcPackage.requirePart(model.mediaPartUri);
+        const mediaRelationships = reopenedMediaSlide.relationships.filter(
+          ({ resolvedTarget }) => resolvedTarget === model.mediaPartUri,
         );
         return {
           kind: model.kind,
@@ -6439,6 +6478,30 @@ async (page) => {
         ));
         return match?.[1];
       });
+      const reopenedBrowserOnlineVideo = reopenedMedia.find(
+        ({ externalUrl }) => externalUrl === browserOnlineVideoLink,
+      );
+      const browserOnlineVideoState = {
+        externalUrl: reopenedBrowserOnlineVideo?.externalUrl,
+        mediaPartUri: reopenedBrowserOnlineVideo?.mediaPartUri ?? null,
+        name: reopenedBrowserOnlineVideo?.name,
+        transform: reopenedBrowserOnlineVideo?.transform,
+        posterType: reopenedBrowserOnlineVideo === undefined
+          ? undefined
+          : reopenedMediaDocument.opcPackage
+              .requirePart(reopenedBrowserOnlineVideo.posterPartUri).contentType,
+        externalRelationship: reopenedMediaSlide.relationships.some(
+          ({ type, target, targetMode }) => type.endsWith('/video')
+            && target === browserOnlineVideoLink && targetMode === 'External',
+        ),
+        posterRelationship: reopenedBrowserOnlineVideo !== undefined &&
+          reopenedMediaSlide.relationships.some(
+            ({ type, resolvedTarget, targetMode }) => type.endsWith('/image')
+              && resolvedTarget === reopenedBrowserOnlineVideo.posterPartUri
+              && targetMode === 'Internal',
+          ),
+        escapedQuery: mediaRelationshipsXml.includes('rel=0&amp;controls=0'),
+      };
       const mediaOrphanCount = reopenedMediaDocument.opcPackage.parts
         .filter(({ uri }) => uri.startsWith('/ppt/media/'))
         .filter(({ uri }) =>
@@ -6452,14 +6515,19 @@ async (page) => {
           .map((match) => Number(match[1]));
         const targets = [...source.matchAll(/<p:spTgt\b[^>]*\bspid="([0-9]+)"/g)]
           .map((match) => Number(match[1]));
-        const configured = reopenedMediaDocument.media(slideIndex)
-          .filter((model) => Object.keys(model.settings).length > 0)
-          .map(({ shapeId }) => shapeId);
+        const configuredModels = reopenedMediaDocument.media(slideIndex)
+          .filter((model) => Object.keys(model.settings).length > 0);
+        const configured = configuredModels.map(({ shapeId }) => shapeId);
         return {
           timing: (source.match(/<p:timing>/g) ?? []).length,
           media: (source.match(/<p:cMediaNode\b/g) ?? []).length,
           commands: (source.match(/<p:cmd\b/g) ?? []).length,
           playback: (source.match(/<px:playback\b/g) ?? []).length,
+          configured: configured.length,
+          expectedCommands: configuredModels.reduce(
+            (count, { kind }) => count + (kind === 'video' ? 2 : 1),
+            0,
+          ),
           ids: ids.length,
           uniqueIds: new Set(ids).size,
           isolatedTargets: targets.length > 0 && targets.every((target) => configured.includes(target))
@@ -6472,12 +6540,16 @@ async (page) => {
         .filter(({ code }) => code.startsWith('MEDIA_TIMING_'))
         .map(({ code }) => code);
       const nativeMediaTiming = browserVideoSettingsCleared
-        && timingSummaries.every((summary) => summary.timing === 1
-          && summary.media === 1 && summary.commands === 1 && summary.playback === 1
+        && timingSummaries.every((summary) => summary.timing === (summary.configured > 0 ? 1 : 0)
+          && summary.media === summary.configured
+          && summary.commands === summary.expectedCommands
+          && summary.playback === summary.configured
           && summary.ids === summary.uniqueIds && summary.isolatedTargets)
         && timingDiagnostics.length === 0
         && settingsAfterReopen[0][0].play === 'click'
         && Object.keys(settingsAfterReopen[0][1]).length === 0
+        && settingsAfterReopen[0][2].play === 'click'
+        && settingsAfterReopen[0][2].volume === 1
         && settingsAfterReopen[1][0].play === 'auto'
         && settingsAfterReopen[1][0].loop === true
         && settingsAfterReopen[1][0].hideWhenStopped === true
@@ -6955,6 +7027,7 @@ async (page) => {
           video: (mediaXml.match(/<a:videoFile\b/g) ?? []).length,
         },
         mediaState,
+        browserOnlineVideoState,
         mediaValidationErrors: mediaDocument.diagnostics.filter(
           ({ severity }) => severity === 'error',
         ).length,
@@ -8506,8 +8579,8 @@ async (page) => {
     backgroundRelationshipCounts: [1, 1, 0, 0],
     backgroundValidationErrors: 0,
     mediaMime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    mediaNames: ['Browser MP3 narration edited', 'Browser Blob video'],
-    mediaElementCounts: { audio: 1, video: 1 },
+    mediaNames: ['Browser MP3 narration edited', 'Browser Blob video', 'Browser online video'],
+    mediaElementCounts: { audio: 1, video: 2 },
     mediaState: [
       {
         kind: 'audio',
@@ -8527,17 +8600,54 @@ async (page) => {
         roles: [true, true, true],
         posterSignature: [255, 216, 255, 224],
       },
+      {
+        kind: 'video',
+        externalUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&controls=0',
+        mediaPartUri: null,
+        posterType: 'image/png',
+        posterExtension: '.png',
+        transform: {
+          x: 5486400,
+          y: 3657600,
+          width: 3657600,
+          height: 2057400,
+          rotation: 0,
+          flipHorizontal: false,
+          flipVertical: false,
+        },
+        roles: [true, true],
+        posterSignature: [137, 80, 78, 71],
+      },
     ],
+    browserOnlineVideoState: {
+      externalUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&controls=0',
+      mediaPartUri: null,
+      name: 'Browser online video',
+      transform: {
+        x: 5486400,
+        y: 3657600,
+        width: 3657600,
+        height: 2057400,
+        rotation: 0,
+        flipHorizontal: false,
+        flipVertical: false,
+      },
+      posterType: 'image/png',
+      externalRelationship: true,
+      posterRelationship: true,
+      escapedQuery: true,
+    },
     mediaValidationErrors: 0,
     mediaTimingElementCounts: [
-      { timing: 1, media: 1, commands: 1, playback: 1 },
+      { timing: 1, media: 2, commands: 3, playback: 2 },
       { timing: 1, media: 1, commands: 1, playback: 1 },
     ],
-    mediaTimingUniqueIdCount: [7, 7],
+    mediaTimingUniqueIdCount: [17, 7],
     settingsAfterReopen: [
       [
         { play: 'click', loop: false, hideWhenStopped: false, volume: 1 },
         {},
+        { play: 'click', loop: false, hideWhenStopped: false, volume: 1 },
       ],
       [
         { play: 'auto', loop: true, hideWhenStopped: true, volume: 0.25 },

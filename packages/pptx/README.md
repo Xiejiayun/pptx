@@ -335,7 +335,7 @@ The actual 45-file npm tarball passes Node, real-Chrome browser, declaration, an
 
 LibreOffice 26.8 preserves the nine-slide order and text but removes every media object, poster, media relationship, and timing branch when it saves the gallery; the package still strictly reopens and validates with 0 errors and 0 warnings. This is a documented client degradation, not a native round-trip guarantee. Local PowerPoint 16.112 automation returned the same `-9074` for the gallery, the LibreOffice output, and a minimal control file, so no PowerPoint round-trip pass is claimed from this environment.
 
-Trim/bookmarks, finite repeats, narration/cross-slide audio, captions/subtitles, online video, remote-fetch embedding, crop/rounding/shadow/hyperlink and advanced placeholder styles, a built-in transcoding engine, and broad PowerPoint/Keynote/Google Slides certification remain pending.
+PptxGenJS-style external online links are covered by `addVideo(HTTP(S) URL)`: they preserve the external video relationship, embedded poster, and reopen semantics while adding native playback/timing. Provider-specific online metadata, remote-fetch embedding, trim/bookmarks, finite repeats, narration/cross-slide audio, captions/subtitles, crop/rounding/shadow/hyperlink and advanced placeholder styles, a built-in transcoding engine, and broad PowerPoint/Keynote/Google Slides certification remain pending.
 
 ## Create and semantically edit native charts
 
