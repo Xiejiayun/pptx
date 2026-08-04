@@ -120,6 +120,327 @@ async (page) => {
       })
         && reopenedVerticalAlignmentDocument.diagnostics
           .filter(({ severity }) => severity === 'error').length === 0;
+      const bulletNumberingStyles = [
+        'alphaLcParenBoth',
+        'alphaLcParenR',
+        'alphaLcPeriod',
+        'alphaUcParenBoth',
+        'alphaUcParenR',
+        'alphaUcPeriod',
+        'arabicParenBoth',
+        'arabicParenR',
+        'arabicPeriod',
+        'arabicPlain',
+        'romanLcParenBoth',
+        'romanLcParenR',
+        'romanLcPeriod',
+        'romanUcParenBoth',
+        'romanUcParenR',
+        'romanUcPeriod',
+      ];
+      const bulletSnapshot = (bullet) => {
+        if (bullet === undefined) return null;
+        return bullet.kind === 'bullet'
+          ? { kind: bullet.kind, character: bullet.character, indent: bullet.indent }
+          : {
+              kind: bullet.kind,
+              style: bullet.style,
+              startAt: bullet.startAt,
+              indent: bullet.indent,
+            };
+      };
+      const namedOwnerXml = (xml, name, closingTag) => {
+        const start = xml.indexOf(`name="${name}"`);
+        const end = xml.indexOf(closingTag, start);
+        return start >= 0 && end >= 0 ? xml.slice(start, end + closingTag.length) : '';
+      };
+      const bulletNumberingDocument = api.PptxDocument.create();
+      const bulletNumberingLayout = bulletNumberingDocument.layouts[0];
+      const bulletNumberingPlaceholder = bulletNumberingLayout.addPlaceholder(
+        'Chrome bullet placeholder',
+        {
+          name: 'chrome_bullet_placeholder',
+          type: 'body',
+          index: 220,
+          bullet: { kind: 'bullet', character: '→', indent: 19 },
+        },
+      );
+      const bulletNumberingSlide = bulletNumberingDocument.addSlide({
+        masterName: bulletNumberingLayout.name,
+      });
+      const bulletNumberingCatalogShape = bulletNumberingSlide.addRichText(
+        bulletNumberingStyles.map((style, index) => ({
+          runs: [{ text: style }],
+          bullet: { kind: 'number', style, startAt: index + 1, indent: 20 },
+        })),
+        { name: 'Chrome bullet numbering catalog' },
+      );
+      const bulletNumberingTextShape = bulletNumberingSlide.addRichText([
+        {
+          runs: [{ text: 'Chrome custom bullet' }],
+          bullet: { kind: 'bullet', character: '◆', indent: 18 },
+        },
+        {
+          runs: [{ text: 'Chrome numbered paragraph' }],
+          bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 7, indent: 22 },
+        },
+        { runs: [{ text: 'Chrome default bullet' }], bullet: true },
+      ], { name: 'Chrome bullet text lifecycle' });
+      const bulletNumberingTable = bulletNumberingSlide.addTable([[
+        {
+          text: [
+            {
+              runs: [{ text: 'Chrome table bullet' }],
+              bullet: { kind: 'bullet', character: '→', indent: 17 },
+            },
+            {
+              runs: [{ text: 'Chrome table number' }],
+              bullet: { kind: 'number', style: 'arabicPlain', startAt: 6, indent: 19 },
+            },
+          ],
+        },
+      ]], { name: 'Chrome bullet table cell' });
+      const initialBulletNumberingState = {
+        text: bulletNumberingTextShape.richText.map(({ bullet }) =>
+          bulletSnapshot(bullet)),
+        placeholder: bulletSnapshot(bulletNumberingPlaceholder.richText[0]?.bullet),
+        table: bulletNumberingTable.rows[0].cells[0].richText.map(({ bullet }) =>
+          bulletSnapshot(bullet)),
+      };
+      const initialBulletNumberingSlideXml = new TextDecoder().decode(
+        bulletNumberingDocument.opcPackage.requirePart(bulletNumberingSlide.partUri).bytes,
+      );
+      const initialBulletNumberingLayoutXml = new TextDecoder().decode(
+        bulletNumberingDocument.opcPackage.requirePart(bulletNumberingLayout.partUri).bytes,
+      );
+      const initialCatalogXml = namedOwnerXml(
+        initialBulletNumberingSlideXml,
+        'Chrome bullet numbering catalog',
+        '</p:sp>',
+      );
+      const initialTextLifecycleXml = namedOwnerXml(
+        initialBulletNumberingSlideXml,
+        'Chrome bullet text lifecycle',
+        '</p:sp>',
+      );
+      const initialTableCellXml = namedOwnerXml(
+        initialBulletNumberingSlideXml,
+        'Chrome bullet table cell',
+        '</p:graphicFrame>',
+      );
+      const initialPlaceholderXml = namedOwnerXml(
+        initialBulletNumberingLayoutXml,
+        'chrome_bullet_placeholder',
+        '</p:sp>',
+      );
+      const initialCatalogTypes = [...initialCatalogXml.matchAll(
+        /<a:buAutoNum type="([^"]+)" startAt="(\d+)"\/>/g,
+      )].map((match) => ({ type: match[1], startAt: Number(match[2]) }));
+      bulletNumberingTextShape.richText = [
+        {
+          runs: [{ text: 'Chrome edited number' }],
+          bullet: { kind: 'number', style: 'romanLcParenR', startAt: 4, indent: 24 },
+        },
+        { runs: [{ text: 'Chrome cleared number' }], bullet: false },
+        { runs: [{ text: 'Chrome retained default' }], bullet: true },
+      ];
+      bulletNumberingPlaceholder.richText = [{
+        runs: [{ text: 'Chrome edited placeholder' }],
+        bullet: { kind: 'number', style: 'alphaLcParenR', startAt: 5, indent: 20 },
+      }];
+      bulletNumberingTable.setCellRichText(0, 0, [
+        {
+          runs: [{ text: 'Chrome edited table bullet' }],
+          bullet: { kind: 'bullet', character: '★', indent: 21 },
+        },
+        { runs: [{ text: 'Chrome cleared table number' }], bullet: false },
+      ]);
+      const editedBulletNumberingState = {
+        text: bulletNumberingTextShape.richText.map(({ bullet }) =>
+          bulletSnapshot(bullet)),
+        placeholder: bulletSnapshot(bulletNumberingPlaceholder.richText[0]?.bullet),
+        table: bulletNumberingTable.rows[0].cells[0].richText.map(({ bullet }) =>
+          bulletSnapshot(bullet)),
+      };
+      const editedBulletNumberingSlideXml = new TextDecoder().decode(
+        bulletNumberingDocument.opcPackage.requirePart(bulletNumberingSlide.partUri).bytes,
+      );
+      const editedBulletNumberingLayoutXml = new TextDecoder().decode(
+        bulletNumberingDocument.opcPackage.requirePart(bulletNumberingLayout.partUri).bytes,
+      );
+      const editedTextLifecycleXml = namedOwnerXml(
+        editedBulletNumberingSlideXml,
+        'Chrome bullet text lifecycle',
+        '</p:sp>',
+      );
+      const editedTableCellXml = namedOwnerXml(
+        editedBulletNumberingSlideXml,
+        'Chrome bullet table cell',
+        '</p:graphicFrame>',
+      );
+      const editedPlaceholderXml = namedOwnerXml(
+        editedBulletNumberingLayoutXml,
+        'chrome_bullet_placeholder',
+        '</p:sp>',
+      );
+      const bulletNumberingOutput = await bulletNumberingDocument.writeBlob();
+      const reopenedBulletNumberingDocument = await api.PptxDocument.open(
+        bulletNumberingOutput,
+      );
+      const reopenedBulletNumberingLayout = reopenedBulletNumberingDocument.layouts.find(
+        ({ partUri }) => partUri === bulletNumberingLayout.partUri,
+      );
+      const reopenedBulletNumberingSlide = reopenedBulletNumberingDocument.slides.find(
+        ({ partUri }) => partUri === bulletNumberingSlide.partUri,
+      );
+      const reopenedBulletNumberingCatalogShape = reopenedBulletNumberingSlide?.shapes.find(
+        ({ name }) => name === 'Chrome bullet numbering catalog',
+      );
+      const reopenedBulletNumberingTextShape = reopenedBulletNumberingSlide?.shapes.find(
+        ({ name }) => name === 'Chrome bullet text lifecycle',
+      );
+      const reopenedBulletNumberingTable = reopenedBulletNumberingSlide?.shapes.find(
+        ({ name }) => name === 'Chrome bullet table cell',
+      );
+      const reopenedBulletNumberingPlaceholder = reopenedBulletNumberingLayout?.shapes.find(
+        ({ name }) => name === 'chrome_bullet_placeholder',
+      );
+      const reopenedBulletNumberingSlideXml = reopenedBulletNumberingSlide === undefined
+        ? ''
+        : new TextDecoder().decode(
+            reopenedBulletNumberingDocument.opcPackage
+              .requirePart(reopenedBulletNumberingSlide.partUri).bytes,
+          );
+      const reopenedBulletNumberingLayoutXml = reopenedBulletNumberingLayout === undefined
+        ? ''
+        : new TextDecoder().decode(
+            reopenedBulletNumberingDocument.opcPackage
+              .requirePart(reopenedBulletNumberingLayout.partUri).bytes,
+          );
+      const reopenedCatalogXml = namedOwnerXml(
+        reopenedBulletNumberingSlideXml,
+        'Chrome bullet numbering catalog',
+        '</p:sp>',
+      );
+      const reopenedTextLifecycleXml = namedOwnerXml(
+        reopenedBulletNumberingSlideXml,
+        'Chrome bullet text lifecycle',
+        '</p:sp>',
+      );
+      const reopenedTableCellXml = namedOwnerXml(
+        reopenedBulletNumberingSlideXml,
+        'Chrome bullet table cell',
+        '</p:graphicFrame>',
+      );
+      const reopenedPlaceholderXml = namedOwnerXml(
+        reopenedBulletNumberingLayoutXml,
+        'chrome_bullet_placeholder',
+        '</p:sp>',
+      );
+      const reopenedCatalogTypes = [...reopenedCatalogXml.matchAll(
+        /<a:buAutoNum type="([^"]+)" startAt="(\d+)"\/>/g,
+      )].map((match) => ({ type: match[1], startAt: Number(match[2]) }));
+      const reopenedBulletNumberingState = {
+        text: reopenedBulletNumberingTextShape instanceof api.ShapeModel
+          ? reopenedBulletNumberingTextShape.richText.map(({ bullet }) =>
+              bulletSnapshot(bullet))
+          : undefined,
+        placeholder: reopenedBulletNumberingPlaceholder instanceof api.ShapeModel
+          ? bulletSnapshot(reopenedBulletNumberingPlaceholder.richText[0]?.bullet)
+          : undefined,
+        table: reopenedBulletNumberingTable instanceof api.TableModel
+          ? reopenedBulletNumberingTable.rows[0].cells[0].richText.map(({ bullet }) =>
+              bulletSnapshot(bullet))
+          : undefined,
+      };
+      const expectedCatalogTypes = bulletNumberingStyles.map((type, index) => ({
+        type,
+        startAt: index + 1,
+      }));
+      const bulletNumberingState = {
+        mime: bulletNumberingOutput.type,
+        catalog: bulletNumberingStyles,
+        immediateCatalog: bulletNumberingCatalogShape.richText.map(
+          ({ bullet }) => bullet?.kind === 'number' ? bullet.style : undefined,
+        ),
+        reopenedCatalog: reopenedBulletNumberingCatalogShape instanceof api.ShapeModel
+          ? reopenedBulletNumberingCatalogShape.richText.map(
+              ({ bullet }) => bullet?.kind === 'number' ? bullet.style : undefined,
+            )
+          : undefined,
+        initial: initialBulletNumberingState,
+        edited: editedBulletNumberingState,
+        reopened: reopenedBulletNumberingState,
+        exactOoxml: {
+          catalog: JSON.stringify(initialCatalogTypes) === JSON.stringify(expectedCatalogTypes)
+            && (initialCatalogXml.match(/indent="-254000" marL="254000"/g) ?? [])
+              .length === bulletNumberingStyles.length,
+          initialText: initialTextLifecycleXml.includes('<a:buChar char="◆"/>')
+            && initialTextLifecycleXml.includes(
+              '<a:buAutoNum type="romanUcPeriod" startAt="7"/>',
+            )
+            && initialTextLifecycleXml.includes('indent="-228600" marL="228600"')
+            && initialTextLifecycleXml.includes('indent="-279400" marL="279400"'),
+          initialPlaceholder: initialPlaceholderXml.includes('<a:buChar char="→"/>')
+            && initialPlaceholderXml.includes('indent="-241300" marL="241300"'),
+          initialTable: initialTableCellXml.includes('<a:buChar char="→"/>')
+            && initialTableCellXml.includes(
+              '<a:buAutoNum type="arabicPlain" startAt="6"/>',
+            )
+            && initialTableCellXml.includes('indent="-215900" marL="215900"')
+            && initialTableCellXml.includes('indent="-241300" marL="241300"'),
+          editedText: editedTextLifecycleXml.includes(
+            '<a:buAutoNum type="romanLcParenR" startAt="4"/>',
+          )
+            && editedTextLifecycleXml.includes('indent="-304800" marL="304800"')
+            && editedTextLifecycleXml.includes('<a:buChar char="•"/>')
+            && editedTextLifecycleXml.includes('indent="-342900" marL="342900"')
+            && (editedTextLifecycleXml.match(/<a:buNone\/>/g) ?? []).length === 1,
+          editedPlaceholder: editedPlaceholderXml.includes(
+            '<a:buAutoNum type="alphaLcParenR" startAt="5"/>',
+          )
+            && editedPlaceholderXml.includes('indent="-254000" marL="254000"'),
+          editedTable: editedTableCellXml.includes('<a:buChar char="★"/>')
+            && editedTableCellXml.includes('indent="-266700" marL="266700"')
+            && (editedTableCellXml.match(/<a:buNone\/>/g) ?? []).length === 1,
+          reopened: JSON.stringify(reopenedCatalogTypes) === JSON.stringify(expectedCatalogTypes)
+            && reopenedTextLifecycleXml.includes(
+              '<a:buAutoNum type="romanLcParenR" startAt="4"/>',
+            )
+            && reopenedTextLifecycleXml.includes('<a:buNone/>')
+            && reopenedPlaceholderXml.includes(
+              '<a:buAutoNum type="alphaLcParenR" startAt="5"/>',
+            )
+            && reopenedTableCellXml.includes('<a:buChar char="★"/>')
+            && reopenedTableCellXml.includes('<a:buNone/>'),
+        },
+        diagnostics: bulletNumberingDocument.diagnostics.length
+          + reopenedBulletNumberingDocument.diagnostics.length,
+      };
+      const expectedBulletNumberingParagraphs = {
+        text: [
+          { kind: 'number', style: 'romanLcParenR', startAt: 4, indent: 24 },
+          null,
+          { kind: 'bullet', character: '•', indent: 27 },
+        ],
+        placeholder: { kind: 'number', style: 'alphaLcParenR', startAt: 5, indent: 20 },
+        table: [
+          { kind: 'bullet', character: '★', indent: 21 },
+          null,
+        ],
+      };
+      const bulletNumbering = bulletNumberingState.mime ===
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        && JSON.stringify(bulletNumberingState.immediateCatalog) ===
+          JSON.stringify(bulletNumberingStyles)
+        && JSON.stringify(bulletNumberingState.reopenedCatalog) ===
+          JSON.stringify(bulletNumberingStyles)
+        && JSON.stringify(bulletNumberingState.edited) ===
+          JSON.stringify(expectedBulletNumberingParagraphs)
+        && JSON.stringify(bulletNumberingState.reopened) ===
+          JSON.stringify(expectedBulletNumberingParagraphs)
+        && Object.values(bulletNumberingState.exactOoxml).every(Boolean)
+        && bulletNumberingState.diagnostics === 0;
       const presetShapeDocument = api.PptxDocument.create();
       const presetShapeSlide = presetShapeDocument.addSlide();
       const presetShapeModels = api.PRESET_SHAPE_TYPES.map(
@@ -5863,6 +6184,8 @@ async (page) => {
         horizontalAlignmentState,
         verticalAlignments,
         verticalAlignmentState,
+        bulletNumbering,
+        bulletNumberingState,
         presetShapes,
         presetShapeState,
         shapeLines,
@@ -6208,6 +6531,111 @@ async (page) => {
       textReopened: ['top', 'middle', 'bottom'],
       tableReopened: ['top', 'middle', 'bottom'],
       frozen: true,
+    },
+    bulletNumbering: true,
+    bulletNumberingState: {
+      mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      catalog: [
+        'alphaLcParenBoth',
+        'alphaLcParenR',
+        'alphaLcPeriod',
+        'alphaUcParenBoth',
+        'alphaUcParenR',
+        'alphaUcPeriod',
+        'arabicParenBoth',
+        'arabicParenR',
+        'arabicPeriod',
+        'arabicPlain',
+        'romanLcParenBoth',
+        'romanLcParenR',
+        'romanLcPeriod',
+        'romanUcParenBoth',
+        'romanUcParenR',
+        'romanUcPeriod',
+      ],
+      immediateCatalog: [
+        'alphaLcParenBoth',
+        'alphaLcParenR',
+        'alphaLcPeriod',
+        'alphaUcParenBoth',
+        'alphaUcParenR',
+        'alphaUcPeriod',
+        'arabicParenBoth',
+        'arabicParenR',
+        'arabicPeriod',
+        'arabicPlain',
+        'romanLcParenBoth',
+        'romanLcParenR',
+        'romanLcPeriod',
+        'romanUcParenBoth',
+        'romanUcParenR',
+        'romanUcPeriod',
+      ],
+      reopenedCatalog: [
+        'alphaLcParenBoth',
+        'alphaLcParenR',
+        'alphaLcPeriod',
+        'alphaUcParenBoth',
+        'alphaUcParenR',
+        'alphaUcPeriod',
+        'arabicParenBoth',
+        'arabicParenR',
+        'arabicPeriod',
+        'arabicPlain',
+        'romanLcParenBoth',
+        'romanLcParenR',
+        'romanLcPeriod',
+        'romanUcParenBoth',
+        'romanUcParenR',
+        'romanUcPeriod',
+      ],
+      initial: {
+        text: [
+          { kind: 'bullet', character: '◆', indent: 18 },
+          { kind: 'number', style: 'romanUcPeriod', startAt: 7, indent: 22 },
+          { kind: 'bullet', character: '•', indent: 27 },
+        ],
+        placeholder: { kind: 'bullet', character: '→', indent: 19 },
+        table: [
+          { kind: 'bullet', character: '→', indent: 17 },
+          { kind: 'number', style: 'arabicPlain', startAt: 6, indent: 19 },
+        ],
+      },
+      edited: {
+        text: [
+          { kind: 'number', style: 'romanLcParenR', startAt: 4, indent: 24 },
+          null,
+          { kind: 'bullet', character: '•', indent: 27 },
+        ],
+        placeholder: { kind: 'number', style: 'alphaLcParenR', startAt: 5, indent: 20 },
+        table: [
+          { kind: 'bullet', character: '★', indent: 21 },
+          null,
+        ],
+      },
+      reopened: {
+        text: [
+          { kind: 'number', style: 'romanLcParenR', startAt: 4, indent: 24 },
+          null,
+          { kind: 'bullet', character: '•', indent: 27 },
+        ],
+        placeholder: { kind: 'number', style: 'alphaLcParenR', startAt: 5, indent: 20 },
+        table: [
+          { kind: 'bullet', character: '★', indent: 21 },
+          null,
+        ],
+      },
+      exactOoxml: {
+        catalog: true,
+        initialText: true,
+        initialPlaceholder: true,
+        initialTable: true,
+        editedText: true,
+        editedPlaceholder: true,
+        editedTable: true,
+        reopened: true,
+      },
+      diagnostics: 0,
     },
     presetShapes: true,
     presetShapeState: {

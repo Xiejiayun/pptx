@@ -17025,6 +17025,117 @@ describe('PptxDocument vertical slice', () => {
     expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error')).toEqual([]);
   });
 
+  it('creates and reopens bullet and numbering owners in all six formats', async () => {
+    const styles: readonly NumberingStyle[] = [
+      'alphaLcParenBoth',
+      'alphaLcParenR',
+      'alphaLcPeriod',
+      'alphaUcParenBoth',
+      'alphaUcParenR',
+      'alphaUcPeriod',
+      'arabicParenBoth',
+      'arabicParenR',
+      'arabicPeriod',
+      'arabicPlain',
+      'romanLcParenBoth',
+      'romanLcParenR',
+      'romanLcPeriod',
+      'romanUcParenBoth',
+      'romanUcParenR',
+      'romanUcPeriod',
+    ];
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({ format });
+      const slide = created.addSlide();
+      const allStyles = slide.addRichText(styles.map((style, index) => ({
+        runs: [{ text: style }],
+        bullet: { kind: 'number' as const, style, startAt: index + 1, indent: 20 },
+      })), { name: 'all-numbering-styles' });
+      slide.addText('Default\nCustom', { bullet: true, name: 'plain-bullets' });
+      allStyles.richText = [
+        ...allStyles.richText,
+        { runs: [{ text: 'Custom' }], bullet: { kind: 'bullet', character: '▶', indent: 18 } },
+      ];
+      created.layouts[0]!.addPlaceholder('Placeholder number', {
+        name: 'numbered-placeholder',
+        type: 'body',
+        index: 100,
+        bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 },
+      });
+      slide.addTable([[{
+        text: [{
+          runs: [{ text: 'Table cell bullet' }],
+          bullet: { kind: 'bullet', character: '◆', indent: 19 },
+        }],
+      }]], { name: 'bullet-table' });
+
+      const first = await PptxDocument.open(await created.write());
+      const firstStyles = first.slides[0]!.shapes.find(
+        (shape): shape is ShapeModel => shape instanceof ShapeModel
+          && shape.name === 'all-numbering-styles',
+      )!;
+      expect(firstStyles.richText.slice(0, styles.length).map(({ bullet }) =>
+        bullet && typeof bullet !== 'boolean' && bullet.kind === 'number'
+          ? bullet.style
+          : undefined,
+      )).toEqual(styles);
+      expect(firstStyles.richText.at(-1)?.bullet).toEqual({
+        kind: 'bullet', character: '▶', indent: 18,
+      });
+      const firstPlaceholder = first.layouts[0]!.placeholders.find(
+        (shape): shape is ShapeModel => shape instanceof ShapeModel
+          && shape.name === 'numbered-placeholder',
+      )!;
+      expect(firstPlaceholder.richText[0]?.bullet).toEqual({
+        kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22,
+      });
+      const firstTable = first.slides[0]!.shapes.find(
+        (shape): shape is TableModel => shape instanceof TableModel && shape.name === 'bullet-table',
+      )!;
+      expect(firstTable.rows[0]!.cells[0]!.richText[0]?.bullet).toEqual({
+        kind: 'bullet', character: '◆', indent: 19,
+      });
+      const slidePart = new TextDecoder().decode(
+        first.opcPackage.requirePart(first.slides[0]!.partUri).bytes,
+      );
+      for (const [index, style] of styles.entries()) {
+        expect(slidePart).toContain(
+          `<a:buAutoNum type="${style}" startAt="${index + 1}"/>`,
+        );
+      }
+      expect(slidePart).toMatch(/<a:pPr\b[^>]*\bindent="-254000"[^>]*\bmarL="254000"/u);
+      expect(slidePart).toContain('<a:buChar char="◆"/>');
+
+      firstStyles.richText = [{ runs: [{ text: 'Cleared text bullet' }], bullet: false }];
+      firstPlaceholder.richText = [{
+        runs: [{ text: 'Edited placeholder bullet' }],
+        bullet: { kind: 'bullet', character: '•', indent: 27 },
+      }];
+      firstTable.setCellRichText(0, 0, [{
+        runs: [{ text: 'Edited table number' }],
+        bullet: { kind: 'number', style: 'alphaUcPeriod', startAt: 2, indent: 21 },
+      }]);
+      const second = await PptxDocument.open(await first.write());
+      expect((second.slides[0]!.shapes.find(
+        (shape): shape is ShapeModel => shape instanceof ShapeModel
+          && shape.name === 'all-numbering-styles',
+      )!).richText[0]?.bullet).toBeUndefined();
+      expect((second.layouts[0]!.placeholders.find(
+        (shape): shape is ShapeModel => shape instanceof ShapeModel
+          && shape.name === 'numbered-placeholder',
+      )!).richText[0]?.bullet).toEqual({
+        kind: 'bullet', character: '•', indent: 27,
+      });
+      expect((second.slides[0]!.shapes.find(
+        (shape): shape is TableModel => shape instanceof TableModel && shape.name === 'bullet-table',
+      )!).rows[0]!.cells[0]!.richText[0]?.bullet).toEqual({
+        kind: 'number', style: 'alphaUcPeriod', startAt: 2, indent: 21,
+      });
+      expect(validatePackage(second.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+    }
+  });
+
   it('creates, replaces, rolls back, and round-trips paragraph spacing', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();

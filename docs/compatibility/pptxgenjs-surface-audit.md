@@ -10,12 +10,12 @@
 
 | Status | Count |
 | --- | ---: |
-| supported | 460 |
-| deliberate-difference | 130 |
-| deprecated-alias | 77 |
-| defect-excluded | 83 |
+| supported | 463 |
+| deliberate-difference | 152 |
+| deprecated-alias | 83 |
+| defect-excluded | 227 |
 | unsupported | 0 |
-| unverified | 1024 |
+| unverified | 849 |
 | stale | 0 |
 
 ## Runtime declaration differences
@@ -53,15 +53,6 @@ None.
 - `inline:interface:ImageProps@property:sizing@property:sizing.w`
 - `inline:interface:ImageProps@property:sizing@property:sizing.x`
 - `inline:interface:ImageProps@property:sizing@property:sizing.y`
-- `inline:interface:PlaceholderProps@property:bullet@property:bullet.characterCode`
-- `inline:interface:PlaceholderProps@property:bullet@property:bullet.code`
-- `inline:interface:PlaceholderProps@property:bullet@property:bullet.indent`
-- `inline:interface:PlaceholderProps@property:bullet@property:bullet.marginPt`
-- `inline:interface:PlaceholderProps@property:bullet@property:bullet.numberStartAt`
-- `inline:interface:PlaceholderProps@property:bullet@property:bullet.numberType`
-- `inline:interface:PlaceholderProps@property:bullet@property:bullet.startAt`
-- `inline:interface:PlaceholderProps@property:bullet@property:bullet.style`
-- `inline:interface:PlaceholderProps@property:bullet@property:bullet.type`
 - `inline:interface:PlaceholderProps@property:tabStops@property:tabStops.alignment`
 - `inline:interface:PlaceholderProps@property:tabStops@property:tabStops.position`
 - `inline:interface:PlaceholderProps@property:underline@property:underline.color`
@@ -88,41 +79,14 @@ None.
 - `inline:interface:SlideMasterProps@property:objects@property:objects.placeholder.text`
 - `inline:interface:SlideMasterProps@property:objects@property:objects.rect`
 - `inline:interface:SlideMasterProps@property:objects@property:objects.text`
-- `inline:interface:SlideNumberProps@property:bullet@property:bullet.characterCode`
-- `inline:interface:SlideNumberProps@property:bullet@property:bullet.code`
-- `inline:interface:SlideNumberProps@property:bullet@property:bullet.indent`
-- `inline:interface:SlideNumberProps@property:bullet@property:bullet.marginPt`
-- `inline:interface:SlideNumberProps@property:bullet@property:bullet.numberStartAt`
-- `inline:interface:SlideNumberProps@property:bullet@property:bullet.numberType`
-- `inline:interface:SlideNumberProps@property:bullet@property:bullet.startAt`
-- `inline:interface:SlideNumberProps@property:bullet@property:bullet.style`
-- `inline:interface:SlideNumberProps@property:bullet@property:bullet.type`
 - `inline:interface:SlideNumberProps@property:tabStops@property:tabStops.alignment`
 - `inline:interface:SlideNumberProps@property:tabStops@property:tabStops.position`
 - `inline:interface:SlideNumberProps@property:underline@property:underline.color`
 - `inline:interface:SlideNumberProps@property:underline@property:underline.style`
-- `inline:interface:TableCellProps@property:bullet@property:bullet.characterCode`
-- `inline:interface:TableCellProps@property:bullet@property:bullet.code`
-- `inline:interface:TableCellProps@property:bullet@property:bullet.indent`
-- `inline:interface:TableCellProps@property:bullet@property:bullet.marginPt`
-- `inline:interface:TableCellProps@property:bullet@property:bullet.numberStartAt`
-- `inline:interface:TableCellProps@property:bullet@property:bullet.numberType`
-- `inline:interface:TableCellProps@property:bullet@property:bullet.startAt`
-- `inline:interface:TableCellProps@property:bullet@property:bullet.style`
-- `inline:interface:TableCellProps@property:bullet@property:bullet.type`
 - `inline:interface:TableCellProps@property:tabStops@property:tabStops.alignment`
 - `inline:interface:TableCellProps@property:tabStops@property:tabStops.position`
 - `inline:interface:TableCellProps@property:underline@property:underline.color`
 - `inline:interface:TableCellProps@property:underline@property:underline.style`
-- `inline:interface:TableProps@property:bullet@property:bullet.characterCode`
-- `inline:interface:TableProps@property:bullet@property:bullet.code`
-- `inline:interface:TableProps@property:bullet@property:bullet.indent`
-- `inline:interface:TableProps@property:bullet@property:bullet.marginPt`
-- `inline:interface:TableProps@property:bullet@property:bullet.numberStartAt`
-- `inline:interface:TableProps@property:bullet@property:bullet.numberType`
-- `inline:interface:TableProps@property:bullet@property:bullet.startAt`
-- `inline:interface:TableProps@property:bullet@property:bullet.style`
-- `inline:interface:TableProps@property:bullet@property:bullet.type`
 - `inline:interface:TableProps@property:tabStops@property:tabStops.alignment`
 - `inline:interface:TableProps@property:tabStops@property:tabStops.position`
 - `inline:interface:TableProps@property:underline@property:underline.color`
@@ -135,28 +99,10 @@ None.
 - `inline:interface:TableToSlidesProps@property:addTable@property:addTable.rows`
 - `inline:interface:TableToSlidesProps@property:addText@property:addText.options`
 - `inline:interface:TableToSlidesProps@property:addText@property:addText.text`
-- `inline:interface:TableToSlidesProps@property:bullet@property:bullet.characterCode`
-- `inline:interface:TableToSlidesProps@property:bullet@property:bullet.code`
-- `inline:interface:TableToSlidesProps@property:bullet@property:bullet.indent`
-- `inline:interface:TableToSlidesProps@property:bullet@property:bullet.marginPt`
-- `inline:interface:TableToSlidesProps@property:bullet@property:bullet.numberStartAt`
-- `inline:interface:TableToSlidesProps@property:bullet@property:bullet.numberType`
-- `inline:interface:TableToSlidesProps@property:bullet@property:bullet.startAt`
-- `inline:interface:TableToSlidesProps@property:bullet@property:bullet.style`
-- `inline:interface:TableToSlidesProps@property:bullet@property:bullet.type`
 - `inline:interface:TableToSlidesProps@property:tabStops@property:tabStops.alignment`
 - `inline:interface:TableToSlidesProps@property:tabStops@property:tabStops.position`
 - `inline:interface:TableToSlidesProps@property:underline@property:underline.color`
 - `inline:interface:TableToSlidesProps@property:underline@property:underline.style`
-- `inline:interface:TextPropsOptions@property:bullet@property:bullet.characterCode`
-- `inline:interface:TextPropsOptions@property:bullet@property:bullet.code`
-- `inline:interface:TextPropsOptions@property:bullet@property:bullet.indent`
-- `inline:interface:TextPropsOptions@property:bullet@property:bullet.marginPt`
-- `inline:interface:TextPropsOptions@property:bullet@property:bullet.numberStartAt`
-- `inline:interface:TextPropsOptions@property:bullet@property:bullet.numberType`
-- `inline:interface:TextPropsOptions@property:bullet@property:bullet.startAt`
-- `inline:interface:TextPropsOptions@property:bullet@property:bullet.style`
-- `inline:interface:TextPropsOptions@property:bullet@property:bullet.type`
 - `inline:interface:TextPropsOptions@property:outline@property:outline.color`
 - `inline:interface:TextPropsOptions@property:outline@property:outline.size`
 - `inline:interface:TextPropsOptions@property:tabStops@property:tabStops.alignment`
@@ -401,7 +347,6 @@ None.
 - `interface:PlaceholderProps@property:align`
 - `interface:PlaceholderProps@property:bold`
 - `interface:PlaceholderProps@property:breakLine`
-- `interface:PlaceholderProps@property:bullet`
 - `interface:PlaceholderProps@property:color`
 - `interface:PlaceholderProps@property:fontFace`
 - `interface:PlaceholderProps@property:fontSize`
@@ -465,7 +410,6 @@ None.
 - `interface:SlideNumberProps@property:align`
 - `interface:SlideNumberProps@property:bold`
 - `interface:SlideNumberProps@property:breakLine`
-- `interface:SlideNumberProps@property:bullet`
 - `interface:SlideNumberProps@property:color`
 - `interface:SlideNumberProps@property:fontFace`
 - `interface:SlideNumberProps@property:fontSize`
@@ -491,7 +435,6 @@ None.
 - `interface:TableCellProps@property:bold`
 - `interface:TableCellProps@property:border`
 - `interface:TableCellProps@property:breakLine`
-- `interface:TableCellProps@property:bullet`
 - `interface:TableCellProps@property:color`
 - `interface:TableCellProps@property:colspan`
 - `interface:TableCellProps@property:fontFace`
@@ -518,7 +461,6 @@ None.
 - `interface:TableProps@property:bold`
 - `interface:TableProps@property:border`
 - `interface:TableProps@property:breakLine`
-- `interface:TableProps@property:bullet`
 - `interface:TableProps@property:colW`
 - `interface:TableProps@property:color`
 - `interface:TableProps@property:fontFace`
@@ -556,7 +498,6 @@ None.
 - `interface:TableToSlidesProps@property:bold`
 - `interface:TableToSlidesProps@property:border`
 - `interface:TableToSlidesProps@property:breakLine`
-- `interface:TableToSlidesProps@property:bullet`
 - `interface:TableToSlidesProps@property:colW`
 - `interface:TableToSlidesProps@property:color`
 - `interface:TableToSlidesProps@property:fontFace`
@@ -591,7 +532,6 @@ None.
 - `interface:TextPropsOptions@property:baseline`
 - `interface:TextPropsOptions@property:bold`
 - `interface:TextPropsOptions@property:breakLine`
-- `interface:TextPropsOptions@property:bullet`
 - `interface:TextPropsOptions@property:charSpacing`
 - `interface:TextPropsOptions@property:color`
 - `interface:TextPropsOptions@property:data`
@@ -603,7 +543,6 @@ None.
 - `interface:TextPropsOptions@property:glow`
 - `interface:TextPropsOptions@property:highlight`
 - `interface:TextPropsOptions@property:hyperlink`
-- `interface:TextPropsOptions@property:indentLevel`
 - `interface:TextPropsOptions@property:inset`
 - `interface:TextPropsOptions@property:isTextBox`
 - `interface:TextPropsOptions@property:italic`
@@ -753,25 +692,6 @@ None.
 - `union:interface:ImageProps@property:sizing@path:sizing.type#cover`
 - `union:interface:ImageProps@property:sizing@path:sizing.type#crop`
 - `union:interface:OptsChartData@property:labels#string[][]`
-- `union:interface:PlaceholderProps@property:bullet#boolean`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaLcParenBoth`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaLcParenR`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaLcPeriod`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaUcParenBoth`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaUcParenR`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaUcPeriod`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#arabicParenBoth`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#arabicParenR`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#arabicPeriod`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#arabicPlain`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanLcParenBoth`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanLcParenR`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanLcPeriod`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanUcParenBoth`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanUcParenR`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanUcPeriod`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.type#bullet`
-- `union:interface:PlaceholderProps@property:bullet@path:bullet.type#number`
 - `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#ctr`
 - `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#dec`
 - `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#l`
@@ -802,25 +722,6 @@ None.
 - `union:interface:ShadowProps@property:type#outer`
 - `union:interface:SlideMasterProps@property:bkgd#BackgroundProps`
 - `union:interface:SlideMasterProps@property:bkgd#string`
-- `union:interface:SlideNumberProps@property:bullet#boolean`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaLcParenBoth`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaLcParenR`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaLcPeriod`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaUcParenBoth`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaUcParenR`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaUcPeriod`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#arabicParenBoth`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#arabicParenR`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#arabicPeriod`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#arabicPlain`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanLcParenBoth`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanLcParenR`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanLcPeriod`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanUcParenBoth`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanUcParenR`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanUcPeriod`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.type#bullet`
-- `union:interface:SlideNumberProps@property:bullet@path:bullet.type#number`
 - `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#ctr`
 - `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#dec`
 - `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#l`
@@ -850,25 +751,6 @@ None.
 - `union:interface:TableCell@property:text#string`
 - `union:interface:TableCellProps@property:border#BorderProps`
 - `union:interface:TableCellProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]`
-- `union:interface:TableCellProps@property:bullet#boolean`
-- `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaLcParenBoth`
-- `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaLcParenR`
-- `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaLcPeriod`
-- `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaUcParenBoth`
-- `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaUcParenR`
-- `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaUcPeriod`
-- `union:interface:TableCellProps@property:bullet@path:bullet.numberType#arabicParenBoth`
-- `union:interface:TableCellProps@property:bullet@path:bullet.numberType#arabicParenR`
-- `union:interface:TableCellProps@property:bullet@path:bullet.numberType#arabicPeriod`
-- `union:interface:TableCellProps@property:bullet@path:bullet.numberType#arabicPlain`
-- `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanLcParenBoth`
-- `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanLcParenR`
-- `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanLcPeriod`
-- `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanUcParenBoth`
-- `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanUcParenR`
-- `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanUcPeriod`
-- `union:interface:TableCellProps@property:bullet@path:bullet.type#bullet`
-- `union:interface:TableCellProps@property:bullet@path:bullet.type#number`
 - `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#ctr`
 - `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#dec`
 - `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#l`
@@ -896,25 +778,6 @@ None.
 - `union:interface:TableCellProps@property:underline@path:underline.style#wavyHeavy`
 - `union:interface:TableProps@property:border#BorderProps`
 - `union:interface:TableProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]`
-- `union:interface:TableProps@property:bullet#boolean`
-- `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaLcParenBoth`
-- `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaLcParenR`
-- `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaLcPeriod`
-- `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaUcParenBoth`
-- `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaUcParenR`
-- `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaUcPeriod`
-- `union:interface:TableProps@property:bullet@path:bullet.numberType#arabicParenBoth`
-- `union:interface:TableProps@property:bullet@path:bullet.numberType#arabicParenR`
-- `union:interface:TableProps@property:bullet@path:bullet.numberType#arabicPeriod`
-- `union:interface:TableProps@property:bullet@path:bullet.numberType#arabicPlain`
-- `union:interface:TableProps@property:bullet@path:bullet.numberType#romanLcParenBoth`
-- `union:interface:TableProps@property:bullet@path:bullet.numberType#romanLcParenR`
-- `union:interface:TableProps@property:bullet@path:bullet.numberType#romanLcPeriod`
-- `union:interface:TableProps@property:bullet@path:bullet.numberType#romanUcParenBoth`
-- `union:interface:TableProps@property:bullet@path:bullet.numberType#romanUcParenR`
-- `union:interface:TableProps@property:bullet@path:bullet.numberType#romanUcPeriod`
-- `union:interface:TableProps@property:bullet@path:bullet.type#bullet`
-- `union:interface:TableProps@property:bullet@path:bullet.type#number`
 - `union:interface:TableProps@property:colW#number`
 - `union:interface:TableProps@property:colW#number[]`
 - `union:interface:TableProps@property:rowH#number`
@@ -946,25 +809,6 @@ None.
 - `union:interface:TableProps@property:underline@path:underline.style#wavyHeavy`
 - `union:interface:TableToSlidesProps@property:border#BorderProps`
 - `union:interface:TableToSlidesProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]`
-- `union:interface:TableToSlidesProps@property:bullet#boolean`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaLcParenBoth`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaLcParenR`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaLcPeriod`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaUcParenBoth`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaUcParenR`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaUcPeriod`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#arabicParenBoth`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#arabicParenR`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#arabicPeriod`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#arabicPlain`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanLcParenBoth`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanLcParenR`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanLcPeriod`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanUcParenBoth`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanUcParenR`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanUcPeriod`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.type#bullet`
-- `union:interface:TableToSlidesProps@property:bullet@path:bullet.type#number`
 - `union:interface:TableToSlidesProps@property:colW#number`
 - `union:interface:TableToSlidesProps@property:colW#number[]`
 - `union:interface:TableToSlidesProps@property:rowH#number`
@@ -994,25 +838,6 @@ None.
 - `union:interface:TableToSlidesProps@property:underline@path:underline.style#wavy`
 - `union:interface:TableToSlidesProps@property:underline@path:underline.style#wavyDbl`
 - `union:interface:TableToSlidesProps@property:underline@path:underline.style#wavyHeavy`
-- `union:interface:TextPropsOptions@property:bullet#boolean`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaLcParenBoth`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaLcParenR`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaLcPeriod`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaUcParenBoth`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaUcParenR`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaUcPeriod`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#arabicParenBoth`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#arabicParenR`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#arabicPeriod`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#arabicPlain`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanLcParenBoth`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanLcParenR`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanLcPeriod`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanUcParenBoth`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanUcParenR`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanUcPeriod`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.type#bullet`
-- `union:interface:TextPropsOptions@property:bullet@path:bullet.type#number`
 - `union:interface:TextPropsOptions@property:fit#none`
 - `union:interface:TextPropsOptions@property:fit#resize`
 - `union:interface:TextPropsOptions@property:fit#shrink`
@@ -1074,15 +899,15 @@ None.
 | --- | --- | --- | --- | --- |
 | `class:PptxGenJS#addSection` | unverified | — | — | — |
 | `class:PptxGenJS#addSlide` | unverified | — | — | — |
-| `inline:interface:SlideNumberProps@property:bullet@property:bullet.characterCode` | unverified | — | — | — |
-| `inline:interface:SlideNumberProps@property:bullet@property:bullet.code` | unverified | — | — | — |
-| `inline:interface:SlideNumberProps@property:bullet@property:bullet.indent` | unverified | — | — | — |
-| `inline:interface:SlideNumberProps@property:bullet@property:bullet.marginPt` | unverified | — | — | — |
-| `inline:interface:SlideNumberProps@property:bullet@property:bullet.numberStartAt` | unverified | — | — | — |
-| `inline:interface:SlideNumberProps@property:bullet@property:bullet.numberType` | unverified | — | — | — |
-| `inline:interface:SlideNumberProps@property:bullet@property:bullet.startAt` | unverified | — | — | — |
-| `inline:interface:SlideNumberProps@property:bullet@property:bullet.style` | unverified | — | — | — |
-| `inline:interface:SlideNumberProps@property:bullet@property:bullet.type` | unverified | — | — | — |
+| `inline:interface:SlideNumberProps@property:bullet@property:bullet.characterCode` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:SlideNumberProps@property:bullet@property:bullet.code` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:SlideNumberProps@property:bullet@property:bullet.indent` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:SlideNumberProps@property:bullet@property:bullet.marginPt` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:SlideNumberProps@property:bullet@property:bullet.numberStartAt` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:SlideNumberProps@property:bullet@property:bullet.numberType` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:SlideNumberProps@property:bullet@property:bullet.startAt` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:SlideNumberProps@property:bullet@property:bullet.style` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:SlideNumberProps@property:bullet@property:bullet.type` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `inline:interface:SlideNumberProps@property:tabStops@property:tabStops.alignment` | unverified | — | — | — |
 | `inline:interface:SlideNumberProps@property:tabStops@property:tabStops.position` | unverified | — | — | — |
 | `inline:interface:SlideNumberProps@property:underline@property:underline.color` | unverified | — | — | — |
@@ -1110,7 +935,7 @@ None.
 | `interface:SlideNumberProps@property:align` | unverified | — | — | — |
 | `interface:SlideNumberProps@property:bold` | unverified | — | — | — |
 | `interface:SlideNumberProps@property:breakLine` | unverified | — | — | — |
-| `interface:SlideNumberProps@property:bullet` | unverified | — | — | — |
+| `interface:SlideNumberProps@property:bullet` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `interface:SlideNumberProps@property:color` | unverified | — | — | — |
 | `interface:SlideNumberProps@property:fontFace` | unverified | — | — | — |
 | `interface:SlideNumberProps@property:fontSize` | unverified | — | — | — |
@@ -1138,25 +963,25 @@ None.
 | `union:interface:BackgroundProps@property:type#none` | unverified | — | — | — |
 | `union:interface:BackgroundProps@property:type#solid` | unverified | — | — | — |
 | `union:interface:SlideMasterProps@property:bkgd#BackgroundProps` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet#boolean` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaLcParenBoth` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaLcParenR` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaLcPeriod` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaUcParenBoth` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaUcParenR` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaUcPeriod` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#arabicParenBoth` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#arabicParenR` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#arabicPeriod` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#arabicPlain` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanLcParenBoth` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanLcParenR` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanLcPeriod` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanUcParenBoth` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanUcParenR` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanUcPeriod` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.type#bullet` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:bullet@path:bullet.type#number` | unverified | — | — | — |
+| `union:interface:SlideNumberProps@property:bullet#boolean` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaLcParenBoth` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaLcParenR` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaLcPeriod` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaUcParenBoth` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaUcParenR` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#alphaUcPeriod` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#arabicParenBoth` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#arabicParenR` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#arabicPeriod` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#arabicPlain` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanLcParenBoth` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanLcParenR` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanLcPeriod` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanUcParenBoth` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanUcParenR` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanUcPeriod` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.type#bullet` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:SlideNumberProps@property:bullet@path:bullet.type#number` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#ctr` | unverified | — | — | — |
 | `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#dec` | unverified | — | — | — |
 | `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#l` | unverified | — | — | — |
@@ -1187,15 +1012,15 @@ None.
 
 | Atom | Status | Native | Evidence | Note |
 | --- | --- | --- | --- | --- |
-| `inline:interface:TextPropsOptions@property:bullet@property:bullet.characterCode` | unverified | — | — | — |
-| `inline:interface:TextPropsOptions@property:bullet@property:bullet.code` | unverified | — | — | — |
-| `inline:interface:TextPropsOptions@property:bullet@property:bullet.indent` | unverified | — | — | — |
-| `inline:interface:TextPropsOptions@property:bullet@property:bullet.marginPt` | unverified | — | — | — |
-| `inline:interface:TextPropsOptions@property:bullet@property:bullet.numberStartAt` | unverified | — | — | — |
-| `inline:interface:TextPropsOptions@property:bullet@property:bullet.numberType` | unverified | — | — | — |
-| `inline:interface:TextPropsOptions@property:bullet@property:bullet.startAt` | unverified | — | — | — |
-| `inline:interface:TextPropsOptions@property:bullet@property:bullet.style` | unverified | — | — | — |
-| `inline:interface:TextPropsOptions@property:bullet@property:bullet.type` | unverified | — | — | — |
+| `inline:interface:TextPropsOptions@property:bullet@property:bullet.characterCode` | deliberate-difference | AddTextOptions.bullet<br>CharacterBullet.character<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TextPropsOptions bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
+| `inline:interface:TextPropsOptions@property:bullet@property:bullet.code` | deprecated-alias | AddTextOptions.bullet<br>CharacterBullet.character<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 keeps bullet.code as a working deprecated alias of bullet.characterCode; native rejects the alias and exposes only its strict semantic bullet field. |
+| `inline:interface:TextPropsOptions@property:bullet@property:bullet.indent` | deliberate-difference | AddTextOptions.bullet<br>CharacterBullet.indent<br>NumberedBullet.indent<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TextPropsOptions bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
+| `inline:interface:TextPropsOptions@property:bullet@property:bullet.marginPt` | defect-excluded | AddTextOptions.bullet<br>CharacterBullet.indent<br>NumberedBullet.indent<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.marginPt but its writer never reads it and always uses bullet.indent or the default margin. |
+| `inline:interface:TextPropsOptions@property:bullet@property:bullet.numberStartAt` | deliberate-difference | AddTextOptions.bullet<br>NumberedBullet.startAt<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TextPropsOptions bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
+| `inline:interface:TextPropsOptions@property:bullet@property:bullet.numberType` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `inline:interface:TextPropsOptions@property:bullet@property:bullet.startAt` | deprecated-alias | AddTextOptions.bullet<br>NumberedBullet.startAt<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 keeps bullet.startAt as a working deprecated alias of bullet.numberStartAt; native rejects the alias and exposes only its strict semantic bullet field. |
+| `inline:interface:TextPropsOptions@property:bullet@property:bullet.style` | deliberate-difference | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TextPropsOptions bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
+| `inline:interface:TextPropsOptions@property:bullet@property:bullet.type` | deliberate-difference | AddTextOptions.bullet<br>CharacterBullet.kind<br>NumberedBullet.kind<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TextPropsOptions bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
 | `inline:interface:TextPropsOptions@property:outline@property:outline.color` | unverified | — | — | — |
 | `inline:interface:TextPropsOptions@property:outline@property:outline.size` | unverified | — | — | — |
 | `inline:interface:TextPropsOptions@property:tabStops@property:tabStops.alignment` | unverified | — | — | — |
@@ -1216,7 +1041,7 @@ None.
 | `interface:TextPropsOptions@property:baseline` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:bold` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:breakLine` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:bullet` | unverified | — | — | — |
+| `interface:TextPropsOptions@property:bullet` | supported | AddTextOptions.bullet<br>ParagraphBullet<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers the complete effective TextPropsOptions.bullet output through its strict ParagraphBullet model and preserves standard, character, and numbered bullets through serialization and reopen. |
 | `interface:TextPropsOptions@property:charSpacing` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:color` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:data` | unverified | — | — | — |
@@ -1230,7 +1055,7 @@ None.
 | `interface:TextPropsOptions@property:h` | deliberate-difference | SlideModel.addText | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
 | `interface:TextPropsOptions@property:highlight` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:hyperlink` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:indentLevel` | unverified | — | — | — |
+| `interface:TextPropsOptions@property:indentLevel` | deliberate-difference | AddTextOptions.level<br>RichTextParagraph.level<br>SlideModel.addRichText<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native preserves list levels as strict integers from zero through eight, including explicit level zero; PptxGenJS uses indentLevel, ignores non-positive values, and permissively emits out-of-range positive values. |
 | `interface:TextPropsOptions@property:inset` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:isTextBox` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:italic` | unverified | — | — | — |
@@ -1269,25 +1094,25 @@ None.
 | `interface:TextPropsOptions@property:x` | deliberate-difference | SlideModel.addText | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
 | `interface:TextPropsOptions@property:y` | deliberate-difference | SlideModel.addText | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
 | `method:Slide#addText` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet#boolean` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaLcParenBoth` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaLcParenR` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaLcPeriod` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaUcParenBoth` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaUcParenR` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaUcPeriod` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#arabicParenBoth` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#arabicParenR` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#arabicPeriod` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#arabicPlain` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanLcParenBoth` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanLcParenR` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanLcPeriod` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanUcParenBoth` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanUcParenR` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanUcPeriod` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.type#bullet` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:bullet@path:bullet.type#number` | unverified | — | — | — |
+| `union:interface:TextPropsOptions@property:bullet#boolean` | deliberate-difference | AddTextOptions.bullet<br>ParagraphBullet<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TextPropsOptions bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaLcParenBoth` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaLcParenR` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaLcPeriod` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaUcParenBoth` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaUcParenR` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#alphaUcPeriod` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#arabicParenBoth` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#arabicParenR` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#arabicPeriod` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#arabicPlain` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanLcParenBoth` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanLcParenR` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanLcPeriod` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanUcParenBoth` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanUcParenR` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.numberType#romanUcPeriod` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.type#bullet` | defect-excluded | AddTextOptions.bullet<br>CharacterBullet.kind<br>NumberedBullet.kind<br>SlideModel.addText | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TextPropsOptions.bullet.type='bullet', but its object writer only handles the number branch and emits no bullet for this legal token. |
+| `union:interface:TextPropsOptions@property:bullet@path:bullet.type#number` | deliberate-difference | AddTextOptions.bullet<br>CharacterBullet.kind<br>NumberedBullet.kind<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TextPropsOptions bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
 | `union:interface:TextPropsOptions@property:fit#none` | unverified | — | — | — |
 | `union:interface:TextPropsOptions@property:fit#resize` | unverified | — | — | — |
 | `union:interface:TextPropsOptions@property:fit#shrink` | unverified | — | — | — |
@@ -2285,28 +2110,28 @@ None.
 | Atom | Status | Native | Evidence | Note |
 | --- | --- | --- | --- | --- |
 | `class:PptxGenJS#tableToSlides` | unverified | — | — | — |
-| `inline:interface:TableCellProps@property:bullet@property:bullet.characterCode` | unverified | — | — | — |
-| `inline:interface:TableCellProps@property:bullet@property:bullet.code` | unverified | — | — | — |
-| `inline:interface:TableCellProps@property:bullet@property:bullet.indent` | unverified | — | — | — |
-| `inline:interface:TableCellProps@property:bullet@property:bullet.marginPt` | unverified | — | — | — |
-| `inline:interface:TableCellProps@property:bullet@property:bullet.numberStartAt` | unverified | — | — | — |
-| `inline:interface:TableCellProps@property:bullet@property:bullet.numberType` | unverified | — | — | — |
-| `inline:interface:TableCellProps@property:bullet@property:bullet.startAt` | unverified | — | — | — |
-| `inline:interface:TableCellProps@property:bullet@property:bullet.style` | unverified | — | — | — |
-| `inline:interface:TableCellProps@property:bullet@property:bullet.type` | unverified | — | — | — |
+| `inline:interface:TableCellProps@property:bullet@property:bullet.characterCode` | deliberate-difference | AddTableCell.text<br>CharacterBullet.character<br>RichTextParagraph.bullet<br>SlideModel.addTable | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TableCellProps bullets in explicit cell rich-text paragraphs with a strict discriminated union; PptxGenJS uses permissive inherited cell or table defaults, hexadecimal character codes, and truthy fallbacks. |
+| `inline:interface:TableCellProps@property:bullet@property:bullet.code` | deprecated-alias | AddTableCell.text<br>CharacterBullet.character<br>RichTextParagraph.bullet<br>SlideModel.addTable | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 keeps bullet.code as a working deprecated alias of bullet.characterCode; native rejects the alias and exposes only its strict semantic bullet field. |
+| `inline:interface:TableCellProps@property:bullet@property:bullet.indent` | deliberate-difference | AddTableCell.text<br>CharacterBullet.indent<br>NumberedBullet.indent<br>RichTextParagraph.bullet<br>SlideModel.addTable | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TableCellProps bullets in explicit cell rich-text paragraphs with a strict discriminated union; PptxGenJS uses permissive inherited cell or table defaults, hexadecimal character codes, and truthy fallbacks. |
+| `inline:interface:TableCellProps@property:bullet@property:bullet.marginPt` | defect-excluded | AddTableCell.text<br>CharacterBullet.indent<br>NumberedBullet.indent<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.marginPt but its writer never reads it and always uses bullet.indent or the default margin. |
+| `inline:interface:TableCellProps@property:bullet@property:bullet.numberStartAt` | deliberate-difference | AddTableCell.text<br>NumberedBullet.startAt<br>RichTextParagraph.bullet<br>SlideModel.addTable | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TableCellProps bullets in explicit cell rich-text paragraphs with a strict discriminated union; PptxGenJS uses permissive inherited cell or table defaults, hexadecimal character codes, and truthy fallbacks. |
+| `inline:interface:TableCellProps@property:bullet@property:bullet.numberType` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `inline:interface:TableCellProps@property:bullet@property:bullet.startAt` | deprecated-alias | AddTableCell.text<br>NumberedBullet.startAt<br>RichTextParagraph.bullet<br>SlideModel.addTable | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 keeps bullet.startAt as a working deprecated alias of bullet.numberStartAt; native rejects the alias and exposes only its strict semantic bullet field. |
+| `inline:interface:TableCellProps@property:bullet@property:bullet.style` | deliberate-difference | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TableCellProps bullets in explicit cell rich-text paragraphs with a strict discriminated union; PptxGenJS uses permissive inherited cell or table defaults, hexadecimal character codes, and truthy fallbacks. |
+| `inline:interface:TableCellProps@property:bullet@property:bullet.type` | deliberate-difference | AddTableCell.text<br>CharacterBullet.kind<br>NumberedBullet.kind<br>RichTextParagraph.bullet<br>SlideModel.addTable | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TableCellProps bullets in explicit cell rich-text paragraphs with a strict discriminated union; PptxGenJS uses permissive inherited cell or table defaults, hexadecimal character codes, and truthy fallbacks. |
 | `inline:interface:TableCellProps@property:tabStops@property:tabStops.alignment` | unverified | — | — | — |
 | `inline:interface:TableCellProps@property:tabStops@property:tabStops.position` | unverified | — | — | — |
 | `inline:interface:TableCellProps@property:underline@property:underline.color` | unverified | — | — | — |
 | `inline:interface:TableCellProps@property:underline@property:underline.style` | unverified | — | — | — |
-| `inline:interface:TableProps@property:bullet@property:bullet.characterCode` | unverified | — | — | — |
-| `inline:interface:TableProps@property:bullet@property:bullet.code` | unverified | — | — | — |
-| `inline:interface:TableProps@property:bullet@property:bullet.indent` | unverified | — | — | — |
-| `inline:interface:TableProps@property:bullet@property:bullet.marginPt` | unverified | — | — | — |
-| `inline:interface:TableProps@property:bullet@property:bullet.numberStartAt` | unverified | — | — | — |
-| `inline:interface:TableProps@property:bullet@property:bullet.numberType` | unverified | — | — | — |
-| `inline:interface:TableProps@property:bullet@property:bullet.startAt` | unverified | — | — | — |
-| `inline:interface:TableProps@property:bullet@property:bullet.style` | unverified | — | — | — |
-| `inline:interface:TableProps@property:bullet@property:bullet.type` | unverified | — | — | — |
+| `inline:interface:TableProps@property:bullet@property:bullet.characterCode` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:TableProps@property:bullet@property:bullet.code` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:TableProps@property:bullet@property:bullet.indent` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:TableProps@property:bullet@property:bullet.marginPt` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:TableProps@property:bullet@property:bullet.numberStartAt` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:TableProps@property:bullet@property:bullet.numberType` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:TableProps@property:bullet@property:bullet.startAt` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:TableProps@property:bullet@property:bullet.style` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:TableProps@property:bullet@property:bullet.type` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `inline:interface:TableProps@property:tabStops@property:tabStops.alignment` | unverified | — | — | — |
 | `inline:interface:TableProps@property:tabStops@property:tabStops.position` | unverified | — | — | — |
 | `inline:interface:TableProps@property:underline@property:underline.color` | unverified | — | — | — |
@@ -2317,15 +2142,15 @@ None.
 | `inline:interface:TableToSlidesProps@property:addTable@property:addTable.rows` | unverified | — | — | — |
 | `inline:interface:TableToSlidesProps@property:addText@property:addText.options` | unverified | — | — | — |
 | `inline:interface:TableToSlidesProps@property:addText@property:addText.text` | unverified | — | — | — |
-| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.characterCode` | unverified | — | — | — |
-| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.code` | unverified | — | — | — |
-| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.indent` | unverified | — | — | — |
-| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.marginPt` | unverified | — | — | — |
-| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.numberStartAt` | unverified | — | — | — |
-| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.numberType` | unverified | — | — | — |
-| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.startAt` | unverified | — | — | — |
-| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.style` | unverified | — | — | — |
-| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.type` | unverified | — | — | — |
+| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.characterCode` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.code` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.indent` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.marginPt` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.numberStartAt` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.numberType` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.startAt` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.style` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `inline:interface:TableToSlidesProps@property:bullet@property:bullet.type` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `inline:interface:TableToSlidesProps@property:tabStops@property:tabStops.alignment` | unverified | — | — | — |
 | `inline:interface:TableToSlidesProps@property:tabStops@property:tabStops.position` | unverified | — | — | — |
 | `inline:interface:TableToSlidesProps@property:underline@property:underline.color` | unverified | — | — | — |
@@ -2341,7 +2166,7 @@ None.
 | `interface:TableCellProps@property:bold` | unverified | — | — | — |
 | `interface:TableCellProps@property:border` | unverified | — | — | — |
 | `interface:TableCellProps@property:breakLine` | unverified | — | — | — |
-| `interface:TableCellProps@property:bullet` | unverified | — | — | — |
+| `interface:TableCellProps@property:bullet` | supported | AddTableCell.text<br>ParagraphBullet<br>RichTextParagraph.bullet<br>SlideModel.addTable | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers the complete effective TableCellProps.bullet output through its strict ParagraphBullet model and preserves standard, character, and numbered bullets through serialization and reopen. |
 | `interface:TableCellProps@property:color` | unverified | — | — | — |
 | `interface:TableCellProps@property:colspan` | unverified | — | — | — |
 | `interface:TableCellProps@property:fill` | deliberate-difference | AddTableCellOptions.fill<br>SlideModel.addTable<br>TableCell.fill<br>TableCellFill<br>TableModel.setCellFill | code:packages/model/src/table-cell-fill.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native preserves the legal none/solid, sRGB/scheme, and transparency domain through strict TableCellFill creation and editing; PptxGenJS collapses explicit none and zero-alpha intent and permits malformed or out-of-range fill values that native rejects before mutation. |
@@ -2369,7 +2194,7 @@ None.
 | `interface:TableProps@property:bold` | unverified | — | — | — |
 | `interface:TableProps@property:border` | unverified | — | — | — |
 | `interface:TableProps@property:breakLine` | unverified | — | — | — |
-| `interface:TableProps@property:bullet` | unverified | — | — | — |
+| `interface:TableProps@property:bullet` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `interface:TableProps@property:colW` | unverified | — | — | — |
 | `interface:TableProps@property:color` | unverified | — | — | — |
 | `interface:TableProps@property:fill` | deliberate-difference | AddTableOptions.fill<br>SlideModel.addTable<br>TableCellFill<br>TableModel.fill | code:packages/model/src/table-cell-fill.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native preserves the legal none/solid, sRGB/scheme, and transparency domain through strict TableCellFill creation and editing; PptxGenJS collapses explicit none and zero-alpha intent and permits malformed or out-of-range fill values that native rejects before mutation. |
@@ -2407,7 +2232,7 @@ None.
 | `interface:TableToSlidesProps@property:bold` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:border` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:breakLine` | unverified | — | — | — |
-| `interface:TableToSlidesProps@property:bullet` | unverified | — | — | — |
+| `interface:TableToSlidesProps@property:bullet` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `interface:TableToSlidesProps@property:colW` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:color` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:fill` | defect-excluded | — | code:packages/sdk/src/table-to-slides-css.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableProps.fill into TableToSlidesProps but drops the option before creating any auto-paged table; computed CSS backgrounds alone determine cell fills, which native exposes directly without copying the inert declaration. |
@@ -2511,25 +2336,25 @@ None.
 | `union:interface:TableCell@property:text#string` | unverified | — | — | — |
 | `union:interface:TableCellProps@property:border#BorderProps` | unverified | — | — | — |
 | `union:interface:TableCellProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet#boolean` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaLcParenBoth` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaLcParenR` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaLcPeriod` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaUcParenBoth` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaUcParenR` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaUcPeriod` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#arabicParenBoth` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#arabicParenR` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#arabicPeriod` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#arabicPlain` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanLcParenBoth` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanLcParenR` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanLcPeriod` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanUcParenBoth` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanUcParenR` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanUcPeriod` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.type#bullet` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:bullet@path:bullet.type#number` | unverified | — | — | — |
+| `union:interface:TableCellProps@property:bullet#boolean` | deliberate-difference | AddTableCell.text<br>ParagraphBullet<br>RichTextParagraph.bullet<br>SlideModel.addTable | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TableCellProps bullets in explicit cell rich-text paragraphs with a strict discriminated union; PptxGenJS uses permissive inherited cell or table defaults, hexadecimal character codes, and truthy fallbacks. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaLcParenBoth` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaLcParenR` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaLcPeriod` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaUcParenBoth` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaUcParenR` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#alphaUcPeriod` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#arabicParenBoth` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#arabicParenR` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#arabicPeriod` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#arabicPlain` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanLcParenBoth` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanLcParenR` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanLcPeriod` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanUcParenBoth` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanUcParenR` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanUcPeriod` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.type#bullet` | defect-excluded | AddTableCell.text<br>CharacterBullet.kind<br>NumberedBullet.kind<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.type='bullet', but its object writer only handles the number branch and emits no bullet for this legal token. |
+| `union:interface:TableCellProps@property:bullet@path:bullet.type#number` | deliberate-difference | AddTableCell.text<br>CharacterBullet.kind<br>NumberedBullet.kind<br>RichTextParagraph.bullet<br>SlideModel.addTable | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TableCellProps bullets in explicit cell rich-text paragraphs with a strict discriminated union; PptxGenJS uses permissive inherited cell or table defaults, hexadecimal character codes, and truthy fallbacks. |
 | `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#ctr` | unverified | — | — | — |
 | `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#dec` | unverified | — | — | — |
 | `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#l` | unverified | — | — | — |
@@ -2557,25 +2382,25 @@ None.
 | `union:interface:TableCellProps@property:underline@path:underline.style#wavyHeavy` | unverified | — | — | — |
 | `union:interface:TableProps@property:border#BorderProps` | unverified | — | — | — |
 | `union:interface:TableProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet#boolean` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaLcParenBoth` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaLcParenR` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaLcPeriod` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaUcParenBoth` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaUcParenR` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaUcPeriod` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.numberType#arabicParenBoth` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.numberType#arabicParenR` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.numberType#arabicPeriod` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.numberType#arabicPlain` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.numberType#romanLcParenBoth` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.numberType#romanLcParenR` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.numberType#romanLcPeriod` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.numberType#romanUcParenBoth` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.numberType#romanUcParenR` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.numberType#romanUcPeriod` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.type#bullet` | unverified | — | — | — |
-| `union:interface:TableProps@property:bullet@path:bullet.type#number` | unverified | — | — | — |
+| `union:interface:TableProps@property:bullet#boolean` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaLcParenBoth` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaLcParenR` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaLcPeriod` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaUcParenBoth` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaUcParenR` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.numberType#alphaUcPeriod` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.numberType#arabicParenBoth` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.numberType#arabicParenR` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.numberType#arabicPeriod` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.numberType#arabicPlain` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.numberType#romanLcParenBoth` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.numberType#romanLcParenR` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.numberType#romanLcPeriod` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.numberType#romanUcParenBoth` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.numberType#romanUcParenR` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.numberType#romanUcPeriod` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.type#bullet` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableProps@property:bullet@path:bullet.type#number` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `union:interface:TableProps@property:colW#number` | unverified | — | — | — |
 | `union:interface:TableProps@property:colW#number[]` | unverified | — | — | — |
 | `union:interface:TableProps@property:rowH#number` | unverified | — | — | — |
@@ -2607,25 +2432,25 @@ None.
 | `union:interface:TableProps@property:underline@path:underline.style#wavyHeavy` | unverified | — | — | — |
 | `union:interface:TableToSlidesProps@property:border#BorderProps` | unverified | — | — | — |
 | `union:interface:TableToSlidesProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet#boolean` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaLcParenBoth` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaLcParenR` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaLcPeriod` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaUcParenBoth` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaUcParenR` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaUcPeriod` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#arabicParenBoth` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#arabicParenR` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#arabicPeriod` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#arabicPlain` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanLcParenBoth` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanLcParenR` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanLcPeriod` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanUcParenBoth` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanUcParenR` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanUcPeriod` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.type#bullet` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:bullet@path:bullet.type#number` | unverified | — | — | — |
+| `union:interface:TableToSlidesProps@property:bullet#boolean` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaLcParenBoth` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaLcParenR` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaLcPeriod` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaUcParenBoth` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaUcParenR` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#alphaUcPeriod` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#arabicParenBoth` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#arabicParenR` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#arabicPeriod` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#arabicPlain` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanLcParenBoth` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanLcParenR` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanLcPeriod` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanUcParenBoth` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanUcParenR` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.numberType#romanUcPeriod` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.type#bullet` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
+| `union:interface:TableToSlidesProps@property:bullet@path:bullet.type#number` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `union:interface:TableToSlidesProps@property:colW#number` | unverified | — | — | — |
 | `union:interface:TableToSlidesProps@property:colW#number[]` | unverified | — | — | — |
 | `union:interface:TableToSlidesProps@property:rowH#number` | unverified | — | — | — |
@@ -2668,15 +2493,15 @@ None.
 | `class:PptxGenJS@property:layout` | unverified | — | — | — |
 | `class:PptxGenJS@property:presLayout` | supported | PptxDocument.presLayout | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs | Native projects detached standard and custom presentation dimensions through a getter. |
 | `class:PptxGenJS@property:theme` | unverified | — | — | — |
-| `inline:interface:PlaceholderProps@property:bullet@property:bullet.characterCode` | unverified | — | — | — |
-| `inline:interface:PlaceholderProps@property:bullet@property:bullet.code` | unverified | — | — | — |
-| `inline:interface:PlaceholderProps@property:bullet@property:bullet.indent` | unverified | — | — | — |
-| `inline:interface:PlaceholderProps@property:bullet@property:bullet.marginPt` | unverified | — | — | — |
-| `inline:interface:PlaceholderProps@property:bullet@property:bullet.numberStartAt` | unverified | — | — | — |
-| `inline:interface:PlaceholderProps@property:bullet@property:bullet.numberType` | unverified | — | — | — |
-| `inline:interface:PlaceholderProps@property:bullet@property:bullet.startAt` | unverified | — | — | — |
-| `inline:interface:PlaceholderProps@property:bullet@property:bullet.style` | unverified | — | — | — |
-| `inline:interface:PlaceholderProps@property:bullet@property:bullet.type` | unverified | — | — | — |
+| `inline:interface:PlaceholderProps@property:bullet@property:bullet.characterCode` | deliberate-difference | AddTextOptions.bullet<br>CharacterBullet.character<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents PlaceholderProps bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
+| `inline:interface:PlaceholderProps@property:bullet@property:bullet.code` | deprecated-alias | AddTextOptions.bullet<br>CharacterBullet.character<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 keeps bullet.code as a working deprecated alias of bullet.characterCode; native rejects the alias and exposes only its strict semantic bullet field. |
+| `inline:interface:PlaceholderProps@property:bullet@property:bullet.indent` | deliberate-difference | AddTextOptions.bullet<br>CharacterBullet.indent<br>NumberedBullet.indent<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents PlaceholderProps bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
+| `inline:interface:PlaceholderProps@property:bullet@property:bullet.marginPt` | defect-excluded | AddTextOptions.bullet<br>CharacterBullet.indent<br>NumberedBullet.indent<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.marginPt but its writer never reads it and always uses bullet.indent or the default margin. |
+| `inline:interface:PlaceholderProps@property:bullet@property:bullet.numberStartAt` | deliberate-difference | AddTextOptions.bullet<br>NumberedBullet.startAt<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents PlaceholderProps bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
+| `inline:interface:PlaceholderProps@property:bullet@property:bullet.numberType` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `inline:interface:PlaceholderProps@property:bullet@property:bullet.startAt` | deprecated-alias | AddTextOptions.bullet<br>NumberedBullet.startAt<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 keeps bullet.startAt as a working deprecated alias of bullet.numberStartAt; native rejects the alias and exposes only its strict semantic bullet field. |
+| `inline:interface:PlaceholderProps@property:bullet@property:bullet.style` | deliberate-difference | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents PlaceholderProps bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
+| `inline:interface:PlaceholderProps@property:bullet@property:bullet.type` | deliberate-difference | AddTextOptions.bullet<br>CharacterBullet.kind<br>NumberedBullet.kind<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents PlaceholderProps bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
 | `inline:interface:PlaceholderProps@property:tabStops@property:tabStops.alignment` | unverified | — | — | — |
 | `inline:interface:PlaceholderProps@property:tabStops@property:tabStops.position` | unverified | — | — | — |
 | `inline:interface:PlaceholderProps@property:underline@property:underline.color` | unverified | — | — | — |
@@ -2694,7 +2519,7 @@ None.
 | `interface:PlaceholderProps@property:align` | unverified | — | — | — |
 | `interface:PlaceholderProps@property:bold` | unverified | — | — | — |
 | `interface:PlaceholderProps@property:breakLine` | unverified | — | — | — |
-| `interface:PlaceholderProps@property:bullet` | unverified | — | — | — |
+| `interface:PlaceholderProps@property:bullet` | supported | AddTextOptions.bullet<br>ParagraphBullet<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers the complete effective PlaceholderProps.bullet output through its strict ParagraphBullet model and preserves standard, character, and numbered bullets through serialization and reopen. |
 | `interface:PlaceholderProps@property:color` | unverified | — | — | — |
 | `interface:PlaceholderProps@property:fontFace` | unverified | — | — | — |
 | `interface:PlaceholderProps@property:fontSize` | unverified | — | — | — |
@@ -2748,25 +2573,25 @@ None.
 | `union:ThemeColor#bg2` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
 | `union:ThemeColor#tx1` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
 | `union:ThemeColor#tx2` | supported | SCHEME_COLORS<br>SchemeColor | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/pptxgenjs-adapter/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native exposes the same scheme-color value through its frozen catalog and legal OOXML output. |
-| `union:interface:PlaceholderProps@property:bullet#boolean` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaLcParenBoth` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaLcParenR` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaLcPeriod` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaUcParenBoth` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaUcParenR` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaUcPeriod` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#arabicParenBoth` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#arabicParenR` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#arabicPeriod` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#arabicPlain` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanLcParenBoth` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanLcParenR` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanLcPeriod` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanUcParenBoth` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanUcParenR` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanUcPeriod` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.type#bullet` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:bullet@path:bullet.type#number` | unverified | — | — | — |
+| `union:interface:PlaceholderProps@property:bullet#boolean` | deliberate-difference | AddTextOptions.bullet<br>ParagraphBullet<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents PlaceholderProps bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaLcParenBoth` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaLcParenR` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaLcPeriod` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaUcParenBoth` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaUcParenR` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#alphaUcPeriod` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#arabicParenBoth` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#arabicParenR` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#arabicPeriod` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#arabicPlain` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanLcParenBoth` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanLcParenR` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanLcPeriod` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanUcParenBoth` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanUcParenR` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanUcPeriod` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.type#bullet` | defect-excluded | AddTextOptions.bullet<br>CharacterBullet.kind<br>NumberedBullet.kind<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.type='bullet', but its object writer only handles the number branch and emits no bullet for this legal token. |
+| `union:interface:PlaceholderProps@property:bullet@path:bullet.type#number` | deliberate-difference | AddTextOptions.bullet<br>CharacterBullet.kind<br>NumberedBullet.kind<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents PlaceholderProps bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
 | `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#ctr` | unverified | — | — | — |
 | `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#dec` | unverified | — | — | — |
 | `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#l` | unverified | — | — | — |

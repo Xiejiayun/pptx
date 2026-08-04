@@ -14683,6 +14683,221 @@ describe('importPptxGenJS', () => {
     expect(nativeSlide.shapes).toHaveLength(4);
   });
 
+  it('locks bullet and numbering behavior across every declared owner', async () => {
+    const numberTypes = [
+      'alphaLcParenBoth',
+      'alphaLcParenR',
+      'alphaLcPeriod',
+      'alphaUcParenBoth',
+      'alphaUcParenR',
+      'alphaUcPeriod',
+      'arabicParenBoth',
+      'arabicParenR',
+      'arabicPeriod',
+      'arabicPlain',
+      'romanLcParenBoth',
+      'romanLcParenR',
+      'romanLcPeriod',
+      'romanUcParenBoth',
+      'romanUcParenR',
+      'romanUcPeriod',
+    ] as const;
+    const bulletCases = [
+      { name: 'boolean', value: true },
+      { name: 'empty', value: {} },
+      { name: 'typed-bullet', value: { type: 'bullet' } },
+      { name: 'character', value: { characterCode: '25BA', indent: 18 } },
+      { name: 'code-alias', value: { code: '25C6', indent: 19 } },
+      {
+        name: 'canonical-number',
+        value: {
+          type: 'number', numberType: 'romanUcPeriod', numberStartAt: 3, indent: 22,
+        },
+      },
+      {
+        name: 'legacy-number',
+        value: { type: 'number', style: 'romanLcParenR', startAt: 4, indent: 24 },
+      },
+      { name: 'margin-alias', value: { marginPt: 4 } },
+    ] as const;
+    const source = new PptxGenJS();
+    const slideNumberSlide = source.addSlide();
+    slideNumberSlide.slideNumber = {
+      x: 0,
+      y: 0,
+      w: 1,
+      h: 0.3,
+      bullet: {
+        type: 'number', characterCode: '25BA', code: '25C6', indent: 18,
+        marginPt: 4, numberType: 'romanUcPeriod', numberStartAt: 3,
+        style: 'romanLcParenR', startAt: 4,
+      },
+    } as unknown as PptxGenJSSlideNumberProps;
+    const slide = source.addSlide();
+    for (const [index, fixture] of bulletCases.entries()) {
+      slide.addText(fixture.name, {
+        objectName: `bullet-text-${fixture.name}`,
+        x: 0,
+        y: index * 0.2,
+        w: 2,
+        h: 0.2,
+        bullet: fixture.value,
+      });
+    }
+    for (const [index, numberType] of numberTypes.entries()) {
+      slide.addText(numberType, {
+        objectName: `number-type-${numberType}`,
+        x: 2,
+        y: index * 0.2,
+        w: 2,
+        h: 0.2,
+        bullet: { type: 'number', numberType, numberStartAt: index + 1 },
+      });
+      slide.addText(numberType, {
+        objectName: `legacy-style-${numberType}`,
+        x: 4,
+        y: index * 0.2,
+        w: 2,
+        h: 0.2,
+        bullet: { type: 'number', style: numberType, numberStartAt: index + 1 },
+      });
+    }
+    slide.addTable([bulletCases.map((fixture) => ({
+      text: fixture.name,
+      options: { bullet: fixture.value },
+    }))], {
+      x: 0,
+      y: 4,
+      w: 8,
+      h: 0.5,
+      objectName: 'bullet-cell-matrix',
+    });
+    slide.addTable([['table boolean inert']], {
+      x: 0,
+      y: 5,
+      w: 3,
+      h: 0.5,
+      objectName: 'table-bullet-boolean-inert',
+      bullet: true,
+    });
+    slide.addTable([['table object inert']], {
+      x: 3,
+      y: 5,
+      w: 3,
+      h: 0.5,
+      objectName: 'table-bullet-object-inert',
+      bullet: {
+        type: 'number', characterCode: '25BA', code: '25C6', indent: 18,
+        marginPt: 4, numberType: 'romanUcPeriod', numberStartAt: 3,
+        style: 'romanLcParenR', startAt: 4,
+      },
+    });
+    source.defineSlideMaster({
+      title: 'BULLET-OWNER-MATRIX',
+      objects: bulletCases.map((fixture, index): PptxGenJSMasterObject => ({
+        placeholder: {
+          text: fixture.name,
+          options: {
+            name: `bullet-placeholder-${fixture.name}`,
+            objectName: `bullet-placeholder-${fixture.name}`,
+            type: 'body',
+            x: 0,
+            y: index * 0.3,
+            w: 3,
+            h: 0.3,
+            bullet: fixture.value,
+          },
+        },
+      })),
+    });
+    source.addSlide({ masterName: 'BULLET-OWNER-MATRIX' });
+
+    const imported = await openPptxGenJSPublicOutput(source);
+    const bulletSnapshot = (shape: ShapeModel) => shape.richText[0]?.bullet;
+    const textShapes = new Map(imported.slides[1]!.shapes
+      .filter((shape): shape is ShapeModel => shape instanceof ShapeModel)
+      .map((shape) => [shape.name, shape]));
+    expect(bulletCases.map(({ name }) => bulletSnapshot(
+      textShapes.get(`bullet-text-${name}`)!,
+    ))).toEqual([
+      { kind: 'bullet', character: '•', indent: 27 },
+      { kind: 'bullet', character: '•', indent: 27 },
+      undefined,
+      { kind: 'bullet', character: '►', indent: 18 },
+      { kind: 'bullet', character: '◆', indent: 19 },
+      { kind: 'number', style: 'arabicPeriod', startAt: 3, indent: 22 },
+      { kind: 'number', style: 'romanLcParenR', startAt: 4, indent: 24 },
+      { kind: 'bullet', character: '•', indent: 27 },
+    ]);
+    expect(numberTypes.map((numberType) => bulletSnapshot(
+      textShapes.get(`number-type-${numberType}`)!,
+    ))).toEqual(numberTypes.map((_, index) => ({
+      kind: 'number', style: 'arabicPeriod', startAt: index + 1, indent: 27,
+    })));
+    expect(numberTypes.map((numberType) => bulletSnapshot(
+      textShapes.get(`legacy-style-${numberType}`)!,
+    ))).toEqual(numberTypes.map((style, index) => ({
+      kind: 'number', style, startAt: index + 1, indent: 27,
+    })));
+
+    const matrixXml = slideXml(imported, 1);
+    const tableFrames = [...matrixXml.matchAll(
+      /<p:graphicFrame(?:\s[^>]*)?>[\s\S]*?<\/p:graphicFrame>/gu,
+    )].map((match) => match[0]);
+    expect(tableFrames).toHaveLength(3);
+    const activeCells = [...tableFrames[0]!.matchAll(
+      /<a:tc(?:\s[^>]*)?>[\s\S]*?<\/a:tc>/gu,
+    )].map((match) => match[0]);
+    expect(activeCells).toHaveLength(8);
+    expect(activeCells[0]).toContain('<a:buChar char="&#x2022;"/>');
+    expect(activeCells[1]).toContain('<a:buChar char="&#x2022;"/>');
+    expect(activeCells[2]).not.toMatch(/<a:bu(?:Char|AutoNum)\b/u);
+    expect(activeCells[3]).toContain('<a:buChar char="&#x25BA;"/>');
+    expect(activeCells[3]).toContain('marL="228600" indent="-228600"');
+    expect(activeCells[4]).toContain('<a:buChar char="&#x25C6;"/>');
+    expect(activeCells[5]).toContain('<a:buAutoNum type="arabicPeriod" startAt="3"/>');
+    expect(activeCells[6]).toContain('<a:buAutoNum type="romanLcParenR" startAt="4"/>');
+    expect(activeCells[7]).toContain('<a:buChar char="&#x2022;"/>');
+    expect(tableFrames.slice(1).every(
+      (frame) => !/<a:bu(?:Char|AutoNum)\b/u.test(frame),
+    )).toBe(true);
+
+    const layout = imported.layouts.find(({ name }) => name === 'BULLET-OWNER-MATRIX')!;
+    const placeholders = new Map(layout.placeholders
+      .filter((shape): shape is ShapeModel => shape instanceof ShapeModel)
+      .map((shape) => [shape.name, shape]));
+    expect(bulletCases.map(({ name }) => bulletSnapshot(
+      placeholders.get(`bullet-placeholder-${name}`)!,
+    ))).toEqual([
+      { kind: 'bullet', character: '•', indent: 27 },
+      { kind: 'bullet', character: '•', indent: 27 },
+      undefined,
+      { kind: 'bullet', character: '►', indent: 18 },
+      { kind: 'bullet', character: '◆', indent: 19 },
+      { kind: 'number', style: 'arabicPeriod', startAt: 3, indent: 22 },
+      { kind: 'number', style: 'romanLcParenR', startAt: 4, indent: 24 },
+      { kind: 'bullet', character: '•', indent: 27 },
+    ]);
+    const slideNumberXml = slideNumberOwnerState(imported, imported.slides[0]!.partUri).xml
+      .match(/<p:sp(?:\s[^>]*)?>[\s\S]*?<p:ph\b[^>]*\btype="sldNum"[\s\S]*?<\/p:sp>/u)?.[0];
+    expect(slideNumberXml).toBeDefined();
+    expect(slideNumberXml).not.toMatch(/<a:bu(?:Char|AutoNum)\b/u);
+
+    const generateTableToSlides = async (bullet?: unknown) => {
+      const presentation = new PptxGenJS();
+      await withTableToSlidesGlobals(tableToSlidesFixture(), () =>
+        presentation.tableToSlides('report', bullet === undefined ? {} : { bullet }));
+      return openPptxGenJSPublicOutput(presentation);
+    };
+    const tableToSlidesBaseline = await generateTableToSlides();
+    const tableToSlidesVariant = await generateTableToSlides({
+      type: 'number', characterCode: '25BA', code: '25C6', indent: 18,
+      marginPt: 4, numberType: 'romanUcPeriod', numberStartAt: 3,
+      style: 'romanLcParenR', startAt: 4,
+    });
+    expect(slideXml(tableToSlidesVariant, 0)).toBe(slideXml(tableToSlidesBaseline, 0));
+  });
+
   it('imports public PptxGenJS output and continues editing in the OOXML kernel', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

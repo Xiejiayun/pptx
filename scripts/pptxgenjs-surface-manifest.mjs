@@ -1185,6 +1185,256 @@ const INERT_CHART_OPTION_DEFECT_ENTRIES = Object.freeze(
   INERT_CHART_OPTION_IDS.map((id) => inertChartOptionDefectEntry(id)),
 );
 
+const BULLET_FAMILY_CONTROL_TITLE =
+  'locks bullet and numbering behavior across every declared owner';
+const BULLET_FAMILY_OOXML_TITLE =
+  'creates and reopens bullet and numbering owners in all six formats';
+const BULLET_FAMILY_FIELDS = Object.freeze([
+  'characterCode',
+  'code',
+  'indent',
+  'marginPt',
+  'numberStartAt',
+  'numberType',
+  'startAt',
+  'style',
+  'type',
+]);
+const BULLET_FAMILY_ACTIVE_OWNERS = Object.freeze([
+  'PlaceholderProps',
+  'TableCellProps',
+  'TextPropsOptions',
+]);
+const BULLET_FAMILY_INERT_OWNERS = Object.freeze([
+  'SlideNumberProps',
+  'TableProps',
+  'TableToSlidesProps',
+]);
+function bulletFamilyInlineId(owner, field) {
+  return `inline:${linePropertyId(owner, 'bullet')}@property:bullet.${field}`;
+}
+
+function bulletFamilyUnionId(owner, path, value) {
+  const suffix = path === undefined ? '' : `@path:${path}`;
+  return `union:${linePropertyId(owner, 'bullet')}${suffix}#${value}`;
+}
+
+function bulletFamilyOwnerIds(owner) {
+  return [
+    linePropertyId(owner, 'bullet'),
+    ...BULLET_FAMILY_FIELDS.map((field) => bulletFamilyInlineId(owner, field)),
+    bulletFamilyUnionId(owner, undefined, 'boolean'),
+    ...INERT_CHART_BULLET_NUMBER_TYPES.map((value) =>
+      bulletFamilyUnionId(owner, 'bullet.numberType', value)),
+    ...['bullet', 'number'].map((value) =>
+      bulletFamilyUnionId(owner, 'bullet.type', value)),
+  ].sort();
+}
+
+function bulletFamilyNative(owner, id) {
+  const ownerMapping = owner === 'PlaceholderProps'
+    ? ['AddTextOptions.bullet', 'SlideModel.addPlaceholder']
+    : owner === 'TextPropsOptions'
+      ? ['AddTextOptions.bullet', 'SlideModel.addText']
+      : ['RichTextParagraph.bullet', 'AddTableCell.text', 'SlideModel.addTable'];
+  const fieldMapping = id.includes('characterCode') || id.includes('bullet.code')
+    ? ['CharacterBullet.character']
+    : id.includes('numberStartAt') || id.includes('bullet.startAt')
+      ? ['NumberedBullet.startAt']
+      : id.includes('numberType') || id.includes('bullet.style')
+        ? ['NumberedBullet.style', 'NumberingStyle']
+        : id.includes('bullet.indent') || id.includes('marginPt')
+          ? ['CharacterBullet.indent', 'NumberedBullet.indent']
+          : id.includes('bullet.type')
+            ? ['CharacterBullet.kind', 'NumberedBullet.kind']
+            : ['ParagraphBullet'];
+  return [...fieldMapping, ...ownerMapping];
+}
+
+function bulletFamilyEvidence() {
+  return {
+    code: [{
+      path: 'packages/model/src/rich-text.internal.ts',
+      pattern: 'export function normalizeParagraphBullet(',
+    }],
+    tests: [
+      {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: BULLET_FAMILY_CONTROL_TITLE,
+      },
+      {
+        path: 'packages/sdk/src/index.test.ts',
+        title: BULLET_FAMILY_OOXML_TITLE,
+      },
+    ],
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const bulletNumberingState = {',
+    }],
+    ooxml: [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: BULLET_FAMILY_OOXML_TITLE,
+    }],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'const bulletNumberingState = {',
+    }],
+  };
+}
+
+function bulletFamilyDefectEntry(owner, id) {
+  const inertOwner = BULLET_FAMILY_INERT_OWNERS.includes(owner);
+  const marginAlias = id === bulletFamilyInlineId(owner, 'marginPt');
+  const typedBullet = id === bulletFamilyUnionId(owner, 'bullet.type', 'bullet');
+  return {
+    id,
+    status: 'defect-excluded',
+    native: inertOwner ? [] : bulletFamilyNative(owner, id),
+    evidence: {
+      code: [],
+      tests: [{
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: BULLET_FAMILY_CONTROL_TITLE,
+      }],
+      package: [],
+      ooxml: [],
+      clients: [],
+    },
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: BULLET_FAMILY_CONTROL_TITLE,
+    },
+    note: inertOwner
+      ? `PptxGenJS 4.0.1 inherits bullet declarations into ${owner}, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner.`
+      : marginAlias
+        ? `PptxGenJS 4.0.1 declares ${owner}.bullet.marginPt but its writer never reads it and always uses bullet.indent or the default margin.`
+        : typedBullet
+          ? `PptxGenJS 4.0.1 declares ${owner}.bullet.type='bullet', but its object writer only handles the number branch and emits no bullet for this legal token.`
+          : `PptxGenJS 4.0.1 declares ${owner}.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead.`,
+  };
+}
+
+function bulletFamilyDeprecatedEntry(owner, field, canonicalField) {
+  const id = bulletFamilyInlineId(owner, field);
+  return {
+    id,
+    status: 'deprecated-alias',
+    native: bulletFamilyNative(owner, id),
+    evidence: bulletFamilyEvidence(),
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: BULLET_FAMILY_CONTROL_TITLE,
+    },
+    canonical: bulletFamilyInlineId(owner, canonicalField),
+    serialization: true,
+    client: true,
+    note: `PptxGenJS 4.0.1 keeps bullet.${field} as a working deprecated alias of bullet.${canonicalField}; native rejects the alias and exposes only its strict semantic bullet field.`,
+  };
+}
+
+function bulletFamilyDifferenceEntry(owner, id) {
+  const tableOwner = owner === 'TableCellProps';
+  return {
+    id,
+    status: 'deliberate-difference',
+    native: bulletFamilyNative(owner, id),
+    evidence: bulletFamilyEvidence(),
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: BULLET_FAMILY_CONTROL_TITLE,
+    },
+    serialization: true,
+    client: true,
+    note: tableOwner
+      ? `Native represents ${owner} bullets in explicit cell rich-text paragraphs with a strict discriminated union; PptxGenJS uses permissive inherited cell or table defaults, hexadecimal character codes, and truthy fallbacks.`
+      : `Native represents ${owner} bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks.`,
+  };
+}
+
+function bulletFamilySupportedPropertyEntry(owner) {
+  const id = linePropertyId(owner, 'bullet');
+  return {
+    id,
+    status: 'supported',
+    native: bulletFamilyNative(owner, id),
+    evidence: bulletFamilyEvidence(),
+    serialization: true,
+    client: true,
+    note: `Native covers the complete effective ${owner}.bullet output through its strict ParagraphBullet model and preserves standard, character, and numbered bullets through serialization and reopen.`,
+  };
+}
+
+function bulletFamilyActiveEntry(owner, id) {
+  if (
+    id === bulletFamilyInlineId(owner, 'numberType')
+    || id === bulletFamilyInlineId(owner, 'marginPt')
+    || id === bulletFamilyUnionId(owner, 'bullet.type', 'bullet')
+    || id.startsWith(`union:${linePropertyId(owner, 'bullet')}@path:bullet.numberType#`)
+  ) return bulletFamilyDefectEntry(owner, id);
+  if (id === bulletFamilyInlineId(owner, 'code')) {
+    return bulletFamilyDeprecatedEntry(owner, 'code', 'characterCode');
+  }
+  if (id === bulletFamilyInlineId(owner, 'startAt')) {
+    return bulletFamilyDeprecatedEntry(owner, 'startAt', 'numberStartAt');
+  }
+  if (id === linePropertyId(owner, 'bullet')) {
+    return bulletFamilySupportedPropertyEntry(owner);
+  }
+  return bulletFamilyDifferenceEntry(owner, id);
+}
+
+const BULLET_FAMILY_ENTRIES = Object.freeze([
+  ...BULLET_FAMILY_ACTIVE_OWNERS.flatMap((owner) =>
+    bulletFamilyOwnerIds(owner).map((id) => bulletFamilyActiveEntry(owner, id))),
+  ...BULLET_FAMILY_INERT_OWNERS.flatMap((owner) =>
+    bulletFamilyOwnerIds(owner).map((id) => bulletFamilyDefectEntry(owner, id))),
+  {
+    id: linePropertyId('TextPropsOptions', 'indentLevel'),
+    status: 'deliberate-difference',
+    native: [
+      'AddTextOptions.level',
+      'RichTextParagraph.level',
+      'SlideModel.addText',
+      'SlideModel.addRichText',
+    ],
+    evidence: {
+      code: [{
+        path: 'packages/model/src/rich-text.internal.ts',
+        pattern: 'export function normalizeParagraphLevel(',
+      }],
+      tests: [
+        {
+          path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+          title: BULLET_FAMILY_CONTROL_TITLE,
+        },
+        {
+          path: 'packages/sdk/src/index.test.ts',
+          title: BULLET_FAMILY_OOXML_TITLE,
+        },
+      ],
+      package: [{
+        path: 'scripts/smoke-npm-package.mjs',
+        pattern: 'const bulletNumberingState = {',
+      }],
+      ooxml: [{
+        path: 'packages/sdk/src/index.test.ts',
+        pattern: BULLET_FAMILY_OOXML_TITLE,
+      }],
+      clients: [{
+        path: 'scripts/playwright-browser-smoke.js',
+        pattern: 'const bulletNumberingState = {',
+      }],
+    },
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: BULLET_FAMILY_CONTROL_TITLE,
+    },
+    serialization: true,
+    client: true,
+    note: 'Native preserves list levels as strict integers from zero through eight, including explicit level zero; PptxGenJS uses indentLevel, ignores non-positive values, and permissively emits out-of-range positive values.',
+  },
+]);
+
 const TABLE_TO_SLIDES_FILL_CONTROL_TITLE =
   'isolates the ignored tableToSlides fill declaration from computed CSS backgrounds';
 const TABLE_TO_SLIDES_FILL_DEFECT_ENTRY = Object.freeze({
@@ -1556,6 +1806,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...CHART_AXIS_LINE_GRID_DIFFERENCE_ENTRIES,
     ...CHART_AXIS_BEHAVIOR_DIFFERENCE_ENTRIES,
     ...INERT_CHART_OPTION_DEFECT_ENTRIES,
+    ...BULLET_FAMILY_ENTRIES,
     ...['ShapeType', 'SHAPE_NAME'].flatMap((owner) =>
       DECLARED_PRESET_SHAPE_VALUES.map((value) => presetShapeCatalogEntry(owner, value))),
     ...['SchemeColor', 'ThemeColor'].flatMap((owner) =>

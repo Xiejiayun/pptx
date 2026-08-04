@@ -9853,7 +9853,179 @@ const tableToSlidesState = {
 const tableToSlides = Object.values(tableToSlidesState).every(
   (value) => value === true || value === 0,
 );
+const packedBulletNumberingStyles = [
+  'alphaLcParenBoth',
+  'alphaLcParenR',
+  'alphaLcPeriod',
+  'alphaUcParenBoth',
+  'alphaUcParenR',
+  'alphaUcPeriod',
+  'arabicParenBoth',
+  'arabicParenR',
+  'arabicPeriod',
+  'arabicPlain',
+  'romanLcParenBoth',
+  'romanLcParenR',
+  'romanLcPeriod',
+  'romanUcParenBoth',
+  'romanUcParenR',
+  'romanUcPeriod',
+];
+const bulletNumberingDeck = PptxDocument.create();
+const bulletNumberingLayout = bulletNumberingDeck.layouts[0];
+const packedBulletPlaceholder = bulletNumberingLayout.addPlaceholder(
+  'Packed numbered placeholder',
+  {
+    name: 'packed_bullet_numbering_placeholder',
+    type: 'body',
+    index: 501,
+    bullet: { kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 },
+  },
+);
+const bulletNumberingSlide = bulletNumberingDeck.addSlide();
+const packedPlainBullets = bulletNumberingSlide.addText('Packed first\\nPacked second', {
+  name: 'packed_plain_bullets',
+  bullet: true,
+});
+const packedAllNumberingStyles = bulletNumberingSlide.addRichText(
+  packedBulletNumberingStyles.map((style, index) => ({
+    runs: [{ text: style }],
+    bullet: { kind: 'number', style, startAt: index + 1, indent: 20 },
+  })),
+  { name: 'packed_all_numbering_styles' },
+);
+const packedBulletTable = bulletNumberingSlide.addTable([[{
+  text: [{
+    runs: [{ text: 'Packed table bullet' }],
+    bullet: { kind: 'bullet', character: '◆', indent: 19 },
+  }],
+}]], { name: 'packed_bullet_table' });
+const packedBulletSnapshot = packedAllNumberingStyles.richText;
+packedBulletSnapshot[0].runs[0].text = 'Detached caller text';
+packedBulletSnapshot[0].bullet.style = 'romanUcPeriod';
+packedBulletSnapshot[0].bullet.indent = 999;
+const packedBulletSnapshotDetached =
+  packedAllNumberingStyles.richText[0].runs[0].text === 'alphaLcParenBoth' &&
+  packedAllNumberingStyles.richText[0].bullet.style === 'alphaLcParenBoth' &&
+  packedAllNumberingStyles.richText[0].bullet.indent === 20;
+const packedBulletExpectedStyles = packedBulletNumberingStyles.map((style, index) => ({
+  kind: 'number',
+  style,
+  startAt: index + 1,
+  indent: 20,
+}));
+const packedBulletImmediate =
+  JSON.stringify(packedPlainBullets.richText.map(({ bullet }) => bullet)) ===
+    JSON.stringify([
+      { kind: 'bullet', character: '•', indent: 27 },
+      { kind: 'bullet', character: '•', indent: 27 },
+    ]) &&
+  JSON.stringify(packedAllNumberingStyles.richText.map(({ bullet }) => bullet)) ===
+    JSON.stringify(packedBulletExpectedStyles) &&
+  JSON.stringify(packedBulletPlaceholder.richText[0].bullet) ===
+    JSON.stringify({ kind: 'number', style: 'romanUcPeriod', startAt: 3, indent: 22 }) &&
+  JSON.stringify(packedBulletTable.rows[0].cells[0].richText[0].bullet) ===
+    JSON.stringify({ kind: 'bullet', character: '◆', indent: 19 });
+const packedBulletInitialSlideXml = new TextDecoder().decode(
+  bulletNumberingDeck.opcPackage.requirePart(bulletNumberingSlide.partUri).bytes,
+);
+const packedBulletInitialLayoutXml = new TextDecoder().decode(
+  bulletNumberingDeck.opcPackage.requirePart(bulletNumberingLayout.partUri).bytes,
+);
+const packedBulletInitialOoxml =
+  packedBulletNumberingStyles.every((style, index) =>
+    packedBulletInitialSlideXml.includes(
+      '<a:buAutoNum type="' + style + '" startAt="' + (index + 1) + '"/>',
+    )) &&
+  packedBulletInitialSlideXml.includes('<a:buChar char="•"/>') &&
+  packedBulletInitialSlideXml.includes('<a:buChar char="◆"/>') &&
+  /<a:pPr\\b[^>]*\\bindent="-254000"[^>]*\\bmarL="254000"/u.test(
+    packedBulletInitialSlideXml,
+  ) &&
+  packedBulletInitialLayoutXml.includes(
+    '<a:buAutoNum type="romanUcPeriod" startAt="3"/>',
+  ) &&
+  /<a:pPr\\b[^>]*\\bindent="-279400"[^>]*\\bmarL="279400"/u.test(
+    packedBulletInitialLayoutXml,
+  );
+packedAllNumberingStyles.richText = [{
+  runs: [{ text: 'Packed cleared numbering' }],
+  bullet: false,
+}];
+packedBulletPlaceholder.richText = [{
+  runs: [{ text: 'Packed edited placeholder bullet' }],
+  bullet: { kind: 'bullet', character: '▶', indent: 18 },
+}];
+packedBulletTable.setCellRichText(0, 0, [{
+  runs: [{ text: 'Packed edited table number' }],
+  bullet: { kind: 'number', style: 'alphaUcPeriod', startAt: 2, indent: 21 },
+}]);
+const packedBulletEditedSlideXml = new TextDecoder().decode(
+  bulletNumberingDeck.opcPackage.requirePart(bulletNumberingSlide.partUri).bytes,
+);
+const packedBulletEditedLayoutXml = new TextDecoder().decode(
+  bulletNumberingDeck.opcPackage.requirePart(bulletNumberingLayout.partUri).bytes,
+);
+const packedBulletEditedOoxml =
+  packedBulletEditedSlideXml.includes('Packed cleared numbering') &&
+  packedBulletEditedSlideXml.includes('<a:buNone/>') &&
+  packedBulletEditedSlideXml.includes(
+    '<a:buAutoNum type="alphaUcPeriod" startAt="2"/>',
+  ) &&
+  packedBulletEditedLayoutXml.includes('<a:buChar char="▶"/>') &&
+  !packedBulletEditedLayoutXml.includes('<a:buAutoNum');
+const reopenedBulletNumberingDeck = await PptxDocument.open(
+  await bulletNumberingDeck.write(),
+);
+await reopenedBulletNumberingDeck.write({ compatibility: 'powerpoint-2010' });
+const reopenedPackedPlainBullets = reopenedBulletNumberingDeck.slides[0].shapes.find(
+  ({ name }) => name === packedPlainBullets.name,
+);
+const reopenedPackedAllNumberingStyles = reopenedBulletNumberingDeck.slides[0].shapes.find(
+  ({ name }) => name === packedAllNumberingStyles.name,
+);
+const reopenedPackedBulletPlaceholder = reopenedBulletNumberingDeck.layouts[0].placeholders.find(
+  ({ name }) => name === packedBulletPlaceholder.name,
+);
+const reopenedPackedBulletTable = reopenedBulletNumberingDeck.slides[0].shapes.find(
+  ({ name }) => name === packedBulletTable.name,
+);
+const bulletNumberingState = {
+  snapshotDetached: packedBulletSnapshotDetached,
+  immediate: packedBulletImmediate,
+  initialOoxml: packedBulletInitialOoxml,
+  editedOoxml: packedBulletEditedOoxml,
+  reopenedPlain: JSON.stringify(reopenedPackedPlainBullets.richText.map(({ bullet }) => bullet)) ===
+    JSON.stringify([
+      { kind: 'bullet', character: '•', indent: 27 },
+      { kind: 'bullet', character: '•', indent: 27 },
+    ]),
+  reopenedClear: reopenedPackedAllNumberingStyles.richText[0].bullet === undefined,
+  reopenedPlaceholder: JSON.stringify(reopenedPackedBulletPlaceholder.richText[0].bullet) ===
+    JSON.stringify({ kind: 'bullet', character: '▶', indent: 18 }),
+  reopenedTable: JSON.stringify(
+    reopenedPackedBulletTable.rows[0].cells[0].richText[0].bullet,
+  ) === JSON.stringify({
+    kind: 'number', style: 'alphaUcPeriod', startAt: 2, indent: 21,
+  }),
+  diagnostics: reopenedBulletNumberingDeck.diagnostics.length === 0,
+};
+const bulletNumbering = Object.values(bulletNumberingState).every((value) => value === true);
+if (!bulletNumbering) {
+  throw new Error('Packed bullet and numbering lifecycle failed: ' + JSON.stringify({
+    state: bulletNumberingState,
+    immediate: {
+      plain: packedPlainBullets.richText,
+      styles: packedAllNumberingStyles.richText,
+      placeholder: packedBulletPlaceholder.richText,
+      table: packedBulletTable.rows[0].cells[0].richText,
+    },
+    diagnostics: reopenedBulletNumberingDeck.diagnostics,
+  }));
+}
 const checks = {
+  bulletNumbering,
+  bulletNumberingState,
   slideNumbers,
   slideDefaultColor,
   masterLayouts,
@@ -12624,6 +12796,69 @@ const browserText = created.addSlide().addText('Browser\\nText', { align: 'cente
 if (browserText.textWrap !== false || browserText.verticalAlignment !== 'bottom' || browserText.textDirection !== 'vert' || browserText.textFit !== 'resize' || browserText.richText.some(({ rtl }) => rtl !== true) || browserText.richText[0].tabStops[0].position !== 1.25 || browserText.textMargins.top !== 0 || browserText.textMargins.right !== 0 || browserText.textMargins.bottom !== 0 || browserText.textMargins.left !== 0) throw new Error('Browser create-text API failed');
 const browserRich = created.slides[0].addRichText([{ align: 'right', bullet: { kind: 'number', style: 'alphaUcPeriod' }, level: 3, spacing: { before: 4, after: 6 }, tabStops: [{ position: 2.5, alignment: 'decimal' }], runs: [{ text: 'Rich', style: { lang: 'ja-JP', baseline: 'subscript', characterSpacing: 0, bold: true, glow: { opacity: 0.75, size: 4 }, highlight: { kind: 'scheme', value: 'accent1' }, outline: { color: { kind: 'srgb', value: 'ff0000' }, size: 1.25 }, underline: { style: 'wavyDbl' }, strike: 'dblStrike' } }] }], { rtlMode: true }).richText[0];
 if (browserRich.rtl !== true || browserRich.tabStops[0].alignment !== 'decimal' || browserRich.runs[0].style.lang !== 'ja-JP' || browserRich.runs[0].style.baseline !== 'subscript' || browserRich.runs[0].style.characterSpacing !== 0 || browserRich.runs[0].style.glow.color.value !== 'FFFFFF' || browserRich.runs[0].style.glow.opacity !== 0.75 || browserRich.runs[0].style.glow.size !== 4 || browserRich.runs[0].style.highlight.value !== 'accent1' || browserRich.runs[0].style.outline.color.value !== 'FF0000' || browserRich.runs[0].style.outline.size !== 1.25 || browserRich.runs[0].style.underline.style !== 'wavyDbl' || browserRich.runs[0].style.strike !== 'dblStrike') throw new Error('Browser rich-text API failed');
+const browserBulletNumberingStyles = [
+  'alphaLcParenBoth',
+  'alphaLcParenR',
+  'alphaLcPeriod',
+  'alphaUcParenBoth',
+  'alphaUcParenR',
+  'alphaUcPeriod',
+  'arabicParenBoth',
+  'arabicParenR',
+  'arabicPeriod',
+  'arabicPlain',
+  'romanLcParenBoth',
+  'romanLcParenR',
+  'romanLcPeriod',
+  'romanUcParenBoth',
+  'romanUcParenR',
+  'romanUcPeriod',
+];
+const browserBulletDeck = PptxDocument.create();
+const browserBulletSlide = browserBulletDeck.addSlide();
+const browserBulletShape = browserBulletSlide.addRichText(
+  browserBulletNumberingStyles.map((style, index) => ({
+    runs: [{ text: style }],
+    bullet: { kind: 'number', style, startAt: index + 1, indent: 20 },
+  })),
+  { name: 'browser_bullet_numbering_snapshot' },
+);
+const browserBulletSnapshot = browserBulletShape.richText;
+browserBulletSnapshot[0].runs[0].text = 'Detached browser caller text';
+browserBulletSnapshot[0].bullet.style = 'romanUcPeriod';
+browserBulletSnapshot[0].bullet.startAt = 99;
+browserBulletSnapshot[0].bullet.indent = 999;
+const browserBulletExpected = browserBulletNumberingStyles.map((style, index) => ({
+  kind: 'number',
+  style,
+  startAt: index + 1,
+  indent: 20,
+}));
+const browserBulletXml = new TextDecoder().decode(
+  browserBulletDeck.opcPackage.requirePart(browserBulletSlide.partUri).bytes,
+);
+const reopenedBrowserBulletDeck = await PptxDocument.open(await browserBulletDeck.writeBlob());
+const reopenedBrowserBulletShape = reopenedBrowserBulletDeck.slides[0].shapes.find(
+  ({ name }) => name === browserBulletShape.name,
+);
+const browserBulletSnapshotChecks = {
+  detached: JSON.stringify(browserBulletShape.richText.map(({ bullet }) => bullet)) ===
+    JSON.stringify(browserBulletExpected) &&
+    browserBulletShape.richText[0].runs[0].text === 'alphaLcParenBoth',
+  exactStyles: browserBulletNumberingStyles.every((style, index) =>
+    browserBulletXml.includes(
+      '<a:buAutoNum type="' + style + '" startAt="' + (index + 1) + '"/>',
+    )),
+  exactIndent: browserBulletXml.includes('indent="-254000" marL="254000"'),
+  reopened: JSON.stringify(reopenedBrowserBulletShape.richText.map(({ bullet }) => bullet)) ===
+    JSON.stringify(browserBulletExpected),
+  diagnostics: reopenedBrowserBulletDeck.diagnostics.length === 0,
+};
+if (Object.values(browserBulletSnapshotChecks).some((value) => !value)) {
+  throw new Error(
+    'Browser bullet snapshot failed: ' + JSON.stringify(browserBulletSnapshotChecks),
+  );
+}
 const browserTransparency = created.slides[0].addRichText([{ runs: [{ text: 'Half', style: { transparency: 50 } }] }]);
 if (browserTransparency.richText[0].runs[0].style.transparency !== 50) throw new Error('Browser transparency create failed');
 browserTransparency.richText = [{ runs: [{ text: 'Cleared' }] }];
