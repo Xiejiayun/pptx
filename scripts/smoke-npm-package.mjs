@@ -10464,7 +10464,167 @@ if (!bulletNumbering) {
     diagnostics: reopenedBulletNumberingDeck.diagnostics,
   }));
 }
+const textRunScalarProperties = [
+  'bold',
+  'breakLine',
+  'color',
+  'fontFace',
+  'fontSize',
+  'highlight',
+  'italic',
+  'lang',
+  'softBreakBefore',
+];
+const textRunScalarOwners = [
+  'PlaceholderProps',
+  'SlideNumberProps',
+  'TableCellProps',
+  'TableProps',
+  'TableToSlidesProps',
+  'TextPropsOptions',
+];
+const packedTextRunScalarStyle = {
+  fontFamily: 'Aptos Display',
+  fontSize: 17.25,
+  lang: 'zh-CN',
+  bold: true,
+  italic: true,
+  color: { kind: 'srgb', value: 'C00000' },
+  highlight: { kind: 'scheme', value: 'accent2' },
+};
+const textRunScalarDocument = PptxDocument.create();
+const textRunScalarSlide = textRunScalarDocument.addSlide();
+const textRunScalarShape = textRunScalarSlide.addRichText([{
+  runs: [
+    { text: 'Packed scalar styled', style: packedTextRunScalarStyle },
+    {
+      text: 'Packed scalar soft',
+      softBreakBefore: true,
+      style: { bold: false, italic: false, lang: 'fr-CA' },
+    },
+    { text: 'Packed scalar paragraph', breakLine: true },
+    { text: 'Packed scalar tail' },
+  ],
+}], { name: 'packed_text_run_scalar_family' });
+const textRunScalarInitial =
+  textRunScalarShape.richText.length === 2 &&
+  JSON.stringify(textRunScalarShape.richText[0].runs[0].style) === JSON.stringify({
+    ...packedTextRunScalarStyle,
+    color: { kind: 'srgb', value: 'C00000' },
+    highlight: { kind: 'scheme', value: 'accent2' },
+  }) &&
+  textRunScalarShape.richText[0].runs[1].softBreakBefore === true &&
+  textRunScalarShape.richText[0].runs[1].style.bold === false &&
+  textRunScalarShape.richText[0].runs[1].style.italic === false;
+const textRunScalarDuplicate = textRunScalarDocument.duplicateSlide(0);
+textRunScalarShape.richText = [{ runs: [
+  {
+    text: 'Packed scalar edited',
+    style: {
+      fontFamily: 'Courier New',
+      fontSize: 24,
+      lang: 'ja-JP',
+      bold: false,
+      italic: false,
+      color: { kind: 'scheme', value: 'tx2' },
+      highlight: { kind: 'srgb', value: '00FF00' },
+    },
+  },
+] }];
+const textRunScalarEdited =
+  textRunScalarShape.richText[0].runs[0].style.fontFamily === 'Courier New' &&
+  textRunScalarShape.richText[0].runs[0].style.fontSize === 24 &&
+  textRunScalarShape.richText[0].runs[0].style.lang === 'ja-JP' &&
+  textRunScalarShape.richText[0].runs[0].style.bold === false &&
+  textRunScalarShape.richText[0].runs[0].style.italic === false &&
+  textRunScalarShape.richText[0].runs[0].style.color?.value === 'tx2' &&
+  textRunScalarShape.richText[0].runs[0].style.highlight?.value === '00FF00';
+const textRunScalarRollbackBytes = textRunScalarDocument.opcPackage
+  .requirePart(textRunScalarSlide.partUri).bytes.slice();
+let textRunScalarRollbackCaught = false;
+try {
+  textRunScalarDocument.transaction(() => {
+    textRunScalarShape.richText = [{ runs: [{ text: 'Packed scalar rollback' }] }];
+    throw new Error('restore packed scalar styles');
+  });
+} catch (error) {
+  textRunScalarRollbackCaught = error.message === 'restore packed scalar styles';
+}
+const textRunScalarRollback = textRunScalarRollbackCaught && packedBytesEqual(
+  textRunScalarRollbackBytes,
+  textRunScalarDocument.opcPackage.requirePart(textRunScalarSlide.partUri).bytes,
+) && textRunScalarShape.richText[0].runs[0].style.fontSize === 24;
+const textRunScalarXml = new TextDecoder().decode(
+  textRunScalarDocument.opcPackage.requirePart(textRunScalarSlide.partUri).bytes,
+);
+const textRunScalarDuplicateShape = textRunScalarDuplicate.shapes.find(
+  ({ name }) => name === textRunScalarShape.name,
+);
+const textRunScalarDuplicatePreserved =
+  textRunScalarDuplicateShape?.richText[0]?.runs[0]?.style?.fontFamily === 'Aptos Display' &&
+  textRunScalarDuplicateShape.richText[0].runs[0].style.fontSize === 17.25 &&
+  textRunScalarDuplicateShape.richText[0].runs[0].style.bold === true &&
+  textRunScalarDuplicateShape.richText[0].runs[0].style.highlight?.value === 'accent2';
+const reopenedTextRunScalarDocument = await PptxDocument.open(
+  await textRunScalarDocument.write(),
+);
+const reopenedTextRunScalarSource = reopenedTextRunScalarDocument.slides[0].shapes.find(
+  ({ name }) => name === textRunScalarShape.name,
+);
+const reopenedTextRunScalarDuplicate = reopenedTextRunScalarDocument.slides[1].shapes.find(
+  ({ name }) => name === textRunScalarShape.name,
+);
+const textRunScalarReopened =
+  reopenedTextRunScalarSource?.richText[0]?.runs[0]?.style?.fontFamily === 'Courier New' &&
+  reopenedTextRunScalarSource.richText[0].runs[0].style.fontSize === 24 &&
+  reopenedTextRunScalarSource.richText[0].runs[0].style.bold === false &&
+  reopenedTextRunScalarSource.richText[0].runs[0].style.highlight?.value === '00FF00' &&
+  reopenedTextRunScalarDuplicate?.richText[0]?.runs[0]?.style?.fontFamily === 'Aptos Display' &&
+  reopenedTextRunScalarDuplicate.richText[0].runs[0].style.highlight?.value === 'accent2';
+const textRunScalarFormatStates = [];
+for (const format of ['pptx', 'pptm', 'ppsx', 'ppsm', 'potx', 'potm']) {
+  const formatDocument = PptxDocument.create({ format });
+  formatDocument.addSlide().addRichText([{
+    runs: [{ text: 'Packed scalar ' + format, style: packedTextRunScalarStyle }],
+  }]);
+  const reopenedFormat = await PptxDocument.open(await formatDocument.write());
+  textRunScalarFormatStates.push(
+    reopenedFormat.format === format &&
+    reopenedFormat.slides[0].shapes[0].richText[0].runs[0].style.fontSize === 17.25 &&
+    reopenedFormat.slides[0].shapes[0].richText[0].runs[0].style.highlight?.value === 'accent2' &&
+    reopenedFormat.diagnostics.length === 0,
+  );
+}
+const textRunScalarFamilyState = {
+  catalog: textRunScalarProperties.length === 9 && textRunScalarOwners.length === 6,
+  owners: richTextBreakLine && slideNumbers && tableTextDefaults && tableToSlides,
+  initial: textRunScalarInitial,
+  edited: textRunScalarEdited,
+  rollback: textRunScalarRollback,
+  duplicate: textRunScalarDuplicatePreserved,
+  reopened: textRunScalarReopened,
+  sixFormats: textRunScalarFormatStates.every(Boolean),
+  xml: textRunScalarXml.includes('lang="ja-JP"') &&
+    textRunScalarXml.includes('sz="2400"') &&
+    textRunScalarXml.includes('b="0" i="0"') &&
+    textRunScalarXml.includes('<a:schemeClr val="tx2"/>') &&
+    textRunScalarXml.includes(
+      '<a:highlight><a:srgbClr val="00FF00"/></a:highlight>',
+    ) && textRunScalarXml.includes('<a:latin typeface="Courier New"/>'),
+  diagnostics: textRunScalarDocument.diagnostics.length === 0 &&
+    reopenedTextRunScalarDocument.diagnostics.length === 0,
+};
+const textRunScalarFamily = Object.values(textRunScalarFamilyState).every(Boolean);
+if (!textRunScalarFamily) {
+  throw new Error('Packed scalar text formatting family failed: ' + JSON.stringify({
+    state: textRunScalarFamilyState,
+    source: reopenedTextRunScalarSource?.richText,
+    duplicate: reopenedTextRunScalarDuplicate?.richText,
+  }));
+}
 const checks = {
+  textRunScalarFamily,
+  textRunScalarFamilyState,
   underlineFamily,
   underlineFamilyState,
   tabStops,
@@ -18766,6 +18926,8 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition, 
 
   const writeSummary = (serialized) => {
     const summary = JSON.parse(serialized);
+    summary.textRunScalarFamily = apiChecks.textRunScalarFamily;
+    summary.textRunScalarFamilyState = apiChecks.textRunScalarFamilyState;
     summary.tableMargins = apiChecks.tableMargins;
     summary.tableMarginsState = apiChecks.tableMarginsState;
     summary.tableMarginsInspect = true;

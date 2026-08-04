@@ -1911,6 +1911,225 @@ const TEXT_DIRECTION_FAMILY_ENTRIES = Object.freeze([
   ).map((id) => textDirectionSupportedEntry('TextPropsOptions', 'vert', id)),
 ]);
 
+const TEXT_RUN_SCALAR_FAMILY_CONTROL_TITLE =
+  'locks scalar text formatting behavior across every declared owner';
+const TEXT_RUN_SCALAR_FAMILY_OOXML_TITLE =
+  'creates and reopens scalar text formatting owners in all six formats';
+const TEXT_RUN_SCALAR_FAMILY_PROPERTIES = Object.freeze([
+  'bold',
+  'breakLine',
+  'color',
+  'fontFace',
+  'fontSize',
+  'highlight',
+  'italic',
+  'lang',
+  'softBreakBefore',
+]);
+const TEXT_RUN_SCALAR_FAMILY_STATUS = Object.freeze({
+  PlaceholderProps: Object.freeze({
+    bold: 'supported',
+    breakLine: 'defect-excluded',
+    color: 'deliberate-difference',
+    fontFace: 'deliberate-difference',
+    fontSize: 'supported',
+    highlight: 'deliberate-difference',
+    italic: 'supported',
+    lang: 'supported',
+    softBreakBefore: 'defect-excluded',
+  }),
+  SlideNumberProps: Object.freeze({
+    bold: 'supported',
+    breakLine: 'defect-excluded',
+    color: 'deliberate-difference',
+    fontFace: 'deliberate-difference',
+    fontSize: 'supported',
+    highlight: 'defect-excluded',
+    italic: 'defect-excluded',
+    lang: 'defect-excluded',
+    softBreakBefore: 'defect-excluded',
+  }),
+  TableCellProps: Object.freeze({
+    bold: 'deliberate-difference',
+    breakLine: 'supported',
+    color: 'deliberate-difference',
+    fontFace: 'deliberate-difference',
+    fontSize: 'supported',
+    highlight: 'deliberate-difference',
+    italic: 'supported',
+    lang: 'supported',
+    softBreakBefore: 'supported',
+  }),
+  TableProps: Object.freeze({
+    bold: 'supported',
+    breakLine: 'defect-excluded',
+    color: 'deliberate-difference',
+    fontFace: 'deliberate-difference',
+    fontSize: 'supported',
+    highlight: 'defect-excluded',
+    italic: 'defect-excluded',
+    lang: 'defect-excluded',
+    softBreakBefore: 'defect-excluded',
+  }),
+  TableToSlidesProps: Object.freeze(Object.fromEntries(
+    TEXT_RUN_SCALAR_FAMILY_PROPERTIES.map((property) => [property, 'defect-excluded']),
+  )),
+  TextPropsOptions: Object.freeze({
+    bold: 'supported',
+    breakLine: 'supported',
+    color: 'deliberate-difference',
+    fontFace: 'deliberate-difference',
+    fontSize: 'supported',
+    highlight: 'deliberate-difference',
+    italic: 'supported',
+    lang: 'supported',
+    softBreakBefore: 'supported',
+  }),
+});
+
+function textRunScalarFamilyEvidence() {
+  return {
+    code: [
+      {
+        path: 'packages/model/src/rich-text.internal.ts',
+        pattern: 'function normalizeStyle(',
+      },
+      {
+        path: 'packages/model/src/table-create.internal.ts',
+        pattern: 'export function normalizeTableDefinition(',
+      },
+      {
+        path: 'packages/codecs/src/slide-number.internal.ts',
+        pattern: 'function normalizeStyle(',
+      },
+    ],
+    tests: [
+      {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: TEXT_RUN_SCALAR_FAMILY_CONTROL_TITLE,
+      },
+      {
+        path: 'packages/sdk/src/index.test.ts',
+        title: TEXT_RUN_SCALAR_FAMILY_OOXML_TITLE,
+      },
+    ],
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const textRunScalarFamilyState = {',
+    }],
+    ooxml: [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: TEXT_RUN_SCALAR_FAMILY_OOXML_TITLE,
+    }],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'const textRunScalarFamilyState = {',
+    }],
+  };
+}
+
+function textRunScalarFamilyNative(owner, property) {
+  if (owner === 'TableToSlidesProps') return [];
+  const nativeProperty = property === 'fontFace' ? 'fontFamily' : property;
+  if (owner === 'SlideNumberProps') {
+    return [`SlideNumberTextStyle.${nativeProperty}`, 'SlideNumberOptions.style'];
+  }
+  if (owner === 'TableProps') {
+    return [`AddTableOptions.${nativeProperty}`, 'SlideModel.addTable', 'TableModel'];
+  }
+  const runProperty = property === 'breakLine' || property === 'softBreakBefore'
+    ? `RichTextRun.${property}`
+    : `RichTextRunStyle.${nativeProperty}`;
+  if (owner === 'TableCellProps') {
+    return [runProperty, 'AddTableCell.text', 'TableModel.setCellRichText'];
+  }
+  if (owner === 'PlaceholderProps') {
+    return [runProperty, 'ShapeModel.richText', 'SlideModel.addPlaceholder'];
+  }
+  return [runProperty, 'SlideModel.addRichText', 'ShapeModel.richText'];
+}
+
+function textRunScalarFamilySupportedEntry(owner, property) {
+  const lineBreak = property === 'breakLine' || property === 'softBreakBefore';
+  return {
+    id: linePropertyId(owner, property),
+    status: 'supported',
+    native: textRunScalarFamilyNative(owner, property),
+    evidence: textRunScalarFamilyEvidence(),
+    serialization: true,
+    client: true,
+    note: lineBreak
+      ? `Native covers effective ${owner}.${property} with canonical paragraph or soft-break OOXML and preserves it through edit, duplicate, all six formats, and reopen.`
+      : `Native covers effective ${owner}.${property} with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen.`,
+  };
+}
+
+function textRunScalarFamilyDifferenceEntry(owner, property) {
+  const note = property === 'fontFace'
+    ? `Native names ${owner}.fontFace as fontFamily, requires a non-empty XML-safe string, and writes the same effective typeface.`
+    : property === 'color'
+      ? `Native represents ${owner}.color as a strict sRGB or scheme RichTextColor instead of a permissive PptxGenJS color string.`
+      : property === 'highlight'
+        ? `Native represents ${owner}.highlight as a strict sRGB or scheme RichTextColor and emits it independently; PptxGenJS accepts permissive strings and conditionally drops some legal highlight-only input.`
+        : `Native preserves legal ${owner}.bold=false when overriding a true table default; PptxGenJS uses a truthy fallback that changes the effective value to true.`;
+  return {
+    id: linePropertyId(owner, property),
+    status: 'deliberate-difference',
+    native: textRunScalarFamilyNative(owner, property),
+    evidence: textRunScalarFamilyEvidence(),
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: TEXT_RUN_SCALAR_FAMILY_CONTROL_TITLE,
+    },
+    serialization: true,
+    client: true,
+    note,
+  };
+}
+
+function textRunScalarFamilyDefectEntry(owner, property) {
+  const tableToSlides = owner === 'TableToSlidesProps';
+  return {
+    id: linePropertyId(owner, property),
+    status: 'defect-excluded',
+    native: [],
+    evidence: {
+      code: tableToSlides ? [{
+        path: 'packages/sdk/src/table-to-slides-css.ts',
+        pattern: 'export function mapComputedCellOptions(',
+      }] : [],
+      tests: [{
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: TEXT_RUN_SCALAR_FAMILY_CONTROL_TITLE,
+      }],
+      package: [],
+      ooxml: [],
+      clients: [],
+    },
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: TEXT_RUN_SCALAR_FAMILY_CONTROL_TITLE,
+    },
+    note: tableToSlides
+      ? `PptxGenJS 4.0.1 inherits ${owner}.${property}, but tableToSlides ignores the flat field; computed CSS remains the positive styling input and native does not copy this inert alias.`
+      : `PptxGenJS 4.0.1 inherits ${owner}.${property}, but the owner writer ignores the field for every legal value.`,
+  };
+}
+
+function textRunScalarFamilyEntry(owner, property, status) {
+  if (status === 'supported') return textRunScalarFamilySupportedEntry(owner, property);
+  if (status === 'deliberate-difference') {
+    return textRunScalarFamilyDifferenceEntry(owner, property);
+  }
+  return textRunScalarFamilyDefectEntry(owner, property);
+}
+
+const TEXT_RUN_SCALAR_FAMILY_ENTRIES = Object.freeze(
+  Object.entries(TEXT_RUN_SCALAR_FAMILY_STATUS).flatMap(([owner, statuses]) =>
+    TEXT_RUN_SCALAR_FAMILY_PROPERTIES.map((property) =>
+      textRunScalarFamilyEntry(owner, property, statuses[property]))),
+);
+
 const TABLE_TO_SLIDES_FILL_CONTROL_TITLE =
   'isolates the ignored tableToSlides fill declaration from computed CSS backgrounds';
 const TABLE_TO_SLIDES_FILL_DEFECT_ENTRY = Object.freeze({
@@ -2286,6 +2505,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...TAB_STOPS_FAMILY_ENTRIES,
     ...UNDERLINE_FAMILY_ENTRIES,
     ...TEXT_DIRECTION_FAMILY_ENTRIES,
+    ...TEXT_RUN_SCALAR_FAMILY_ENTRIES,
     ...['ShapeType', 'SHAPE_NAME'].flatMap((owner) =>
       DECLARED_PRESET_SHAPE_VALUES.map((value) => presetShapeCatalogEntry(owner, value))),
     ...['SchemeColor', 'ThemeColor'].flatMap((owner) =>

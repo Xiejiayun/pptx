@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1125);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1179);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
-      ...Array(312).fill('defect-excluded'),
-      ...Array(552).fill('supported'),
-      ...Array(178).fill('deliberate-difference'),
+      ...Array(333).fill('defect-excluded'),
+      ...Array(571).fill('supported'),
+      ...Array(192).fill('deliberate-difference'),
       ...Array(83).fill('deprecated-alias'),
     ].sort(),
   );
@@ -496,6 +496,80 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
     id.includes('interface:TextPropsOptions@property:vert'));
   assert.equal(textVertEntries.length, 8);
   assert.deepEqual(textVertEntries.map(({ status }) => status), Array(8).fill('supported'));
+  const textRunScalarFamilyStatus = {
+    PlaceholderProps: {
+      supported: 4,
+      'deliberate-difference': 3,
+      'defect-excluded': 2,
+    },
+    SlideNumberProps: {
+      supported: 2,
+      'deliberate-difference': 2,
+      'defect-excluded': 5,
+    },
+    TableCellProps: {
+      supported: 5,
+      'deliberate-difference': 4,
+      'defect-excluded': 0,
+    },
+    TableProps: {
+      supported: 2,
+      'deliberate-difference': 2,
+      'defect-excluded': 5,
+    },
+    TableToSlidesProps: {
+      supported: 0,
+      'deliberate-difference': 0,
+      'defect-excluded': 9,
+    },
+    TextPropsOptions: {
+      supported: 6,
+      'deliberate-difference': 3,
+      'defect-excluded': 0,
+    },
+  };
+  const textRunScalarProperties = new Set([
+    'bold',
+    'breakLine',
+    'color',
+    'fontFace',
+    'fontSize',
+    'highlight',
+    'italic',
+    'lang',
+    'softBreakBefore',
+  ]);
+  const textRunScalarFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) => {
+    const match = id.match(/interface:([^@]+)@property:([^@#]+)$/u);
+    return match !== null
+      && Object.hasOwn(textRunScalarFamilyStatus, match[1])
+      && textRunScalarProperties.has(match[2]);
+  });
+  assert.equal(textRunScalarFamilyEntries.length, 54);
+  assert.deepEqual(
+    Object.fromEntries(
+      ['supported', 'deliberate-difference', 'defect-excluded'].map((status) => [
+        status,
+        textRunScalarFamilyEntries.filter((entry) => entry.status === status).length,
+      ]),
+    ),
+    { supported: 19, 'deliberate-difference': 14, 'defect-excluded': 21 },
+  );
+  for (const [owner, expected] of Object.entries(textRunScalarFamilyStatus)) {
+    const entries = textRunScalarFamilyEntries.filter(({ id }) =>
+      id.startsWith(`interface:${owner}@property:`));
+    assert.equal(entries.length, 9, owner);
+    assert.deepEqual(
+      Object.fromEntries(
+        ['supported', 'deliberate-difference', 'defect-excluded'].map((status) => [
+          status,
+          entries.filter((entry) => entry.status === status).length,
+        ]),
+      ),
+      expected,
+      owner,
+    );
+  }
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries
       .filter(({ id }) => id.endsWith('#folderCorner'))

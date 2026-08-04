@@ -15175,6 +15175,230 @@ describe('importPptxGenJS', () => {
     }
   });
 
+  it('locks scalar text formatting behavior across every declared owner', async () => {
+    const style = {
+      bold: true,
+      color: '112233',
+      fontFace: 'ProbeFace',
+      fontSize: 24,
+      highlight: 'FFFF00',
+      italic: true,
+      lang: 'fr-CA',
+    } as const;
+    const namedOwnerXml = (
+      xml: string,
+      name: string,
+      ownerTag: 'p:sp' | 'p:graphicFrame',
+    ) => {
+      const nameOffset = xml.indexOf(`name="${name}"`);
+      expect(nameOffset).toBeGreaterThanOrEqual(0);
+      const start = xml.lastIndexOf(`<${ownerTag}`, nameOffset);
+      const end = xml.indexOf(`</${ownerTag}>`, nameOffset);
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(end).toBeGreaterThan(nameOffset);
+      return xml.slice(start, end + ownerTag.length + 3);
+    };
+    const paragraphCount = (xml: string) => xml.match(/<a:p>/gu)?.length ?? 0;
+    const assertScalarStyle = (
+      xml: string,
+      expected: {
+        readonly color: string;
+        readonly fontFace: string;
+        readonly fontSize: number;
+        readonly highlight?: string;
+        readonly italic?: boolean;
+        readonly lang: string;
+      },
+    ) => {
+      expect(xml).toContain(`lang="${expected.lang}"`);
+      expect(xml).toContain(`sz="${expected.fontSize * 100}"`);
+      expect(xml).toContain('b="1"');
+      if (expected.italic) expect(xml).toContain('i="1"');
+      expect(xml).toContain(`val="${expected.color}"`);
+      expect(xml).toContain(`typeface="${expected.fontFace}"`);
+      if (expected.highlight) {
+        expect(xml).toContain(`<a:highlight><a:srgbClr val="${expected.highlight}"/></a:highlight>`);
+      }
+    };
+
+    const source = new PptxGenJS();
+    const slide = source.addSlide();
+    slide.addText([
+      { text: 'Text first', options: { ...style, breakLine: true } },
+      { text: 'Text second', options: {} },
+      { text: 'Text soft', options: { softBreakBefore: true } },
+    ], {
+      objectName: 'scalar-text-owner',
+      x: 0,
+      y: 0,
+      w: 4,
+      h: 1,
+    });
+    slide.addTable([['Table defaults']], {
+      objectName: 'scalar-table-owner',
+      x: 0,
+      y: 1.25,
+      w: 4,
+      h: 0.5,
+      ...style,
+      breakLine: true,
+      softBreakBefore: true,
+    });
+    slide.addTable([[
+      {
+        text: 'Cell styled',
+        options: {
+          ...style,
+          bold: false,
+          color: '223344',
+          fontFace: 'CellFace',
+          fontSize: 20,
+          highlight: '00FF00',
+          lang: 'de-DE',
+        },
+      },
+      {
+        text: [{ text: 'Break one' }, { text: 'Break two' }],
+        options: { breakLine: true },
+      },
+      {
+        text: [{ text: 'Soft one' }, { text: 'Soft two' }],
+        options: { softBreakBefore: true },
+      },
+    ]], {
+      objectName: 'scalar-cell-owner',
+      x: 0,
+      y: 2,
+      w: 9,
+      h: 0.5,
+      bold: true,
+    });
+    source.defineSlideMaster({
+      title: 'SCALAR-TEXT-OWNER-MATRIX',
+      objects: [{
+        placeholder: {
+          text: 'Placeholder scalar style',
+          options: {
+            name: 'scalar-placeholder-owner',
+            objectName: 'scalar-placeholder-owner',
+            type: 'body',
+            x: 0,
+            y: 0,
+            w: 4,
+            h: 1,
+            ...style,
+            breakLine: true,
+            softBreakBefore: true,
+          },
+        },
+      }],
+    });
+    source.addSlide({ masterName: 'SCALAR-TEXT-OWNER-MATRIX' });
+    const slideNumberSlide = source.addSlide();
+    slideNumberSlide.slideNumber = {
+      x: 0,
+      y: 0,
+      w: 1,
+      h: 0.5,
+      ...style,
+      breakLine: true,
+      softBreakBefore: true,
+    } as unknown as PptxGenJSSlideNumberProps;
+
+    const imported = await openPptxGenJSPublicOutput(source);
+    const activeXml = slideXml(imported, 0);
+    const textXml = namedOwnerXml(activeXml, 'scalar-text-owner', 'p:sp');
+    assertScalarStyle(textXml, style);
+    expect(paragraphCount(textXml)).toBe(2);
+    expect(textXml.match(/<a:br\/>/gu)).toHaveLength(1);
+
+    const tableXml = namedOwnerXml(activeXml, 'scalar-table-owner', 'p:graphicFrame');
+    assertScalarStyle(tableXml, {
+      color: '112233',
+      fontFace: 'ProbeFace',
+      fontSize: 24,
+      lang: 'en-US',
+    });
+    expect(tableXml).not.toContain('i="1"');
+    expect(tableXml).not.toContain('<a:highlight>');
+    expect(tableXml).not.toContain('lang="fr-CA"');
+    expect(paragraphCount(tableXml)).toBe(1);
+    expect(tableXml).not.toContain('<a:br/>');
+
+    const cellTableXml = namedOwnerXml(activeXml, 'scalar-cell-owner', 'p:graphicFrame');
+    const cellXml = [...cellTableXml.matchAll(/<a:tc(?:\s[^>]*)?>([\s\S]*?)<\/a:tc>/gu)]
+      .map((match) => match[1]!);
+    expect(cellXml).toHaveLength(3);
+    assertScalarStyle(cellXml[0]!, {
+      color: '223344',
+      fontFace: 'CellFace',
+      fontSize: 20,
+      highlight: '00FF00',
+      italic: true,
+      lang: 'de-DE',
+    });
+    expect(cellXml[0]).not.toContain('b="0"');
+    expect(paragraphCount(cellXml[1]!)).toBe(2);
+    expect(paragraphCount(cellXml[2]!)).toBe(1);
+    expect(cellXml[2]!.match(/<a:br\/>/gu)).toHaveLength(1);
+
+    const layout = imported.layouts.find(
+      ({ name }) => name === 'SCALAR-TEXT-OWNER-MATRIX',
+    )!;
+    const layoutXml = new TextDecoder().decode(
+      imported.opcPackage.requirePart(layout.partUri).bytes,
+    );
+    const placeholderXml = namedOwnerXml(
+      layoutXml,
+      'scalar-placeholder-owner',
+      'p:sp',
+    );
+    assertScalarStyle(placeholderXml, style);
+    expect(paragraphCount(placeholderXml)).toBe(1);
+    expect(placeholderXml).not.toContain('<a:br/>');
+
+    const slideNumberXml = slideNumberOwnerState(
+      imported,
+      imported.slides[2]!.partUri,
+    ).xml;
+    expect(slideNumberXml).toContain('<a:defRPr sz="2400">');
+    expect(slideNumberXml).toContain('<a:srgbClr val="112233"/>');
+    expect(slideNumberXml).toContain('<a:latin typeface="ProbeFace"/>');
+    expect(slideNumberXml).toContain('<a:rPr b="1" lang="en-US"/>');
+    expect(slideNumberXml).not.toContain('i="1"');
+    expect(slideNumberXml).not.toContain('<a:highlight>');
+    expect(slideNumberXml).not.toContain('lang="fr-CA"');
+    expect(slideNumberXml).not.toContain('<a:br/>');
+
+    const tableToSlidesVariants = [
+      ['bold', true],
+      ['breakLine', true],
+      ['color', 'A1B2C3'],
+      ['fontFace', 'IgnoredFace'],
+      ['fontSize', 30],
+      ['highlight', 'ABCDEF'],
+      ['italic', true],
+      ['lang', 'ja-JP'],
+      ['softBreakBefore', true],
+    ] as const;
+    const generateTableToSlides = async (options: Record<string, unknown>) => {
+      const presentation = new PptxGenJS();
+      await withTableToSlidesGlobals(tableToSlidesFixture(), () =>
+        presentation.tableToSlides('report', options));
+      return openPptxGenJSPublicOutput(presentation);
+    };
+    const baseline = await generateTableToSlides({});
+    const baselineXml = slideXml(baseline, 0);
+    expect(baselineXml).toContain('val="010203"');
+    expect(baselineXml).toContain('typeface="Arial"');
+    expect(baselineXml).toContain('sz="1200"');
+    expect(baselineXml).toContain('b="1"');
+    for (const [property, value] of tableToSlidesVariants) {
+      const variant = await generateTableToSlides({ [property]: value });
+      expect(slideXml(variant, 0), property).toBe(baselineXml);
+    }
+  }, 20_000);
+
   it('locks text direction behavior across every declared owner', async () => {
     const tableDirections = ['horz', 'vert', 'vert270', 'wordArtVert'] as const;
     const textDirections = [

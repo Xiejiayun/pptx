@@ -6597,7 +6597,172 @@ async (page) => {
         && !chartDocument.opcPackage.hasPart(duplicateChartPartUri)
         && chartDocument.opcPackage.hasPart(comboChartPartUri)
         && reopenedChartDocument.diagnostics.filter(({ code }) => code.startsWith('CHART_')).length === 0;
+      const textRunScalarProperties = [
+        'bold',
+        'breakLine',
+        'color',
+        'fontFace',
+        'fontSize',
+        'highlight',
+        'italic',
+        'lang',
+        'softBreakBefore',
+      ];
+      const textRunScalarOwners = [
+        'PlaceholderProps',
+        'SlideNumberProps',
+        'TableCellProps',
+        'TableProps',
+        'TableToSlidesProps',
+        'TextPropsOptions',
+      ];
+      const browserTextRunScalarStyle = {
+        fontFamily: 'Aptos Display',
+        fontSize: 17.25,
+        lang: 'zh-CN',
+        bold: true,
+        italic: true,
+        color: { kind: 'srgb', value: 'C00000' },
+        highlight: { kind: 'scheme', value: 'accent2' },
+      };
+      const textRunScalarDocument = api.PptxDocument.create();
+      const textRunScalarSlide = textRunScalarDocument.addSlide();
+      const textRunScalarShape = textRunScalarSlide.addRichText([{
+        runs: [
+          { text: 'Browser scalar styled', style: browserTextRunScalarStyle },
+          {
+            text: 'Browser scalar soft',
+            softBreakBefore: true,
+            style: { bold: false, italic: false, lang: 'fr-CA' },
+          },
+          { text: 'Browser scalar paragraph', breakLine: true },
+          { text: 'Browser scalar tail' },
+        ],
+      }], { name: 'browser_text_run_scalar_family' });
+      const textRunScalarInitial =
+        textRunScalarShape.richText.length === 2
+        && textRunScalarShape.richText[0].runs[0].style.fontFamily === 'Aptos Display'
+        && textRunScalarShape.richText[0].runs[0].style.fontSize === 17.25
+        && textRunScalarShape.richText[0].runs[0].style.bold === true
+        && textRunScalarShape.richText[0].runs[0].style.italic === true
+        && textRunScalarShape.richText[0].runs[0].style.color?.value === 'C00000'
+        && textRunScalarShape.richText[0].runs[0].style.highlight?.value === 'accent2'
+        && textRunScalarShape.richText[0].runs[1].softBreakBefore === true
+        && textRunScalarShape.richText[0].runs[1].style.bold === false
+        && textRunScalarShape.richText[0].runs[1].style.italic === false;
+      const textRunScalarDuplicate = textRunScalarDocument.duplicateSlide(0);
+      textRunScalarShape.richText = [{ runs: [{
+        text: 'Browser scalar edited',
+        style: {
+          fontFamily: 'Courier New',
+          fontSize: 24,
+          lang: 'ja-JP',
+          bold: false,
+          italic: false,
+          color: { kind: 'scheme', value: 'tx2' },
+          highlight: { kind: 'srgb', value: '00FF00' },
+        },
+      }] }];
+      const textRunScalarEdited =
+        textRunScalarShape.richText[0].runs[0].style.fontFamily === 'Courier New'
+        && textRunScalarShape.richText[0].runs[0].style.fontSize === 24
+        && textRunScalarShape.richText[0].runs[0].style.lang === 'ja-JP'
+        && textRunScalarShape.richText[0].runs[0].style.bold === false
+        && textRunScalarShape.richText[0].runs[0].style.italic === false
+        && textRunScalarShape.richText[0].runs[0].style.color?.value === 'tx2'
+        && textRunScalarShape.richText[0].runs[0].style.highlight?.value === '00FF00';
+      const textRunScalarRollbackBytes = textRunScalarDocument.opcPackage
+        .requirePart(textRunScalarSlide.partUri).bytes.slice();
+      let textRunScalarRollbackCaught = false;
+      try {
+        textRunScalarDocument.transaction(() => {
+          textRunScalarShape.richText = [{
+            runs: [{ text: 'Browser scalar rollback' }],
+          }];
+          throw new Error('restore browser scalar styles');
+        });
+      } catch (error) {
+        textRunScalarRollbackCaught = error.message === 'restore browser scalar styles';
+      }
+      const textRunScalarRollback = textRunScalarRollbackCaught
+        && tableVerticalAlignmentBytesEqual(
+          textRunScalarRollbackBytes,
+          textRunScalarDocument.opcPackage.requirePart(textRunScalarSlide.partUri).bytes,
+        )
+        && textRunScalarShape.richText[0].runs[0].style.fontSize === 24;
+      const textRunScalarXml = new TextDecoder().decode(
+        textRunScalarDocument.opcPackage.requirePart(textRunScalarSlide.partUri).bytes,
+      );
+      const textRunScalarDuplicateShape = textRunScalarDuplicate.shapes.find(
+        ({ name }) => name === textRunScalarShape.name,
+      );
+      const textRunScalarDuplicatePreserved =
+        textRunScalarDuplicateShape?.richText[0]?.runs[0]?.style?.fontFamily ===
+          'Aptos Display'
+        && textRunScalarDuplicateShape.richText[0].runs[0].style.fontSize === 17.25
+        && textRunScalarDuplicateShape.richText[0].runs[0].style.bold === true
+        && textRunScalarDuplicateShape.richText[0].runs[0].style.highlight?.value ===
+          'accent2';
+      const reopenedTextRunScalarDocument = await api.PptxDocument.open(
+        await textRunScalarDocument.writeBlob(),
+      );
+      const reopenedTextRunScalarSource = reopenedTextRunScalarDocument
+        .slides[0].shapes.find(({ name }) => name === textRunScalarShape.name);
+      const reopenedTextRunScalarDuplicate = reopenedTextRunScalarDocument
+        .slides[1].shapes.find(({ name }) => name === textRunScalarShape.name);
+      const textRunScalarReopened =
+        reopenedTextRunScalarSource?.richText[0]?.runs[0]?.style?.fontFamily === 'Courier New'
+        && reopenedTextRunScalarSource.richText[0].runs[0].style.fontSize === 24
+        && reopenedTextRunScalarSource.richText[0].runs[0].style.bold === false
+        && reopenedTextRunScalarSource.richText[0].runs[0].style.highlight?.value ===
+          '00FF00'
+        && reopenedTextRunScalarDuplicate?.richText[0]?.runs[0]?.style?.fontFamily ===
+          'Aptos Display'
+        && reopenedTextRunScalarDuplicate.richText[0].runs[0].style.highlight?.value ===
+          'accent2';
+      const textRunScalarFormatStates = [];
+      for (const format of ['pptx', 'pptm', 'ppsx', 'ppsm', 'potx', 'potm']) {
+        const formatDocument = api.PptxDocument.create({ format });
+        formatDocument.addSlide().addRichText([{
+          runs: [{ text: `Browser scalar ${format}`, style: browserTextRunScalarStyle }],
+        }]);
+        const reopenedFormat = await api.PptxDocument.open(
+          await formatDocument.writeBlob(),
+        );
+        textRunScalarFormatStates.push(
+          reopenedFormat.format === format
+          && reopenedFormat.slides[0].shapes[0].richText[0].runs[0].style.fontSize ===
+            17.25
+          && reopenedFormat.slides[0].shapes[0].richText[0].runs[0].style.highlight
+            ?.value === 'accent2'
+          && reopenedFormat.diagnostics.length === 0,
+        );
+      }
+      const textRunScalarFamilyState = {
+        catalog: textRunScalarProperties.length === 9 && textRunScalarOwners.length === 6,
+        owners: richTextBreakLine && tableTextDefaults && tableToSlides
+          && slideNumberState.diagnostics.length === 0,
+        initial: textRunScalarInitial,
+        edited: textRunScalarEdited,
+        rollback: textRunScalarRollback,
+        duplicate: textRunScalarDuplicatePreserved,
+        reopened: textRunScalarReopened,
+        sixFormats: textRunScalarFormatStates.every(Boolean),
+        xml: textRunScalarXml.includes('lang="ja-JP"')
+          && textRunScalarXml.includes('sz="2400"')
+          && textRunScalarXml.includes('b="0" i="0"')
+          && textRunScalarXml.includes('<a:schemeClr val="tx2"/>')
+          && textRunScalarXml.includes(
+            '<a:highlight><a:srgbClr val="00FF00"/></a:highlight>',
+          )
+          && textRunScalarXml.includes('<a:latin typeface="Courier New"/>'),
+        diagnostics: textRunScalarDocument.diagnostics.length === 0
+          && reopenedTextRunScalarDocument.diagnostics.length === 0,
+      };
+      const textRunScalarFamily = Object.values(textRunScalarFamilyState).every(Boolean);
       return {
+        textRunScalarFamily,
+        textRunScalarFamilyState,
         presentationVersion,
         presentationVersionState,
         presentationLayouts,
@@ -6934,6 +7099,19 @@ async (page) => {
   page.off('requestfailed', onRequestFailed);
   page.off('response', onResponse);
   const expected = {
+    textRunScalarFamily: true,
+    textRunScalarFamilyState: {
+      catalog: true,
+      owners: true,
+      initial: true,
+      edited: true,
+      rollback: true,
+      duplicate: true,
+      reopened: true,
+      sixFormats: true,
+      xml: true,
+      diagnostics: true,
+    },
     presentationVersion: true,
     presentationVersionState: {
       constant: '0.1.0',

@@ -10,12 +10,12 @@
 
 | Status | Count |
 | --- | ---: |
-| supported | 552 |
-| deliberate-difference | 178 |
+| supported | 571 |
+| deliberate-difference | 192 |
 | deprecated-alias | 83 |
-| defect-excluded | 312 |
+| defect-excluded | 333 |
 | unsupported | 0 |
-| unverified | 649 |
+| unverified | 595 |
 | stale | 0 |
 
 ## Runtime declaration differences
@@ -321,18 +321,9 @@ None.
 - `interface:MediaProps@property:y`
 - `interface:OptsChartGridLine@property:cap`
 - `interface:PlaceholderProps@property:align`
-- `interface:PlaceholderProps@property:bold`
-- `interface:PlaceholderProps@property:breakLine`
-- `interface:PlaceholderProps@property:color`
-- `interface:PlaceholderProps@property:fontFace`
-- `interface:PlaceholderProps@property:fontSize`
 - `interface:PlaceholderProps@property:h`
-- `interface:PlaceholderProps@property:highlight`
-- `interface:PlaceholderProps@property:italic`
-- `interface:PlaceholderProps@property:lang`
 - `interface:PlaceholderProps@property:margin`
 - `interface:PlaceholderProps@property:name`
-- `interface:PlaceholderProps@property:softBreakBefore`
 - `interface:PlaceholderProps@property:transparency`
 - `interface:PlaceholderProps@property:type`
 - `interface:PlaceholderProps@property:valign`
@@ -381,17 +372,8 @@ None.
 - `interface:SlideMasterProps@property:slideNumber`
 - `interface:SlideMasterProps@property:title`
 - `interface:SlideNumberProps@property:align`
-- `interface:SlideNumberProps@property:bold`
-- `interface:SlideNumberProps@property:breakLine`
-- `interface:SlideNumberProps@property:color`
-- `interface:SlideNumberProps@property:fontFace`
-- `interface:SlideNumberProps@property:fontSize`
 - `interface:SlideNumberProps@property:h`
-- `interface:SlideNumberProps@property:highlight`
-- `interface:SlideNumberProps@property:italic`
-- `interface:SlideNumberProps@property:lang`
 - `interface:SlideNumberProps@property:margin`
-- `interface:SlideNumberProps@property:softBreakBefore`
 - `interface:SlideNumberProps@property:transparency`
 - `interface:SlideNumberProps@property:valign`
 - `interface:SlideNumberProps@property:w`
@@ -402,20 +384,11 @@ None.
 - `interface:TableCellProps@property:align`
 - `interface:TableCellProps@property:autoPageCharWeight`
 - `interface:TableCellProps@property:autoPageLineWeight`
-- `interface:TableCellProps@property:bold`
 - `interface:TableCellProps@property:border`
-- `interface:TableCellProps@property:breakLine`
-- `interface:TableCellProps@property:color`
 - `interface:TableCellProps@property:colspan`
-- `interface:TableCellProps@property:fontFace`
-- `interface:TableCellProps@property:fontSize`
-- `interface:TableCellProps@property:highlight`
 - `interface:TableCellProps@property:hyperlink`
-- `interface:TableCellProps@property:italic`
-- `interface:TableCellProps@property:lang`
 - `interface:TableCellProps@property:margin`
 - `interface:TableCellProps@property:rowspan`
-- `interface:TableCellProps@property:softBreakBefore`
 - `interface:TableCellProps@property:transparency`
 - `interface:TableCellProps@property:valign`
 - `interface:TableProps@property:align`
@@ -425,22 +398,13 @@ None.
 - `interface:TableProps@property:autoPageLineWeight`
 - `interface:TableProps@property:autoPageRepeatHeader`
 - `interface:TableProps@property:autoPageSlideStartY`
-- `interface:TableProps@property:bold`
 - `interface:TableProps@property:border`
-- `interface:TableProps@property:breakLine`
 - `interface:TableProps@property:colW`
-- `interface:TableProps@property:color`
-- `interface:TableProps@property:fontFace`
-- `interface:TableProps@property:fontSize`
 - `interface:TableProps@property:h`
-- `interface:TableProps@property:highlight`
-- `interface:TableProps@property:italic`
-- `interface:TableProps@property:lang`
 - `interface:TableProps@property:margin`
 - `interface:TableProps@property:newSlideStartY`
 - `interface:TableProps@property:objectName`
 - `interface:TableProps@property:rowH`
-- `interface:TableProps@property:softBreakBefore`
 - `interface:TableProps@property:transparency`
 - `interface:TableProps@property:valign`
 - `interface:TableProps@property:verbose`
@@ -459,24 +423,15 @@ None.
 - `interface:TableToSlidesProps@property:autoPageLineWeight`
 - `interface:TableToSlidesProps@property:autoPageRepeatHeader`
 - `interface:TableToSlidesProps@property:autoPageSlideStartY`
-- `interface:TableToSlidesProps@property:bold`
 - `interface:TableToSlidesProps@property:border`
-- `interface:TableToSlidesProps@property:breakLine`
 - `interface:TableToSlidesProps@property:colW`
-- `interface:TableToSlidesProps@property:color`
-- `interface:TableToSlidesProps@property:fontFace`
-- `interface:TableToSlidesProps@property:fontSize`
 - `interface:TableToSlidesProps@property:h`
-- `interface:TableToSlidesProps@property:highlight`
-- `interface:TableToSlidesProps@property:italic`
-- `interface:TableToSlidesProps@property:lang`
 - `interface:TableToSlidesProps@property:margin`
 - `interface:TableToSlidesProps@property:masterSlideName`
 - `interface:TableToSlidesProps@property:newSlideStartY`
 - `interface:TableToSlidesProps@property:objectName`
 - `interface:TableToSlidesProps@property:rowH`
 - `interface:TableToSlidesProps@property:slideMargin`
-- `interface:TableToSlidesProps@property:softBreakBefore`
 - `interface:TableToSlidesProps@property:transparency`
 - `interface:TableToSlidesProps@property:valign`
 - `interface:TableToSlidesProps@property:verbose`
@@ -491,23 +446,15 @@ None.
 - `interface:TextPropsOptions@property:align`
 - `interface:TextPropsOptions@property:autoFit`
 - `interface:TextPropsOptions@property:baseline`
-- `interface:TextPropsOptions@property:bold`
-- `interface:TextPropsOptions@property:breakLine`
 - `interface:TextPropsOptions@property:charSpacing`
-- `interface:TextPropsOptions@property:color`
 - `interface:TextPropsOptions@property:data`
 - `interface:TextPropsOptions@property:fit`
 - `interface:TextPropsOptions@property:flipH`
 - `interface:TextPropsOptions@property:flipV`
-- `interface:TextPropsOptions@property:fontFace`
-- `interface:TextPropsOptions@property:fontSize`
 - `interface:TextPropsOptions@property:glow`
-- `interface:TextPropsOptions@property:highlight`
 - `interface:TextPropsOptions@property:hyperlink`
 - `interface:TextPropsOptions@property:inset`
 - `interface:TextPropsOptions@property:isTextBox`
-- `interface:TextPropsOptions@property:italic`
-- `interface:TextPropsOptions@property:lang`
 - `interface:TextPropsOptions@property:lineSpacing`
 - `interface:TextPropsOptions@property:lineSpacingMultiple`
 - `interface:TextPropsOptions@property:margin`
@@ -523,7 +470,6 @@ None.
 - `interface:TextPropsOptions@property:shadow`
 - `interface:TextPropsOptions@property:shape`
 - `interface:TextPropsOptions@property:shrinkText`
-- `interface:TextPropsOptions@property:softBreakBefore`
 - `interface:TextPropsOptions@property:strike`
 - `interface:TextPropsOptions@property:subscript`
 - `interface:TextPropsOptions@property:superscript`
@@ -733,18 +679,18 @@ None.
 | `interface:SlideMasterProps@property:background` | unverified | — | — | — |
 | `interface:SlideMasterProps@property:slideNumber` | unverified | — | — | — |
 | `interface:SlideNumberProps@property:align` | unverified | — | — | — |
-| `interface:SlideNumberProps@property:bold` | unverified | — | — | — |
-| `interface:SlideNumberProps@property:breakLine` | unverified | — | — | — |
+| `interface:SlideNumberProps@property:bold` | supported | SlideNumberOptions.style<br>SlideNumberTextStyle.bold | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective SlideNumberProps.bold with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen. |
+| `interface:SlideNumberProps@property:breakLine` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits SlideNumberProps.breakLine, but the owner writer ignores the field for every legal value. |
 | `interface:SlideNumberProps@property:bullet` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
-| `interface:SlideNumberProps@property:color` | unverified | — | — | — |
-| `interface:SlideNumberProps@property:fontFace` | unverified | — | — | — |
-| `interface:SlideNumberProps@property:fontSize` | unverified | — | — | — |
+| `interface:SlideNumberProps@property:color` | deliberate-difference | SlideNumberOptions.style<br>SlideNumberTextStyle.color | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents SlideNumberProps.color as a strict sRGB or scheme RichTextColor instead of a permissive PptxGenJS color string. |
+| `interface:SlideNumberProps@property:fontFace` | deliberate-difference | SlideNumberOptions.style<br>SlideNumberTextStyle.fontFamily | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native names SlideNumberProps.fontFace as fontFamily, requires a non-empty XML-safe string, and writes the same effective typeface. |
+| `interface:SlideNumberProps@property:fontSize` | supported | SlideNumberOptions.style<br>SlideNumberTextStyle.fontSize | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective SlideNumberProps.fontSize with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen. |
 | `interface:SlideNumberProps@property:h` | unverified | — | — | — |
-| `interface:SlideNumberProps@property:highlight` | unverified | — | — | — |
-| `interface:SlideNumberProps@property:italic` | unverified | — | — | — |
-| `interface:SlideNumberProps@property:lang` | unverified | — | — | — |
+| `interface:SlideNumberProps@property:highlight` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits SlideNumberProps.highlight, but the owner writer ignores the field for every legal value. |
+| `interface:SlideNumberProps@property:italic` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits SlideNumberProps.italic, but the owner writer ignores the field for every legal value. |
+| `interface:SlideNumberProps@property:lang` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits SlideNumberProps.lang, but the owner writer ignores the field for every legal value. |
 | `interface:SlideNumberProps@property:margin` | unverified | — | — | — |
-| `interface:SlideNumberProps@property:softBreakBefore` | unverified | — | — | — |
+| `interface:SlideNumberProps@property:softBreakBefore` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits SlideNumberProps.softBreakBefore, but the owner writer ignores the field for every legal value. |
 | `interface:SlideNumberProps@property:tabStops` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into SlideNumberProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
 | `interface:SlideNumberProps@property:textDirection` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits textDirection into SlideNumberProps, but its writer ignores the property and all four declared tokens for that owner. |
 | `interface:SlideNumberProps@property:transparency` | unverified | — | — | — |
@@ -839,27 +785,27 @@ None.
 | `interface:TextPropsOptions@property:align` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:autoFit` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:baseline` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:bold` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:breakLine` | unverified | — | — | — |
+| `interface:TextPropsOptions@property:bold` | supported | RichTextRunStyle.bold<br>ShapeModel.richText<br>SlideModel.addRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective TextPropsOptions.bold with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen. |
+| `interface:TextPropsOptions@property:breakLine` | supported | RichTextRun.breakLine<br>ShapeModel.richText<br>SlideModel.addRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective TextPropsOptions.breakLine with canonical paragraph or soft-break OOXML and preserves it through edit, duplicate, all six formats, and reopen. |
 | `interface:TextPropsOptions@property:bullet` | supported | AddTextOptions.bullet<br>ParagraphBullet<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers the complete effective TextPropsOptions.bullet output through its strict ParagraphBullet model and preserves standard, character, and numbered bullets through serialization and reopen. |
 | `interface:TextPropsOptions@property:charSpacing` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:color` | unverified | — | — | — |
+| `interface:TextPropsOptions@property:color` | deliberate-difference | RichTextRunStyle.color<br>ShapeModel.richText<br>SlideModel.addRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TextPropsOptions.color as a strict sRGB or scheme RichTextColor instead of a permissive PptxGenJS color string. |
 | `interface:TextPropsOptions@property:data` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:fill` | deliberate-difference | ShapeFill<br>ShapeModel.fill<br>SlideModel.addText | code:packages/model/src/simple-fill.internal.ts<br>code:packages/model/src/shape-fill.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the legal none/solid, sRGB/scheme, and transparency domain through a strict ShapeFill kind union with explicit direct-state editing; PptxGenJS instead omits none and zero-alpha intent and permits fallback values that native rejects before mutation. |
 | `interface:TextPropsOptions@property:fit` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:flipH` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:flipV` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:fontFace` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:fontSize` | unverified | — | — | — |
+| `interface:TextPropsOptions@property:fontFace` | deliberate-difference | RichTextRunStyle.fontFamily<br>ShapeModel.richText<br>SlideModel.addRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native names TextPropsOptions.fontFace as fontFamily, requires a non-empty XML-safe string, and writes the same effective typeface. |
+| `interface:TextPropsOptions@property:fontSize` | supported | RichTextRunStyle.fontSize<br>ShapeModel.richText<br>SlideModel.addRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective TextPropsOptions.fontSize with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen. |
 | `interface:TextPropsOptions@property:glow` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:h` | deliberate-difference | SlideModel.addText | code:packages/model/src/slide-coordinate.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal percentage geometry with width/height and explicit Emu or inches() numeric units instead of PptxGenJS w/h and implicit-inch numbers. |
-| `interface:TextPropsOptions@property:highlight` | unverified | — | — | — |
+| `interface:TextPropsOptions@property:highlight` | deliberate-difference | RichTextRunStyle.highlight<br>ShapeModel.richText<br>SlideModel.addRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TextPropsOptions.highlight as a strict sRGB or scheme RichTextColor and emits it independently; PptxGenJS accepts permissive strings and conditionally drops some legal highlight-only input. |
 | `interface:TextPropsOptions@property:hyperlink` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:indentLevel` | deliberate-difference | AddTextOptions.level<br>RichTextParagraph.level<br>SlideModel.addRichText<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native preserves list levels as strict integers from zero through eight, including explicit level zero; PptxGenJS uses indentLevel, ignores non-positive values, and permissively emits out-of-range positive values. |
 | `interface:TextPropsOptions@property:inset` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:isTextBox` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:italic` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:lang` | unverified | — | — | — |
+| `interface:TextPropsOptions@property:italic` | supported | RichTextRunStyle.italic<br>ShapeModel.richText<br>SlideModel.addRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective TextPropsOptions.italic with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen. |
+| `interface:TextPropsOptions@property:lang` | supported | RichTextRunStyle.lang<br>ShapeModel.richText<br>SlideModel.addRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective TextPropsOptions.lang with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen. |
 | `interface:TextPropsOptions@property:line` | deliberate-difference | ShapeLine<br>ShapeModel.line<br>SlideModel.addText | code:packages/model/src/simple-line.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native covers the same legal none/solid line semantics, colors, transparency, width, and eight dash tokens through a strict ShapeLine contract with deterministic direct OOXML instead of PptxGenJS fallbacks and permissive aliases. |
 | `interface:TextPropsOptions@property:lineDash` | deprecated-alias | ShapeLine<br>ShapeModel.line<br>SlideModel.addText | code:packages/model/src/simple-line.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS declares top-level lineDash as a deprecated nested-line alias, ignores it for ordinary text, and applies it to line-shaped text; the native type contract rejects the alias while direct JavaScript calls leave it inert, exposing only the strict canonical line/arrows field. |
 | `interface:TextPropsOptions@property:lineHead` | deprecated-alias | ShapeArrows<br>ShapeModel.arrows<br>SlideModel.addText | code:packages/model/src/shape-arrows.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS declares top-level lineHead as a deprecated nested-line alias, ignores it for ordinary text, and applies it to line-shaped text; the native type contract rejects the alias while direct JavaScript calls leave it inert, exposing only the strict canonical line/arrows field. |
@@ -879,7 +825,7 @@ None.
 | `interface:TextPropsOptions@property:shadow` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:shape` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:shrinkText` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:softBreakBefore` | unverified | — | — | — |
+| `interface:TextPropsOptions@property:softBreakBefore` | supported | RichTextRun.softBreakBefore<br>ShapeModel.richText<br>SlideModel.addRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective TextPropsOptions.softBreakBefore with canonical paragraph or soft-break OOXML and preserves it through edit, duplicate, all six formats, and reopen. |
 | `interface:TextPropsOptions@property:strike` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:subscript` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:superscript` | unverified | — | — | — |
@@ -1963,22 +1909,22 @@ None.
 | `interface:TableCellProps@property:align` | unverified | — | — | — |
 | `interface:TableCellProps@property:autoPageCharWeight` | unverified | — | — | — |
 | `interface:TableCellProps@property:autoPageLineWeight` | unverified | — | — | — |
-| `interface:TableCellProps@property:bold` | unverified | — | — | — |
+| `interface:TableCellProps@property:bold` | deliberate-difference | AddTableCell.text<br>RichTextRunStyle.bold<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native preserves legal TableCellProps.bold=false when overriding a true table default; PptxGenJS uses a truthy fallback that changes the effective value to true. |
 | `interface:TableCellProps@property:border` | unverified | — | — | — |
-| `interface:TableCellProps@property:breakLine` | unverified | — | — | — |
+| `interface:TableCellProps@property:breakLine` | supported | AddTableCell.text<br>RichTextRun.breakLine<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective TableCellProps.breakLine with canonical paragraph or soft-break OOXML and preserves it through edit, duplicate, all six formats, and reopen. |
 | `interface:TableCellProps@property:bullet` | supported | AddTableCell.text<br>ParagraphBullet<br>RichTextParagraph.bullet<br>SlideModel.addTable | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers the complete effective TableCellProps.bullet output through its strict ParagraphBullet model and preserves standard, character, and numbered bullets through serialization and reopen. |
-| `interface:TableCellProps@property:color` | unverified | — | — | — |
+| `interface:TableCellProps@property:color` | deliberate-difference | AddTableCell.text<br>RichTextRunStyle.color<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TableCellProps.color as a strict sRGB or scheme RichTextColor instead of a permissive PptxGenJS color string. |
 | `interface:TableCellProps@property:colspan` | unverified | — | — | — |
 | `interface:TableCellProps@property:fill` | deliberate-difference | AddTableCellOptions.fill<br>SlideModel.addTable<br>TableCell.fill<br>TableCellFill<br>TableModel.setCellFill | code:packages/model/src/table-cell-fill.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native preserves the legal none/solid, sRGB/scheme, and transparency domain through strict TableCellFill creation and editing; PptxGenJS collapses explicit none and zero-alpha intent and permits malformed or out-of-range fill values that native rejects before mutation. |
-| `interface:TableCellProps@property:fontFace` | unverified | — | — | — |
-| `interface:TableCellProps@property:fontSize` | unverified | — | — | — |
-| `interface:TableCellProps@property:highlight` | unverified | — | — | — |
+| `interface:TableCellProps@property:fontFace` | deliberate-difference | AddTableCell.text<br>RichTextRunStyle.fontFamily<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native names TableCellProps.fontFace as fontFamily, requires a non-empty XML-safe string, and writes the same effective typeface. |
+| `interface:TableCellProps@property:fontSize` | supported | AddTableCell.text<br>RichTextRunStyle.fontSize<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective TableCellProps.fontSize with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen. |
+| `interface:TableCellProps@property:highlight` | deliberate-difference | AddTableCell.text<br>RichTextRunStyle.highlight<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TableCellProps.highlight as a strict sRGB or scheme RichTextColor and emits it independently; PptxGenJS accepts permissive strings and conditionally drops some legal highlight-only input. |
 | `interface:TableCellProps@property:hyperlink` | unverified | — | — | — |
-| `interface:TableCellProps@property:italic` | unverified | — | — | — |
-| `interface:TableCellProps@property:lang` | unverified | — | — | — |
+| `interface:TableCellProps@property:italic` | supported | AddTableCell.text<br>RichTextRunStyle.italic<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective TableCellProps.italic with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen. |
+| `interface:TableCellProps@property:lang` | supported | AddTableCell.text<br>RichTextRunStyle.lang<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective TableCellProps.lang with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen. |
 | `interface:TableCellProps@property:margin` | unverified | — | — | — |
 | `interface:TableCellProps@property:rowspan` | unverified | — | — | — |
-| `interface:TableCellProps@property:softBreakBefore` | unverified | — | — | — |
+| `interface:TableCellProps@property:softBreakBefore` | supported | AddTableCell.text<br>RichTextRun.softBreakBefore<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective TableCellProps.softBreakBefore with canonical paragraph or soft-break OOXML and preserves it through edit, duplicate, all six formats, and reopen. |
 | `interface:TableCellProps@property:tabStops` | supported | AddTableCell.text<br>ParagraphTabStop<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addTable<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers the effective TableCellProps.tabStops output with strict paragraph tab stops and preserves every stop through serialization and reopen. |
 | `interface:TableCellProps@property:textDirection` | supported | AddTableCellOptions.textDirection<br>TableCell.textDirection<br>TableCellTextDirection<br>TableModel.setCellTextDirection | code:packages/model/src/table-cell-text-direction.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers TableCellProps.textDirection with the same four legal tokens, strict pre-mutation validation, editable table-cell OOXML, and canonical omission of the horizontal default. |
 | `interface:TableCellProps@property:transparency` | unverified | — | — | — |
@@ -1991,24 +1937,24 @@ None.
 | `interface:TableProps@property:autoPageLineWeight` | unverified | — | — | — |
 | `interface:TableProps@property:autoPageRepeatHeader` | unverified | — | — | — |
 | `interface:TableProps@property:autoPageSlideStartY` | unverified | — | — | — |
-| `interface:TableProps@property:bold` | unverified | — | — | — |
+| `interface:TableProps@property:bold` | supported | AddTableOptions.bold<br>SlideModel.addTable<br>TableModel | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective TableProps.bold with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen. |
 | `interface:TableProps@property:border` | unverified | — | — | — |
-| `interface:TableProps@property:breakLine` | unverified | — | — | — |
+| `interface:TableProps@property:breakLine` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableProps.breakLine, but the owner writer ignores the field for every legal value. |
 | `interface:TableProps@property:bullet` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `interface:TableProps@property:colW` | unverified | — | — | — |
-| `interface:TableProps@property:color` | unverified | — | — | — |
+| `interface:TableProps@property:color` | deliberate-difference | AddTableOptions.color<br>SlideModel.addTable<br>TableModel | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TableProps.color as a strict sRGB or scheme RichTextColor instead of a permissive PptxGenJS color string. |
 | `interface:TableProps@property:fill` | deliberate-difference | AddTableOptions.fill<br>SlideModel.addTable<br>TableCellFill<br>TableModel.fill | code:packages/model/src/table-cell-fill.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native preserves the legal none/solid, sRGB/scheme, and transparency domain through strict TableCellFill creation and editing; PptxGenJS collapses explicit none and zero-alpha intent and permits malformed or out-of-range fill values that native rejects before mutation. |
-| `interface:TableProps@property:fontFace` | unverified | — | — | — |
-| `interface:TableProps@property:fontSize` | unverified | — | — | — |
+| `interface:TableProps@property:fontFace` | deliberate-difference | AddTableOptions.fontFamily<br>SlideModel.addTable<br>TableModel | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native names TableProps.fontFace as fontFamily, requires a non-empty XML-safe string, and writes the same effective typeface. |
+| `interface:TableProps@property:fontSize` | supported | AddTableOptions.fontSize<br>SlideModel.addTable<br>TableModel | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective TableProps.fontSize with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen. |
 | `interface:TableProps@property:h` | unverified | — | — | — |
-| `interface:TableProps@property:highlight` | unverified | — | — | — |
-| `interface:TableProps@property:italic` | unverified | — | — | — |
-| `interface:TableProps@property:lang` | unverified | — | — | — |
+| `interface:TableProps@property:highlight` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableProps.highlight, but the owner writer ignores the field for every legal value. |
+| `interface:TableProps@property:italic` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableProps.italic, but the owner writer ignores the field for every legal value. |
+| `interface:TableProps@property:lang` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableProps.lang, but the owner writer ignores the field for every legal value. |
 | `interface:TableProps@property:margin` | unverified | — | — | — |
 | `interface:TableProps@property:newSlideStartY` | unverified | — | — | — |
 | `interface:TableProps@property:objectName` | unverified | — | — | — |
 | `interface:TableProps@property:rowH` | unverified | — | — | — |
-| `interface:TableProps@property:softBreakBefore` | unverified | — | — | — |
+| `interface:TableProps@property:softBreakBefore` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableProps.softBreakBefore, but the owner writer ignores the field for every legal value. |
 | `interface:TableProps@property:tabStops` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into TableProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
 | `interface:TableProps@property:textDirection` | supported | AddTableOptions.textDirection<br>TableCellTextDirection<br>TableModel.textDirection | code:packages/model/src/table-cell-text-direction.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers TableProps.textDirection with the same four legal tokens, strict pre-mutation validation, editable table-cell OOXML, and canonical omission of the horizontal default. |
 | `interface:TableProps@property:transparency` | unverified | — | — | — |
@@ -2029,25 +1975,25 @@ None.
 | `interface:TableToSlidesProps@property:autoPageLineWeight` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:autoPageRepeatHeader` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:autoPageSlideStartY` | unverified | — | — | — |
-| `interface:TableToSlidesProps@property:bold` | unverified | — | — | — |
+| `interface:TableToSlidesProps@property:bold` | defect-excluded | — | code:packages/sdk/src/table-to-slides-css.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableToSlidesProps.bold, but tableToSlides ignores the flat field; computed CSS remains the positive styling input and native does not copy this inert alias. |
 | `interface:TableToSlidesProps@property:border` | unverified | — | — | — |
-| `interface:TableToSlidesProps@property:breakLine` | unverified | — | — | — |
+| `interface:TableToSlidesProps@property:breakLine` | defect-excluded | — | code:packages/sdk/src/table-to-slides-css.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableToSlidesProps.breakLine, but tableToSlides ignores the flat field; computed CSS remains the positive styling input and native does not copy this inert alias. |
 | `interface:TableToSlidesProps@property:bullet` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `interface:TableToSlidesProps@property:colW` | unverified | — | — | — |
-| `interface:TableToSlidesProps@property:color` | unverified | — | — | — |
+| `interface:TableToSlidesProps@property:color` | defect-excluded | — | code:packages/sdk/src/table-to-slides-css.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableToSlidesProps.color, but tableToSlides ignores the flat field; computed CSS remains the positive styling input and native does not copy this inert alias. |
 | `interface:TableToSlidesProps@property:fill` | defect-excluded | — | code:packages/sdk/src/table-to-slides-css.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableProps.fill into TableToSlidesProps but drops the option before creating any auto-paged table; computed CSS backgrounds alone determine cell fills, which native exposes directly without copying the inert declaration. |
-| `interface:TableToSlidesProps@property:fontFace` | unverified | — | — | — |
-| `interface:TableToSlidesProps@property:fontSize` | unverified | — | — | — |
+| `interface:TableToSlidesProps@property:fontFace` | defect-excluded | — | code:packages/sdk/src/table-to-slides-css.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableToSlidesProps.fontFace, but tableToSlides ignores the flat field; computed CSS remains the positive styling input and native does not copy this inert alias. |
+| `interface:TableToSlidesProps@property:fontSize` | defect-excluded | — | code:packages/sdk/src/table-to-slides-css.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableToSlidesProps.fontSize, but tableToSlides ignores the flat field; computed CSS remains the positive styling input and native does not copy this inert alias. |
 | `interface:TableToSlidesProps@property:h` | unverified | — | — | — |
-| `interface:TableToSlidesProps@property:highlight` | unverified | — | — | — |
-| `interface:TableToSlidesProps@property:italic` | unverified | — | — | — |
-| `interface:TableToSlidesProps@property:lang` | unverified | — | — | — |
+| `interface:TableToSlidesProps@property:highlight` | defect-excluded | — | code:packages/sdk/src/table-to-slides-css.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableToSlidesProps.highlight, but tableToSlides ignores the flat field; computed CSS remains the positive styling input and native does not copy this inert alias. |
+| `interface:TableToSlidesProps@property:italic` | defect-excluded | — | code:packages/sdk/src/table-to-slides-css.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableToSlidesProps.italic, but tableToSlides ignores the flat field; computed CSS remains the positive styling input and native does not copy this inert alias. |
+| `interface:TableToSlidesProps@property:lang` | defect-excluded | — | code:packages/sdk/src/table-to-slides-css.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableToSlidesProps.lang, but tableToSlides ignores the flat field; computed CSS remains the positive styling input and native does not copy this inert alias. |
 | `interface:TableToSlidesProps@property:margin` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:newSlideStartY` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:objectName` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:rowH` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:slideMargin` | unverified | — | — | — |
-| `interface:TableToSlidesProps@property:softBreakBefore` | unverified | — | — | — |
+| `interface:TableToSlidesProps@property:softBreakBefore` | defect-excluded | — | code:packages/sdk/src/table-to-slides-css.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableToSlidesProps.softBreakBefore, but tableToSlides ignores the flat field; computed CSS remains the positive styling input and native does not copy this inert alias. |
 | `interface:TableToSlidesProps@property:tabStops` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into TableToSlidesProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
 | `interface:TableToSlidesProps@property:textDirection` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits textDirection into TableToSlidesProps, but its writer ignores the property and all four declared tokens for that owner. |
 | `interface:TableToSlidesProps@property:transparency` | unverified | — | — | — |
@@ -2317,19 +2263,19 @@ None.
 | `interface:IChartOpts@property:layout` | unverified | — | — | — |
 | `interface:ImageProps@property:placeholder` | unverified | — | — | — |
 | `interface:PlaceholderProps@property:align` | unverified | — | — | — |
-| `interface:PlaceholderProps@property:bold` | unverified | — | — | — |
-| `interface:PlaceholderProps@property:breakLine` | unverified | — | — | — |
+| `interface:PlaceholderProps@property:bold` | supported | RichTextRunStyle.bold<br>ShapeModel.richText<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective PlaceholderProps.bold with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen. |
+| `interface:PlaceholderProps@property:breakLine` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits PlaceholderProps.breakLine, but the owner writer ignores the field for every legal value. |
 | `interface:PlaceholderProps@property:bullet` | supported | AddTextOptions.bullet<br>ParagraphBullet<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers the complete effective PlaceholderProps.bullet output through its strict ParagraphBullet model and preserves standard, character, and numbered bullets through serialization and reopen. |
-| `interface:PlaceholderProps@property:color` | unverified | — | — | — |
-| `interface:PlaceholderProps@property:fontFace` | unverified | — | — | — |
-| `interface:PlaceholderProps@property:fontSize` | unverified | — | — | — |
+| `interface:PlaceholderProps@property:color` | deliberate-difference | RichTextRunStyle.color<br>ShapeModel.richText<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents PlaceholderProps.color as a strict sRGB or scheme RichTextColor instead of a permissive PptxGenJS color string. |
+| `interface:PlaceholderProps@property:fontFace` | deliberate-difference | RichTextRunStyle.fontFamily<br>ShapeModel.richText<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native names PlaceholderProps.fontFace as fontFamily, requires a non-empty XML-safe string, and writes the same effective typeface. |
+| `interface:PlaceholderProps@property:fontSize` | supported | RichTextRunStyle.fontSize<br>ShapeModel.richText<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective PlaceholderProps.fontSize with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen. |
 | `interface:PlaceholderProps@property:h` | unverified | — | — | — |
-| `interface:PlaceholderProps@property:highlight` | unverified | — | — | — |
-| `interface:PlaceholderProps@property:italic` | unverified | — | — | — |
-| `interface:PlaceholderProps@property:lang` | unverified | — | — | — |
+| `interface:PlaceholderProps@property:highlight` | deliberate-difference | RichTextRunStyle.highlight<br>ShapeModel.richText<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents PlaceholderProps.highlight as a strict sRGB or scheme RichTextColor and emits it independently; PptxGenJS accepts permissive strings and conditionally drops some legal highlight-only input. |
+| `interface:PlaceholderProps@property:italic` | supported | RichTextRunStyle.italic<br>ShapeModel.richText<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective PlaceholderProps.italic with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen. |
+| `interface:PlaceholderProps@property:lang` | supported | RichTextRunStyle.lang<br>ShapeModel.richText<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>code:packages/model/src/table-create.internal.ts<br>code:packages/codecs/src/slide-number.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers effective PlaceholderProps.lang with strict detached state, exact OOXML, edit, duplicate, all six formats, and reopen. |
 | `interface:PlaceholderProps@property:margin` | unverified | — | — | — |
 | `interface:PlaceholderProps@property:name` | unverified | — | — | — |
-| `interface:PlaceholderProps@property:softBreakBefore` | unverified | — | — | — |
+| `interface:PlaceholderProps@property:softBreakBefore` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits PlaceholderProps.softBreakBefore, but the owner writer ignores the field for every legal value. |
 | `interface:PlaceholderProps@property:tabStops` | supported | AddTextOptions.tabStops<br>ParagraphTabStop<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers the effective PlaceholderProps.tabStops output with strict paragraph tab stops and preserves every stop through serialization and reopen. |
 | `interface:PlaceholderProps@property:textDirection` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits textDirection into PlaceholderProps, but its writer ignores the property and all four declared tokens for that owner. |
 | `interface:PlaceholderProps@property:transparency` | unverified | — | — | — |

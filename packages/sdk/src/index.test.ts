@@ -19564,6 +19564,188 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('creates and reopens scalar text formatting owners in all six formats', async () => {
+    const ownerXml = (xml: string, name: string, tag: 'p:sp' | 'p:graphicFrame') => {
+      const nameOffset = xml.indexOf(`name="${name}"`);
+      expect(nameOffset).toBeGreaterThanOrEqual(0);
+      const start = xml.lastIndexOf(`<${tag}`, nameOffset);
+      const end = xml.indexOf(`</${tag}>`, nameOffset);
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(end).toBeGreaterThan(nameOffset);
+      return xml.slice(start, end + tag.length + 3);
+    };
+    const scalarStyle = {
+      fontFamily: 'Aptos Display',
+      fontSize: 17.25,
+      lang: 'zh-CN',
+      bold: true,
+      italic: true,
+      color: { kind: 'srgb' as const, value: 'C00000' },
+      highlight: { kind: 'scheme' as const, value: 'accent2' },
+    };
+    const scalarRuns = (prefix: string) => [{
+      runs: [
+        { text: `${prefix} styled`, style: scalarStyle },
+        {
+          text: `${prefix} soft`,
+          softBreakBefore: true,
+          style: {
+            fontFamily: 'Courier New',
+            fontSize: 9.5,
+            lang: 'fr-CA',
+            bold: false,
+            italic: false,
+            color: { kind: 'scheme' as const, value: 'accent1' },
+            highlight: { kind: 'srgb' as const, value: 'FFFF00' },
+          },
+        },
+        { text: `${prefix} paragraph`, breakLine: true },
+        { text: `${prefix} tail` },
+      ],
+    }];
+    const scalarSnapshot = (paragraphs: readonly RichTextParagraph[]) => ({
+      paragraphCount: paragraphs.length,
+      first: paragraphs[0]!.runs[0]!.style,
+      second: paragraphs[0]!.runs[1],
+      tail: paragraphs.at(-1)!.runs[0]!.text,
+    });
+
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({ format });
+      const layout = created.layouts[0]!;
+      const placeholder = layout.addPlaceholder(scalarRuns('Placeholder'), {
+        name: 'scalar-placeholder-owner',
+        type: 'body',
+        index: 311,
+      });
+      const slide = created.addSlide();
+      const text = slide.addRichText(scalarRuns('Text'), {
+        name: 'scalar-text-owner',
+      });
+      const table = slide.addTable([[
+        'Inherited defaults',
+        {
+          text: scalarRuns('Cell'),
+          options: {
+            fontFamily: 'Courier New',
+            fontSize: 10,
+            bold: false,
+            color: { kind: 'srgb', value: '00AA00' },
+          },
+        },
+      ]], {
+        name: 'scalar-table-owner',
+        fontFamily: 'Aptos',
+        fontSize: 18.25,
+        bold: true,
+        color: { kind: 'scheme', value: 'accent1' },
+      });
+      slide.slideNumber = {
+        style: {
+          fontFamily: 'Aptos Narrow',
+          fontSize: 14.5,
+          lang: 'de-DE',
+          bold: true,
+          italic: true,
+          color: { kind: 'scheme', value: 'accent3' },
+        },
+      };
+
+      for (const paragraphs of [text.richText, placeholder.richText]) {
+        expect(scalarSnapshot(paragraphs)).toMatchObject({
+          paragraphCount: 2,
+          first: scalarStyle,
+          second: {
+            text: expect.stringContaining('soft'),
+            softBreakBefore: true,
+            style: {
+              fontFamily: 'Courier New',
+              fontSize: 9.5,
+              lang: 'fr-CA',
+              bold: false,
+              italic: false,
+              color: { kind: 'scheme', value: 'accent1' },
+              highlight: { kind: 'srgb', value: 'FFFF00' },
+            },
+          },
+          tail: expect.stringContaining('tail'),
+        });
+      }
+      expect(table.rows[0]!.cells[0]!.richText[0]!.runs[0]!.style).toMatchObject({
+        fontFamily: 'Aptos',
+        fontSize: 18.25,
+        bold: true,
+        color: { kind: 'scheme', value: 'accent1' },
+      });
+      expect(table.rows[0]!.cells[1]!.richText[0]!.runs[0]!.style).toMatchObject(scalarStyle);
+      expect(table.rows[0]!.cells[1]!.richText[0]!.runs[1]).toMatchObject({
+        softBreakBefore: true,
+        style: { bold: false, italic: false },
+      });
+      expect(table.rows[0]!.cells[1]!.richText).toHaveLength(2);
+      expect(slide.slideNumber?.style).toEqual({
+        fontFamily: 'Aptos Narrow',
+        fontSize: 14.5,
+        lang: 'de-DE',
+        bold: true,
+        italic: true,
+        color: { kind: 'scheme', value: 'accent3' },
+      });
+
+      const slideXml = new TextDecoder().decode(
+        created.opcPackage.requirePart(slide.partUri).bytes,
+      );
+      const textXml = ownerXml(slideXml, 'scalar-text-owner', 'p:sp');
+      const tableXml = ownerXml(slideXml, 'scalar-table-owner', 'p:graphicFrame');
+      const layoutXml = new TextDecoder().decode(
+        created.opcPackage.requirePart(layout.partUri).bytes,
+      );
+      const placeholderXml = ownerXml(layoutXml, 'scalar-placeholder-owner', 'p:sp');
+      for (const xml of [textXml, tableXml, placeholderXml]) {
+        expect(xml).toContain('lang="zh-CN"');
+        expect(xml).toContain('sz="1725"');
+        expect(xml).toContain('b="1" i="1"');
+        expect(xml).toContain('<a:srgbClr val="C00000"/>');
+        expect(xml).toContain('<a:highlight><a:schemeClr val="accent2"/></a:highlight>');
+        expect(xml).toContain('<a:latin typeface="Aptos Display"/>');
+        expect(xml).toContain('<a:br/>');
+      }
+      expect(tableXml).toContain('sz="1825"');
+      expect(tableXml).toContain('sz="950"');
+      expect(tableXml).toContain('b="0" i="0"');
+      expect(slideXml).toContain('type="slidenum"');
+      expect(slideXml).toContain('lang="de-DE"');
+      expect(slideXml).toContain('sz="1450"');
+      expect(slideXml).toContain('<a:schemeClr val="accent3"/>');
+
+      const reopened = await PptxDocument.open(await created.write());
+      const reopenedText = reopened.slides[0]!.shapes.find(
+        (shape): shape is ShapeModel => shape instanceof ShapeModel
+          && shape.name === 'scalar-text-owner',
+      )!;
+      const reopenedTable = reopened.slides[0]!.shapes.find(
+        (shape): shape is TableModel => shape instanceof TableModel
+          && shape.name === 'scalar-table-owner',
+      )!;
+      const reopenedPlaceholder = reopened.layouts[0]!.placeholders.find(
+        (shape): shape is ShapeModel => shape instanceof ShapeModel
+          && shape.name === 'scalar-placeholder-owner',
+      )!;
+      expect(scalarSnapshot(reopenedText.richText)).toEqual(scalarSnapshot(text.richText));
+      expect(scalarSnapshot(reopenedPlaceholder.richText))
+        .toEqual(scalarSnapshot(placeholder.richText));
+      expect(reopenedTable.rows[0]!.cells.map(({ richText }) => richText))
+        .toEqual(table.rows[0]!.cells.map(({ richText }) => richText));
+      expect(reopened.slides[0]!.slideNumber).toEqual(slide.slideNumber);
+      expect(reopened.diagnostics.filter(
+        ({ severity }) => severity === 'error' || severity === 'warning',
+      )).toEqual([]);
+      expect(validatePackage(reopened.opcPackage).filter(
+        ({ severity }) => severity === 'error' || severity === 'warning',
+      )).toEqual([]);
+    }
+  });
+
   it('rejects malformed rich text values before changing the slide package state', () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
