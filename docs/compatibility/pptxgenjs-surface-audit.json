@@ -2028,54 +2028,130 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "inline:interface:PlaceholderProps@property:tabStops@property:tabStops.alignment",
       "kind": "property",
       "name": "tabStops.alignment",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.tabStops",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addPlaceholder"
+      ],
+      "note": "Native maps PlaceholderProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": true,
       "owner": "interface:PlaceholderProps@property:tabStops",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'l' | 'r' | 'ctr' | 'dec'"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "inline:interface:PlaceholderProps@property:tabStops@property:tabStops.position",
       "kind": "property",
       "name": "tabStops.position",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.tabStops",
+        "ParagraphTabStop.position",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addPlaceholder"
+      ],
+      "note": "Native maps PlaceholderProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": false,
       "owner": "interface:PlaceholderProps@property:tabStops",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
@@ -3020,6 +3096,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -3028,24 +3108,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "inline:interface:SlideNumberProps@property:tabStops@property:tabStops.alignment",
       "kind": "property",
       "name": "tabStops.alignment",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into SlideNumberProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": true,
       "owner": "interface:SlideNumberProps@property:tabStops",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'l' | 'r' | 'ctr' | 'dec'"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -3054,19 +3143,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "inline:interface:SlideNumberProps@property:tabStops@property:tabStops.position",
       "kind": "property",
       "name": "tabStops.position",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into SlideNumberProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": false,
       "owner": "interface:SlideNumberProps@property:tabStops",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
@@ -3658,54 +3752,132 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "inline:interface:TableCellProps@property:tabStops@property:tabStops.alignment",
       "kind": "property",
       "name": "tabStops.alignment",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCell.text",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addTable",
+        "TableModel.setCellRichText"
+      ],
+      "note": "Native maps TableCellProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": true,
       "owner": "interface:TableCellProps@property:tabStops",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'l' | 'r' | 'ctr' | 'dec'"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "inline:interface:TableCellProps@property:tabStops@property:tabStops.position",
       "kind": "property",
       "name": "tabStops.position",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCell.text",
+        "ParagraphTabStop.position",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addTable",
+        "TableModel.setCellRichText"
+      ],
+      "note": "Native maps TableCellProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": false,
       "owner": "interface:TableCellProps@property:tabStops",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
@@ -4078,6 +4250,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -4086,24 +4262,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "inline:interface:TableProps@property:tabStops@property:tabStops.alignment",
       "kind": "property",
       "name": "tabStops.alignment",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into TableProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": true,
       "owner": "interface:TableProps@property:tabStops",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'l' | 'r' | 'ctr' | 'dec'"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -4112,19 +4297,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "inline:interface:TableProps@property:tabStops@property:tabStops.position",
       "kind": "property",
       "name": "tabStops.position",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into TableProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": false,
       "owner": "interface:TableProps@property:tabStops",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
@@ -4705,6 +4895,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -4713,24 +4907,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "inline:interface:TableToSlidesProps@property:tabStops@property:tabStops.alignment",
       "kind": "property",
       "name": "tabStops.alignment",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into TableToSlidesProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": true,
       "owner": "interface:TableToSlidesProps@property:tabStops",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'l' | 'r' | 'ctr' | 'dec'"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -4739,19 +4942,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "inline:interface:TableToSlidesProps@property:tabStops@property:tabStops.position",
       "kind": "property",
       "name": "tabStops.position",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into TableToSlidesProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:tabStops",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "number"
     },
     {
@@ -5386,54 +5594,130 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "inline:interface:TextPropsOptions@property:tabStops@property:tabStops.alignment",
       "kind": "property",
       "name": "tabStops.alignment",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.tabStops",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addText"
+      ],
+      "note": "Native maps TextPropsOptions.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": true,
       "owner": "interface:TextPropsOptions@property:tabStops",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'l' | 'r' | 'ctr' | 'dec'"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "inline:interface:TextPropsOptions@property:tabStops@property:tabStops.position",
       "kind": "property",
       "name": "tabStops.position",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.tabStops",
+        "ParagraphTabStop.position",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addText"
+      ],
+      "note": "Native maps TextPropsOptions.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:tabStops",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
@@ -16956,28 +17240,63 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "interface:PlaceholderProps@property:tabStops",
       "kind": "property",
       "name": "tabStops",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.tabStops",
+        "ParagraphTabStop",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addPlaceholder"
+      ],
+      "note": "Native covers the effective PlaceholderProps.tabStops output with strict paragraph tab stops and preserves every stop through serialization and reopen.",
       "optional": true,
       "owner": "PlaceholderProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "Array<{ position: number; alignment?: 'l' | 'r' | 'ctr' | 'dec'; }>"
     },
     {
@@ -20622,6 +20941,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -20630,19 +20953,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "interface:SlideNumberProps@property:tabStops",
       "kind": "property",
       "name": "tabStops",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into SlideNumberProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": true,
       "owner": "SlideNumberProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "Array<{ position: number; alignment?: 'l' | 'r' | 'ctr' | 'dec'; }>"
     },
     {
@@ -21444,28 +21772,64 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "interface:TableCellProps@property:tabStops",
       "kind": "property",
       "name": "tabStops",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCell.text",
+        "ParagraphTabStop",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addTable",
+        "TableModel.setCellRichText"
+      ],
+      "note": "Native covers the effective TableCellProps.tabStops output with strict paragraph tab stops and preserves every stop through serialization and reopen.",
       "optional": true,
       "owner": "TableCellProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "Array<{ position: number; alignment?: 'l' | 'r' | 'ctr' | 'dec'; }>"
     },
     {
@@ -22268,6 +22632,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -22276,19 +22644,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "interface:TableProps@property:tabStops",
       "kind": "property",
       "name": "tabStops",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into TableProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "Array<{ position: number; alignment?: 'l' | 'r' | 'ctr' | 'dec'; }>"
     },
     {
@@ -23367,6 +23740,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -23375,19 +23752,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:tabStops",
       "kind": "property",
       "name": "tabStops",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into TableToSlidesProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "Array<{ position: number; alignment?: 'l' | 'r' | 'ctr' | 'dec'; }>"
     },
     {
@@ -25269,28 +25651,63 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:tabStops",
       "kind": "property",
       "name": "tabStops",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.tabStops",
+        "ParagraphTabStop",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addText"
+      ],
+      "note": "Native covers the effective TextPropsOptions.tabStops output with strict paragraph tab stops and preserves every stop through serialization and reopen.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "Array<{ position: number; alignment?: 'l' | 'r' | 'ctr' | 'dec'; }>"
     },
     {
@@ -57698,106 +58115,258 @@
     },
     {
       "catalogKey": "ctr",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:PlaceholderProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#ctr",
       "kind": "union-member",
       "name": "ctr",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.tabStops",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addPlaceholder"
+      ],
+      "note": "Native maps PlaceholderProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": false,
       "owner": "interface:PlaceholderProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'ctr'"
     },
     {
       "catalogKey": "dec",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:PlaceholderProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#dec",
       "kind": "union-member",
       "name": "dec",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.tabStops",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addPlaceholder"
+      ],
+      "note": "Native maps PlaceholderProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": false,
       "owner": "interface:PlaceholderProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'dec'"
     },
     {
       "catalogKey": "l",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:PlaceholderProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#l",
       "kind": "union-member",
       "name": "l",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.tabStops",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addPlaceholder"
+      ],
+      "note": "Native maps PlaceholderProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": false,
       "owner": "interface:PlaceholderProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'l'"
     },
     {
       "catalogKey": "r",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:PlaceholderProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#r",
       "kind": "union-member",
       "name": "r",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.tabStops",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addPlaceholder"
+      ],
+      "note": "Native maps PlaceholderProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": false,
       "owner": "interface:PlaceholderProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'r'"
     },
     {
@@ -63300,6 +63869,10 @@
     {
       "catalogKey": "ctr",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:SlideNumberProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -63308,24 +63881,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#ctr",
       "kind": "union-member",
       "name": "ctr",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into SlideNumberProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": false,
       "owner": "interface:SlideNumberProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'ctr'"
     },
     {
       "catalogKey": "dec",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:SlideNumberProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -63334,24 +63916,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#dec",
       "kind": "union-member",
       "name": "dec",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into SlideNumberProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": false,
       "owner": "interface:SlideNumberProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dec'"
     },
     {
       "catalogKey": "l",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:SlideNumberProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -63360,24 +63951,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#l",
       "kind": "union-member",
       "name": "l",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into SlideNumberProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": false,
       "owner": "interface:SlideNumberProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'l'"
     },
     {
       "catalogKey": "r",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:SlideNumberProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -63386,19 +63986,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#r",
       "kind": "union-member",
       "name": "r",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into SlideNumberProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": false,
       "owner": "interface:SlideNumberProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'r'"
     },
     {
@@ -64879,106 +65484,262 @@
     },
     {
       "catalogKey": "ctr",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:TableCellProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#ctr",
       "kind": "union-member",
       "name": "ctr",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCell.text",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addTable",
+        "TableModel.setCellRichText"
+      ],
+      "note": "Native maps TableCellProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": false,
       "owner": "interface:TableCellProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'ctr'"
     },
     {
       "catalogKey": "dec",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:TableCellProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#dec",
       "kind": "union-member",
       "name": "dec",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCell.text",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addTable",
+        "TableModel.setCellRichText"
+      ],
+      "note": "Native maps TableCellProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": false,
       "owner": "interface:TableCellProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'dec'"
     },
     {
       "catalogKey": "l",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:TableCellProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#l",
       "kind": "union-member",
       "name": "l",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCell.text",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addTable",
+        "TableModel.setCellRichText"
+      ],
+      "note": "Native maps TableCellProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": false,
       "owner": "interface:TableCellProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'l'"
     },
     {
       "catalogKey": "r",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:TableCellProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#r",
       "kind": "union-member",
       "name": "r",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCell.text",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addTable",
+        "TableModel.setCellRichText"
+      ],
+      "note": "Native maps TableCellProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": false,
       "owner": "interface:TableCellProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'r'"
     },
     {
@@ -66351,6 +67112,10 @@
     {
       "catalogKey": "ctr",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:TableProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -66359,24 +67124,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:TableProps@property:tabStops@path:tabStops.alignment#ctr",
       "kind": "union-member",
       "name": "ctr",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into TableProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": false,
       "owner": "interface:TableProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'ctr'"
     },
     {
       "catalogKey": "dec",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:TableProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -66385,24 +67159,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:TableProps@property:tabStops@path:tabStops.alignment#dec",
       "kind": "union-member",
       "name": "dec",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into TableProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": false,
       "owner": "interface:TableProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dec'"
     },
     {
       "catalogKey": "l",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:TableProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -66411,24 +67194,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:TableProps@property:tabStops@path:tabStops.alignment#l",
       "kind": "union-member",
       "name": "l",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into TableProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": false,
       "owner": "interface:TableProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'l'"
     },
     {
       "catalogKey": "r",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:TableProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -66437,19 +67229,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:TableProps@property:tabStops@path:tabStops.alignment#r",
       "kind": "union-member",
       "name": "r",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into TableProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": false,
       "owner": "interface:TableProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'r'"
     },
     {
@@ -67822,6 +68619,10 @@
     {
       "catalogKey": "ctr",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -67830,24 +68631,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#ctr",
       "kind": "union-member",
       "name": "ctr",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into TableToSlidesProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'ctr'"
     },
     {
       "catalogKey": "dec",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -67856,24 +68666,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#dec",
       "kind": "union-member",
       "name": "dec",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into TableToSlidesProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'dec'"
     },
     {
       "catalogKey": "l",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -67882,24 +68701,33 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#l",
       "kind": "union-member",
       "name": "l",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into TableToSlidesProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'l'"
     },
     {
       "catalogKey": "r",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -67908,19 +68736,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          }
+        ]
       },
       "id": "union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#r",
       "kind": "union-member",
       "name": "r",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits tabStops declarations into TableToSlidesProps, but its writer ignores the property, position, and all four alignment tokens for that owner.",
       "optional": false,
       "owner": "interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "'r'"
     },
     {
@@ -70534,106 +71367,258 @@
     },
     {
       "catalogKey": "ctr",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:TextPropsOptions@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#ctr",
       "kind": "union-member",
       "name": "ctr",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.tabStops",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addText"
+      ],
+      "note": "Native maps TextPropsOptions.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:tabStops@path:tabStops.alignment",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'ctr'"
     },
     {
       "catalogKey": "dec",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:TextPropsOptions@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#dec",
       "kind": "union-member",
       "name": "dec",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.tabStops",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addText"
+      ],
+      "note": "Native maps TextPropsOptions.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:tabStops@path:tabStops.alignment",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'dec'"
     },
     {
       "catalogKey": "l",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:TextPropsOptions@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#l",
       "kind": "union-member",
       "name": "l",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.tabStops",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addText"
+      ],
+      "note": "Native maps TextPropsOptions.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:tabStops@path:tabStops.alignment",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'l'"
     },
     {
       "catalogKey": "r",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "locks tab stop behavior across every declared owner"
+      },
       "declaredIn": "interface:TextPropsOptions@property:tabStops@path:tabStops.alignment",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeParagraphTabStops("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tabStopsState = {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks tab stop behavior across every declared owner"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates edits clears and reopens tab stops in all six formats"
+          }
+        ]
       },
       "id": "union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#r",
       "kind": "union-member",
       "name": "r",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.tabStops",
+        "ParagraphTabStopAlignment",
+        "RichTextParagraph.tabStops",
+        "SlideModel.addText"
+      ],
+      "note": "Native maps TextPropsOptions.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.",
       "optional": false,
       "owner": "interface:TextPropsOptions@property:tabStops@path:tabStops.alignment",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'r'"
     },
     {
@@ -71541,13 +72526,13 @@
   ],
   "complete": false,
   "counts": {
-    "defect-excluded": 227,
-    "deliberate-difference": 152,
+    "defect-excluded": 248,
+    "deliberate-difference": 170,
     "deprecated-alias": 83,
     "stale": 0,
-    "supported": 463,
+    "supported": 466,
     "unsupported": 0,
-    "unverified": 849
+    "unverified": 807
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -71578,8 +72563,6 @@
     "inline:interface:ImageProps@property:sizing@property:sizing.w",
     "inline:interface:ImageProps@property:sizing@property:sizing.x",
     "inline:interface:ImageProps@property:sizing@property:sizing.y",
-    "inline:interface:PlaceholderProps@property:tabStops@property:tabStops.alignment",
-    "inline:interface:PlaceholderProps@property:tabStops@property:tabStops.position",
     "inline:interface:PlaceholderProps@property:underline@property:underline.color",
     "inline:interface:PlaceholderProps@property:underline@property:underline.style",
     "inline:interface:ShapeProps@property:points@property:points.close",
@@ -71604,16 +72587,10 @@
     "inline:interface:SlideMasterProps@property:objects@property:objects.placeholder.text",
     "inline:interface:SlideMasterProps@property:objects@property:objects.rect",
     "inline:interface:SlideMasterProps@property:objects@property:objects.text",
-    "inline:interface:SlideNumberProps@property:tabStops@property:tabStops.alignment",
-    "inline:interface:SlideNumberProps@property:tabStops@property:tabStops.position",
     "inline:interface:SlideNumberProps@property:underline@property:underline.color",
     "inline:interface:SlideNumberProps@property:underline@property:underline.style",
-    "inline:interface:TableCellProps@property:tabStops@property:tabStops.alignment",
-    "inline:interface:TableCellProps@property:tabStops@property:tabStops.position",
     "inline:interface:TableCellProps@property:underline@property:underline.color",
     "inline:interface:TableCellProps@property:underline@property:underline.style",
-    "inline:interface:TableProps@property:tabStops@property:tabStops.alignment",
-    "inline:interface:TableProps@property:tabStops@property:tabStops.position",
     "inline:interface:TableProps@property:underline@property:underline.color",
     "inline:interface:TableProps@property:underline@property:underline.style",
     "inline:interface:TableToSlidesProps@property:addImage@property:addImage.image",
@@ -71624,14 +72601,10 @@
     "inline:interface:TableToSlidesProps@property:addTable@property:addTable.rows",
     "inline:interface:TableToSlidesProps@property:addText@property:addText.options",
     "inline:interface:TableToSlidesProps@property:addText@property:addText.text",
-    "inline:interface:TableToSlidesProps@property:tabStops@property:tabStops.alignment",
-    "inline:interface:TableToSlidesProps@property:tabStops@property:tabStops.position",
     "inline:interface:TableToSlidesProps@property:underline@property:underline.color",
     "inline:interface:TableToSlidesProps@property:underline@property:underline.style",
     "inline:interface:TextPropsOptions@property:outline@property:outline.color",
     "inline:interface:TextPropsOptions@property:outline@property:outline.size",
-    "inline:interface:TextPropsOptions@property:tabStops@property:tabStops.alignment",
-    "inline:interface:TextPropsOptions@property:tabStops@property:tabStops.position",
     "inline:interface:TextPropsOptions@property:underline@property:underline.color",
     "inline:interface:TextPropsOptions@property:underline@property:underline.style",
     "interface:AddSlideProps@property:masterName",
@@ -71882,7 +72855,6 @@
     "interface:PlaceholderProps@property:margin",
     "interface:PlaceholderProps@property:name",
     "interface:PlaceholderProps@property:softBreakBefore",
-    "interface:PlaceholderProps@property:tabStops",
     "interface:PlaceholderProps@property:textDirection",
     "interface:PlaceholderProps@property:transparency",
     "interface:PlaceholderProps@property:type",
@@ -71944,7 +72916,6 @@
     "interface:SlideNumberProps@property:lang",
     "interface:SlideNumberProps@property:margin",
     "interface:SlideNumberProps@property:softBreakBefore",
-    "interface:SlideNumberProps@property:tabStops",
     "interface:SlideNumberProps@property:textDirection",
     "interface:SlideNumberProps@property:transparency",
     "interface:SlideNumberProps@property:underline",
@@ -71971,7 +72942,6 @@
     "interface:TableCellProps@property:margin",
     "interface:TableCellProps@property:rowspan",
     "interface:TableCellProps@property:softBreakBefore",
-    "interface:TableCellProps@property:tabStops",
     "interface:TableCellProps@property:textDirection",
     "interface:TableCellProps@property:transparency",
     "interface:TableCellProps@property:underline",
@@ -71999,7 +72969,6 @@
     "interface:TableProps@property:objectName",
     "interface:TableProps@property:rowH",
     "interface:TableProps@property:softBreakBefore",
-    "interface:TableProps@property:tabStops",
     "interface:TableProps@property:textDirection",
     "interface:TableProps@property:transparency",
     "interface:TableProps@property:underline",
@@ -72038,7 +73007,6 @@
     "interface:TableToSlidesProps@property:rowH",
     "interface:TableToSlidesProps@property:slideMargin",
     "interface:TableToSlidesProps@property:softBreakBefore",
-    "interface:TableToSlidesProps@property:tabStops",
     "interface:TableToSlidesProps@property:textDirection",
     "interface:TableToSlidesProps@property:transparency",
     "interface:TableToSlidesProps@property:underline",
@@ -72091,7 +73059,6 @@
     "interface:TextPropsOptions@property:strike",
     "interface:TextPropsOptions@property:subscript",
     "interface:TextPropsOptions@property:superscript",
-    "interface:TextPropsOptions@property:tabStops",
     "interface:TextPropsOptions@property:textDirection",
     "interface:TextPropsOptions@property:transparency",
     "interface:TextPropsOptions@property:underline",
@@ -72217,10 +73184,6 @@
     "union:interface:ImageProps@property:sizing@path:sizing.type#cover",
     "union:interface:ImageProps@property:sizing@path:sizing.type#crop",
     "union:interface:OptsChartData@property:labels#string[][]",
-    "union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#ctr",
-    "union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#dec",
-    "union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#l",
-    "union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#r",
     "union:interface:PlaceholderProps@property:textDirection#horz",
     "union:interface:PlaceholderProps@property:textDirection#vert",
     "union:interface:PlaceholderProps@property:textDirection#vert270",
@@ -72247,10 +73210,6 @@
     "union:interface:ShadowProps@property:type#outer",
     "union:interface:SlideMasterProps@property:bkgd#BackgroundProps",
     "union:interface:SlideMasterProps@property:bkgd#string",
-    "union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#ctr",
-    "union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#dec",
-    "union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#l",
-    "union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#r",
     "union:interface:SlideNumberProps@property:textDirection#horz",
     "union:interface:SlideNumberProps@property:textDirection#vert",
     "union:interface:SlideNumberProps@property:textDirection#vert270",
@@ -72276,10 +73235,6 @@
     "union:interface:TableCell@property:text#string",
     "union:interface:TableCellProps@property:border#BorderProps",
     "union:interface:TableCellProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]",
-    "union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#ctr",
-    "union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#dec",
-    "union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#l",
-    "union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#r",
     "union:interface:TableCellProps@property:textDirection#horz",
     "union:interface:TableCellProps@property:textDirection#vert",
     "union:interface:TableCellProps@property:textDirection#vert270",
@@ -72307,10 +73262,6 @@
     "union:interface:TableProps@property:colW#number[]",
     "union:interface:TableProps@property:rowH#number",
     "union:interface:TableProps@property:rowH#number[]",
-    "union:interface:TableProps@property:tabStops@path:tabStops.alignment#ctr",
-    "union:interface:TableProps@property:tabStops@path:tabStops.alignment#dec",
-    "union:interface:TableProps@property:tabStops@path:tabStops.alignment#l",
-    "union:interface:TableProps@property:tabStops@path:tabStops.alignment#r",
     "union:interface:TableProps@property:textDirection#horz",
     "union:interface:TableProps@property:textDirection#vert",
     "union:interface:TableProps@property:textDirection#vert270",
@@ -72338,10 +73289,6 @@
     "union:interface:TableToSlidesProps@property:colW#number[]",
     "union:interface:TableToSlidesProps@property:rowH#number",
     "union:interface:TableToSlidesProps@property:rowH#number[]",
-    "union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#ctr",
-    "union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#dec",
-    "union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#l",
-    "union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#r",
     "union:interface:TableToSlidesProps@property:textDirection#horz",
     "union:interface:TableToSlidesProps@property:textDirection#vert",
     "union:interface:TableToSlidesProps@property:textDirection#vert270",
@@ -72369,10 +73316,6 @@
     "union:interface:TextPropsOptions@property:strike#boolean",
     "union:interface:TextPropsOptions@property:strike#dblStrike",
     "union:interface:TextPropsOptions@property:strike#sngStrike",
-    "union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#ctr",
-    "union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#dec",
-    "union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#l",
-    "union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#r",
     "union:interface:TextPropsOptions@property:textDirection#horz",
     "union:interface:TextPropsOptions@property:textDirection#vert",
     "union:interface:TextPropsOptions@property:textDirection#vert270",

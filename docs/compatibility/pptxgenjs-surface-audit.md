@@ -10,12 +10,12 @@
 
 | Status | Count |
 | --- | ---: |
-| supported | 463 |
-| deliberate-difference | 152 |
+| supported | 466 |
+| deliberate-difference | 170 |
 | deprecated-alias | 83 |
-| defect-excluded | 227 |
+| defect-excluded | 248 |
 | unsupported | 0 |
-| unverified | 849 |
+| unverified | 807 |
 | stale | 0 |
 
 ## Runtime declaration differences
@@ -53,8 +53,6 @@ None.
 - `inline:interface:ImageProps@property:sizing@property:sizing.w`
 - `inline:interface:ImageProps@property:sizing@property:sizing.x`
 - `inline:interface:ImageProps@property:sizing@property:sizing.y`
-- `inline:interface:PlaceholderProps@property:tabStops@property:tabStops.alignment`
-- `inline:interface:PlaceholderProps@property:tabStops@property:tabStops.position`
 - `inline:interface:PlaceholderProps@property:underline@property:underline.color`
 - `inline:interface:PlaceholderProps@property:underline@property:underline.style`
 - `inline:interface:ShapeProps@property:points@property:points.close`
@@ -79,16 +77,10 @@ None.
 - `inline:interface:SlideMasterProps@property:objects@property:objects.placeholder.text`
 - `inline:interface:SlideMasterProps@property:objects@property:objects.rect`
 - `inline:interface:SlideMasterProps@property:objects@property:objects.text`
-- `inline:interface:SlideNumberProps@property:tabStops@property:tabStops.alignment`
-- `inline:interface:SlideNumberProps@property:tabStops@property:tabStops.position`
 - `inline:interface:SlideNumberProps@property:underline@property:underline.color`
 - `inline:interface:SlideNumberProps@property:underline@property:underline.style`
-- `inline:interface:TableCellProps@property:tabStops@property:tabStops.alignment`
-- `inline:interface:TableCellProps@property:tabStops@property:tabStops.position`
 - `inline:interface:TableCellProps@property:underline@property:underline.color`
 - `inline:interface:TableCellProps@property:underline@property:underline.style`
-- `inline:interface:TableProps@property:tabStops@property:tabStops.alignment`
-- `inline:interface:TableProps@property:tabStops@property:tabStops.position`
 - `inline:interface:TableProps@property:underline@property:underline.color`
 - `inline:interface:TableProps@property:underline@property:underline.style`
 - `inline:interface:TableToSlidesProps@property:addImage@property:addImage.image`
@@ -99,14 +91,10 @@ None.
 - `inline:interface:TableToSlidesProps@property:addTable@property:addTable.rows`
 - `inline:interface:TableToSlidesProps@property:addText@property:addText.options`
 - `inline:interface:TableToSlidesProps@property:addText@property:addText.text`
-- `inline:interface:TableToSlidesProps@property:tabStops@property:tabStops.alignment`
-- `inline:interface:TableToSlidesProps@property:tabStops@property:tabStops.position`
 - `inline:interface:TableToSlidesProps@property:underline@property:underline.color`
 - `inline:interface:TableToSlidesProps@property:underline@property:underline.style`
 - `inline:interface:TextPropsOptions@property:outline@property:outline.color`
 - `inline:interface:TextPropsOptions@property:outline@property:outline.size`
-- `inline:interface:TextPropsOptions@property:tabStops@property:tabStops.alignment`
-- `inline:interface:TextPropsOptions@property:tabStops@property:tabStops.position`
 - `inline:interface:TextPropsOptions@property:underline@property:underline.color`
 - `inline:interface:TextPropsOptions@property:underline@property:underline.style`
 - `interface:AddSlideProps@property:masterName`
@@ -357,7 +345,6 @@ None.
 - `interface:PlaceholderProps@property:margin`
 - `interface:PlaceholderProps@property:name`
 - `interface:PlaceholderProps@property:softBreakBefore`
-- `interface:PlaceholderProps@property:tabStops`
 - `interface:PlaceholderProps@property:textDirection`
 - `interface:PlaceholderProps@property:transparency`
 - `interface:PlaceholderProps@property:type`
@@ -419,7 +406,6 @@ None.
 - `interface:SlideNumberProps@property:lang`
 - `interface:SlideNumberProps@property:margin`
 - `interface:SlideNumberProps@property:softBreakBefore`
-- `interface:SlideNumberProps@property:tabStops`
 - `interface:SlideNumberProps@property:textDirection`
 - `interface:SlideNumberProps@property:transparency`
 - `interface:SlideNumberProps@property:underline`
@@ -446,7 +432,6 @@ None.
 - `interface:TableCellProps@property:margin`
 - `interface:TableCellProps@property:rowspan`
 - `interface:TableCellProps@property:softBreakBefore`
-- `interface:TableCellProps@property:tabStops`
 - `interface:TableCellProps@property:textDirection`
 - `interface:TableCellProps@property:transparency`
 - `interface:TableCellProps@property:underline`
@@ -474,7 +459,6 @@ None.
 - `interface:TableProps@property:objectName`
 - `interface:TableProps@property:rowH`
 - `interface:TableProps@property:softBreakBefore`
-- `interface:TableProps@property:tabStops`
 - `interface:TableProps@property:textDirection`
 - `interface:TableProps@property:transparency`
 - `interface:TableProps@property:underline`
@@ -513,7 +497,6 @@ None.
 - `interface:TableToSlidesProps@property:rowH`
 - `interface:TableToSlidesProps@property:slideMargin`
 - `interface:TableToSlidesProps@property:softBreakBefore`
-- `interface:TableToSlidesProps@property:tabStops`
 - `interface:TableToSlidesProps@property:textDirection`
 - `interface:TableToSlidesProps@property:transparency`
 - `interface:TableToSlidesProps@property:underline`
@@ -566,7 +549,6 @@ None.
 - `interface:TextPropsOptions@property:strike`
 - `interface:TextPropsOptions@property:subscript`
 - `interface:TextPropsOptions@property:superscript`
-- `interface:TextPropsOptions@property:tabStops`
 - `interface:TextPropsOptions@property:textDirection`
 - `interface:TextPropsOptions@property:transparency`
 - `interface:TextPropsOptions@property:underline`
@@ -692,10 +674,6 @@ None.
 - `union:interface:ImageProps@property:sizing@path:sizing.type#cover`
 - `union:interface:ImageProps@property:sizing@path:sizing.type#crop`
 - `union:interface:OptsChartData@property:labels#string[][]`
-- `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#ctr`
-- `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#dec`
-- `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#l`
-- `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#r`
 - `union:interface:PlaceholderProps@property:textDirection#horz`
 - `union:interface:PlaceholderProps@property:textDirection#vert`
 - `union:interface:PlaceholderProps@property:textDirection#vert270`
@@ -722,10 +700,6 @@ None.
 - `union:interface:ShadowProps@property:type#outer`
 - `union:interface:SlideMasterProps@property:bkgd#BackgroundProps`
 - `union:interface:SlideMasterProps@property:bkgd#string`
-- `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#ctr`
-- `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#dec`
-- `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#l`
-- `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#r`
 - `union:interface:SlideNumberProps@property:textDirection#horz`
 - `union:interface:SlideNumberProps@property:textDirection#vert`
 - `union:interface:SlideNumberProps@property:textDirection#vert270`
@@ -751,10 +725,6 @@ None.
 - `union:interface:TableCell@property:text#string`
 - `union:interface:TableCellProps@property:border#BorderProps`
 - `union:interface:TableCellProps@property:border#[BorderProps,BorderProps,BorderProps,BorderProps]`
-- `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#ctr`
-- `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#dec`
-- `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#l`
-- `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#r`
 - `union:interface:TableCellProps@property:textDirection#horz`
 - `union:interface:TableCellProps@property:textDirection#vert`
 - `union:interface:TableCellProps@property:textDirection#vert270`
@@ -782,10 +752,6 @@ None.
 - `union:interface:TableProps@property:colW#number[]`
 - `union:interface:TableProps@property:rowH#number`
 - `union:interface:TableProps@property:rowH#number[]`
-- `union:interface:TableProps@property:tabStops@path:tabStops.alignment#ctr`
-- `union:interface:TableProps@property:tabStops@path:tabStops.alignment#dec`
-- `union:interface:TableProps@property:tabStops@path:tabStops.alignment#l`
-- `union:interface:TableProps@property:tabStops@path:tabStops.alignment#r`
 - `union:interface:TableProps@property:textDirection#horz`
 - `union:interface:TableProps@property:textDirection#vert`
 - `union:interface:TableProps@property:textDirection#vert270`
@@ -813,10 +779,6 @@ None.
 - `union:interface:TableToSlidesProps@property:colW#number[]`
 - `union:interface:TableToSlidesProps@property:rowH#number`
 - `union:interface:TableToSlidesProps@property:rowH#number[]`
-- `union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#ctr`
-- `union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#dec`
-- `union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#l`
-- `union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#r`
 - `union:interface:TableToSlidesProps@property:textDirection#horz`
 - `union:interface:TableToSlidesProps@property:textDirection#vert`
 - `union:interface:TableToSlidesProps@property:textDirection#vert270`
@@ -844,10 +806,6 @@ None.
 - `union:interface:TextPropsOptions@property:strike#boolean`
 - `union:interface:TextPropsOptions@property:strike#dblStrike`
 - `union:interface:TextPropsOptions@property:strike#sngStrike`
-- `union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#ctr`
-- `union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#dec`
-- `union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#l`
-- `union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#r`
 - `union:interface:TextPropsOptions@property:textDirection#horz`
 - `union:interface:TextPropsOptions@property:textDirection#vert`
 - `union:interface:TextPropsOptions@property:textDirection#vert270`
@@ -908,8 +866,8 @@ None.
 | `inline:interface:SlideNumberProps@property:bullet@property:bullet.startAt` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `inline:interface:SlideNumberProps@property:bullet@property:bullet.style` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `inline:interface:SlideNumberProps@property:bullet@property:bullet.type` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
-| `inline:interface:SlideNumberProps@property:tabStops@property:tabStops.alignment` | unverified | — | — | — |
-| `inline:interface:SlideNumberProps@property:tabStops@property:tabStops.position` | unverified | — | — | — |
+| `inline:interface:SlideNumberProps@property:tabStops@property:tabStops.alignment` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into SlideNumberProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
+| `inline:interface:SlideNumberProps@property:tabStops@property:tabStops.position` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into SlideNumberProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
 | `inline:interface:SlideNumberProps@property:underline@property:underline.color` | unverified | — | — | — |
 | `inline:interface:SlideNumberProps@property:underline@property:underline.style` | unverified | — | — | — |
 | `interface:AddSlideProps@property:masterName` | unverified | — | — | — |
@@ -945,7 +903,7 @@ None.
 | `interface:SlideNumberProps@property:lang` | unverified | — | — | — |
 | `interface:SlideNumberProps@property:margin` | unverified | — | — | — |
 | `interface:SlideNumberProps@property:softBreakBefore` | unverified | — | — | — |
-| `interface:SlideNumberProps@property:tabStops` | unverified | — | — | — |
+| `interface:SlideNumberProps@property:tabStops` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into SlideNumberProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
 | `interface:SlideNumberProps@property:textDirection` | unverified | — | — | — |
 | `interface:SlideNumberProps@property:transparency` | unverified | — | — | — |
 | `interface:SlideNumberProps@property:underline` | unverified | — | — | — |
@@ -982,10 +940,10 @@ None.
 | `union:interface:SlideNumberProps@property:bullet@path:bullet.numberType#romanUcPeriod` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `union:interface:SlideNumberProps@property:bullet@path:bullet.type#bullet` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `union:interface:SlideNumberProps@property:bullet@path:bullet.type#number` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into SlideNumberProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
-| `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#ctr` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#dec` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#l` | unverified | — | — | — |
-| `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#r` | unverified | — | — | — |
+| `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#ctr` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into SlideNumberProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
+| `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#dec` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into SlideNumberProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
+| `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#l` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into SlideNumberProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
+| `union:interface:SlideNumberProps@property:tabStops@path:tabStops.alignment#r` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into SlideNumberProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
 | `union:interface:SlideNumberProps@property:textDirection#horz` | unverified | — | — | — |
 | `union:interface:SlideNumberProps@property:textDirection#vert` | unverified | — | — | — |
 | `union:interface:SlideNumberProps@property:textDirection#vert270` | unverified | — | — | — |
@@ -1023,8 +981,8 @@ None.
 | `inline:interface:TextPropsOptions@property:bullet@property:bullet.type` | deliberate-difference | AddTextOptions.bullet<br>CharacterBullet.kind<br>NumberedBullet.kind<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TextPropsOptions bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
 | `inline:interface:TextPropsOptions@property:outline@property:outline.color` | unverified | — | — | — |
 | `inline:interface:TextPropsOptions@property:outline@property:outline.size` | unverified | — | — | — |
-| `inline:interface:TextPropsOptions@property:tabStops@property:tabStops.alignment` | unverified | — | — | — |
-| `inline:interface:TextPropsOptions@property:tabStops@property:tabStops.position` | unverified | — | — | — |
+| `inline:interface:TextPropsOptions@property:tabStops@property:tabStops.alignment` | deliberate-difference | AddTextOptions.tabStops<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps TextPropsOptions.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
+| `inline:interface:TextPropsOptions@property:tabStops@property:tabStops.position` | deliberate-difference | AddTextOptions.tabStops<br>ParagraphTabStop.position<br>RichTextParagraph.tabStops<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps TextPropsOptions.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
 | `inline:interface:TextPropsOptions@property:underline@property:underline.color` | unverified | — | — | — |
 | `inline:interface:TextPropsOptions@property:underline@property:underline.style` | unverified | — | — | — |
 | `interface:HyperlinkProps@property:slide` | unverified | — | — | — |
@@ -1083,7 +1041,7 @@ None.
 | `interface:TextPropsOptions@property:strike` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:subscript` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:superscript` | unverified | — | — | — |
-| `interface:TextPropsOptions@property:tabStops` | unverified | — | — | — |
+| `interface:TextPropsOptions@property:tabStops` | supported | AddTextOptions.tabStops<br>ParagraphTabStop<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers the effective TextPropsOptions.tabStops output with strict paragraph tab stops and preserves every stop through serialization and reopen. |
 | `interface:TextPropsOptions@property:textDirection` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:transparency` | unverified | — | — | — |
 | `interface:TextPropsOptions@property:underline` | unverified | — | — | — |
@@ -1137,10 +1095,10 @@ None.
 | `union:interface:TextPropsOptions@property:strike#boolean` | unverified | — | — | — |
 | `union:interface:TextPropsOptions@property:strike#dblStrike` | unverified | — | — | — |
 | `union:interface:TextPropsOptions@property:strike#sngStrike` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#ctr` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#dec` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#l` | unverified | — | — | — |
-| `union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#r` | unverified | — | — | — |
+| `union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#ctr` | deliberate-difference | AddTextOptions.tabStops<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps TextPropsOptions.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
+| `union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#dec` | deliberate-difference | AddTextOptions.tabStops<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps TextPropsOptions.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
+| `union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#l` | deliberate-difference | AddTextOptions.tabStops<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps TextPropsOptions.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
+| `union:interface:TextPropsOptions@property:tabStops@path:tabStops.alignment#r` | deliberate-difference | AddTextOptions.tabStops<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps TextPropsOptions.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
 | `union:interface:TextPropsOptions@property:textDirection#horz` | unverified | — | — | — |
 | `union:interface:TextPropsOptions@property:textDirection#vert` | unverified | — | — | — |
 | `union:interface:TextPropsOptions@property:textDirection#vert270` | unverified | — | — | — |
@@ -2119,8 +2077,8 @@ None.
 | `inline:interface:TableCellProps@property:bullet@property:bullet.startAt` | deprecated-alias | AddTableCell.text<br>NumberedBullet.startAt<br>RichTextParagraph.bullet<br>SlideModel.addTable | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 keeps bullet.startAt as a working deprecated alias of bullet.numberStartAt; native rejects the alias and exposes only its strict semantic bullet field. |
 | `inline:interface:TableCellProps@property:bullet@property:bullet.style` | deliberate-difference | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TableCellProps bullets in explicit cell rich-text paragraphs with a strict discriminated union; PptxGenJS uses permissive inherited cell or table defaults, hexadecimal character codes, and truthy fallbacks. |
 | `inline:interface:TableCellProps@property:bullet@property:bullet.type` | deliberate-difference | AddTableCell.text<br>CharacterBullet.kind<br>NumberedBullet.kind<br>RichTextParagraph.bullet<br>SlideModel.addTable | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TableCellProps bullets in explicit cell rich-text paragraphs with a strict discriminated union; PptxGenJS uses permissive inherited cell or table defaults, hexadecimal character codes, and truthy fallbacks. |
-| `inline:interface:TableCellProps@property:tabStops@property:tabStops.alignment` | unverified | — | — | — |
-| `inline:interface:TableCellProps@property:tabStops@property:tabStops.position` | unverified | — | — | — |
+| `inline:interface:TableCellProps@property:tabStops@property:tabStops.alignment` | deliberate-difference | AddTableCell.text<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addTable<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps TableCellProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
+| `inline:interface:TableCellProps@property:tabStops@property:tabStops.position` | deliberate-difference | AddTableCell.text<br>ParagraphTabStop.position<br>RichTextParagraph.tabStops<br>SlideModel.addTable<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps TableCellProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
 | `inline:interface:TableCellProps@property:underline@property:underline.color` | unverified | — | — | — |
 | `inline:interface:TableCellProps@property:underline@property:underline.style` | unverified | — | — | — |
 | `inline:interface:TableProps@property:bullet@property:bullet.characterCode` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
@@ -2132,8 +2090,8 @@ None.
 | `inline:interface:TableProps@property:bullet@property:bullet.startAt` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `inline:interface:TableProps@property:bullet@property:bullet.style` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `inline:interface:TableProps@property:bullet@property:bullet.type` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
-| `inline:interface:TableProps@property:tabStops@property:tabStops.alignment` | unverified | — | — | — |
-| `inline:interface:TableProps@property:tabStops@property:tabStops.position` | unverified | — | — | — |
+| `inline:interface:TableProps@property:tabStops@property:tabStops.alignment` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into TableProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
+| `inline:interface:TableProps@property:tabStops@property:tabStops.position` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into TableProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
 | `inline:interface:TableProps@property:underline@property:underline.color` | unverified | — | — | — |
 | `inline:interface:TableProps@property:underline@property:underline.style` | unverified | — | — | — |
 | `inline:interface:TableToSlidesProps@property:addShape@property:addShape.options` | unverified | — | — | — |
@@ -2151,8 +2109,8 @@ None.
 | `inline:interface:TableToSlidesProps@property:bullet@property:bullet.startAt` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `inline:interface:TableToSlidesProps@property:bullet@property:bullet.style` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
 | `inline:interface:TableToSlidesProps@property:bullet@property:bullet.type` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits bullet declarations into TableToSlidesProps, but its writer ignores every boolean, character, numbering, indentation, and alias value for that owner. |
-| `inline:interface:TableToSlidesProps@property:tabStops@property:tabStops.alignment` | unverified | — | — | — |
-| `inline:interface:TableToSlidesProps@property:tabStops@property:tabStops.position` | unverified | — | — | — |
+| `inline:interface:TableToSlidesProps@property:tabStops@property:tabStops.alignment` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into TableToSlidesProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
+| `inline:interface:TableToSlidesProps@property:tabStops@property:tabStops.position` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into TableToSlidesProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
 | `inline:interface:TableToSlidesProps@property:underline@property:underline.color` | unverified | — | — | — |
 | `inline:interface:TableToSlidesProps@property:underline@property:underline.style` | unverified | — | — | — |
 | `interface:PresSlide@property:addTable` | unverified | — | — | — |
@@ -2179,7 +2137,7 @@ None.
 | `interface:TableCellProps@property:margin` | unverified | — | — | — |
 | `interface:TableCellProps@property:rowspan` | unverified | — | — | — |
 | `interface:TableCellProps@property:softBreakBefore` | unverified | — | — | — |
-| `interface:TableCellProps@property:tabStops` | unverified | — | — | — |
+| `interface:TableCellProps@property:tabStops` | supported | AddTableCell.text<br>ParagraphTabStop<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addTable<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers the effective TableCellProps.tabStops output with strict paragraph tab stops and preserves every stop through serialization and reopen. |
 | `interface:TableCellProps@property:textDirection` | unverified | — | — | — |
 | `interface:TableCellProps@property:transparency` | unverified | — | — | — |
 | `interface:TableCellProps@property:underline` | unverified | — | — | — |
@@ -2209,7 +2167,7 @@ None.
 | `interface:TableProps@property:objectName` | unverified | — | — | — |
 | `interface:TableProps@property:rowH` | unverified | — | — | — |
 | `interface:TableProps@property:softBreakBefore` | unverified | — | — | — |
-| `interface:TableProps@property:tabStops` | unverified | — | — | — |
+| `interface:TableProps@property:tabStops` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into TableProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
 | `interface:TableProps@property:textDirection` | unverified | — | — | — |
 | `interface:TableProps@property:transparency` | unverified | — | — | — |
 | `interface:TableProps@property:underline` | unverified | — | — | — |
@@ -2248,7 +2206,7 @@ None.
 | `interface:TableToSlidesProps@property:rowH` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:slideMargin` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:softBreakBefore` | unverified | — | — | — |
-| `interface:TableToSlidesProps@property:tabStops` | unverified | — | — | — |
+| `interface:TableToSlidesProps@property:tabStops` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into TableToSlidesProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
 | `interface:TableToSlidesProps@property:textDirection` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:transparency` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:underline` | unverified | — | — | — |
@@ -2355,10 +2313,10 @@ None.
 | `union:interface:TableCellProps@property:bullet@path:bullet.numberType#romanUcPeriod` | defect-excluded | AddTableCell.text<br>NumberedBullet.style<br>NumberingStyle<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
 | `union:interface:TableCellProps@property:bullet@path:bullet.type#bullet` | defect-excluded | AddTableCell.text<br>CharacterBullet.kind<br>NumberedBullet.kind<br>RichTextParagraph.bullet<br>SlideModel.addTable | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares TableCellProps.bullet.type='bullet', but its object writer only handles the number branch and emits no bullet for this legal token. |
 | `union:interface:TableCellProps@property:bullet@path:bullet.type#number` | deliberate-difference | AddTableCell.text<br>CharacterBullet.kind<br>NumberedBullet.kind<br>RichTextParagraph.bullet<br>SlideModel.addTable | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents TableCellProps bullets in explicit cell rich-text paragraphs with a strict discriminated union; PptxGenJS uses permissive inherited cell or table defaults, hexadecimal character codes, and truthy fallbacks. |
-| `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#ctr` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#dec` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#l` | unverified | — | — | — |
-| `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#r` | unverified | — | — | — |
+| `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#ctr` | deliberate-difference | AddTableCell.text<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addTable<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps TableCellProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
+| `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#dec` | deliberate-difference | AddTableCell.text<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addTable<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps TableCellProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
+| `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#l` | deliberate-difference | AddTableCell.text<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addTable<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps TableCellProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
+| `union:interface:TableCellProps@property:tabStops@path:tabStops.alignment#r` | deliberate-difference | AddTableCell.text<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addTable<br>TableModel.setCellRichText | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps TableCellProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
 | `union:interface:TableCellProps@property:textDirection#horz` | unverified | — | — | — |
 | `union:interface:TableCellProps@property:textDirection#vert` | unverified | — | — | — |
 | `union:interface:TableCellProps@property:textDirection#vert270` | unverified | — | — | — |
@@ -2405,10 +2363,10 @@ None.
 | `union:interface:TableProps@property:colW#number[]` | unverified | — | — | — |
 | `union:interface:TableProps@property:rowH#number` | unverified | — | — | — |
 | `union:interface:TableProps@property:rowH#number[]` | unverified | — | — | — |
-| `union:interface:TableProps@property:tabStops@path:tabStops.alignment#ctr` | unverified | — | — | — |
-| `union:interface:TableProps@property:tabStops@path:tabStops.alignment#dec` | unverified | — | — | — |
-| `union:interface:TableProps@property:tabStops@path:tabStops.alignment#l` | unverified | — | — | — |
-| `union:interface:TableProps@property:tabStops@path:tabStops.alignment#r` | unverified | — | — | — |
+| `union:interface:TableProps@property:tabStops@path:tabStops.alignment#ctr` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into TableProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
+| `union:interface:TableProps@property:tabStops@path:tabStops.alignment#dec` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into TableProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
+| `union:interface:TableProps@property:tabStops@path:tabStops.alignment#l` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into TableProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
+| `union:interface:TableProps@property:tabStops@path:tabStops.alignment#r` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into TableProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
 | `union:interface:TableProps@property:textDirection#horz` | unverified | — | — | — |
 | `union:interface:TableProps@property:textDirection#vert` | unverified | — | — | — |
 | `union:interface:TableProps@property:textDirection#vert270` | unverified | — | — | — |
@@ -2455,10 +2413,10 @@ None.
 | `union:interface:TableToSlidesProps@property:colW#number[]` | unverified | — | — | — |
 | `union:interface:TableToSlidesProps@property:rowH#number` | unverified | — | — | — |
 | `union:interface:TableToSlidesProps@property:rowH#number[]` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#ctr` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#dec` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#l` | unverified | — | — | — |
-| `union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#r` | unverified | — | — | — |
+| `union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#ctr` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into TableToSlidesProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
+| `union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#dec` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into TableToSlidesProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
+| `union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#l` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into TableToSlidesProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
+| `union:interface:TableToSlidesProps@property:tabStops@path:tabStops.alignment#r` | defect-excluded | — | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits tabStops declarations into TableToSlidesProps, but its writer ignores the property, position, and all four alignment tokens for that owner. |
 | `union:interface:TableToSlidesProps@property:textDirection#horz` | unverified | — | — | — |
 | `union:interface:TableToSlidesProps@property:textDirection#vert` | unverified | — | — | — |
 | `union:interface:TableToSlidesProps@property:textDirection#vert270` | unverified | — | — | — |
@@ -2502,8 +2460,8 @@ None.
 | `inline:interface:PlaceholderProps@property:bullet@property:bullet.startAt` | deprecated-alias | AddTextOptions.bullet<br>NumberedBullet.startAt<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 keeps bullet.startAt as a working deprecated alias of bullet.numberStartAt; native rejects the alias and exposes only its strict semantic bullet field. |
 | `inline:interface:PlaceholderProps@property:bullet@property:bullet.style` | deliberate-difference | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents PlaceholderProps bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
 | `inline:interface:PlaceholderProps@property:bullet@property:bullet.type` | deliberate-difference | AddTextOptions.bullet<br>CharacterBullet.kind<br>NumberedBullet.kind<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents PlaceholderProps bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
-| `inline:interface:PlaceholderProps@property:tabStops@property:tabStops.alignment` | unverified | — | — | — |
-| `inline:interface:PlaceholderProps@property:tabStops@property:tabStops.position` | unverified | — | — | — |
+| `inline:interface:PlaceholderProps@property:tabStops@property:tabStops.alignment` | deliberate-difference | AddTextOptions.tabStops<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps PlaceholderProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
+| `inline:interface:PlaceholderProps@property:tabStops@property:tabStops.position` | deliberate-difference | AddTextOptions.tabStops<br>ParagraphTabStop.position<br>RichTextParagraph.tabStops<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps PlaceholderProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
 | `inline:interface:PlaceholderProps@property:underline@property:underline.color` | unverified | — | — | — |
 | `inline:interface:PlaceholderProps@property:underline@property:underline.style` | unverified | — | — | — |
 | `inline:interface:SlideMasterProps@property:objects@property:objects.chart` | unverified | — | — | — |
@@ -2530,7 +2488,7 @@ None.
 | `interface:PlaceholderProps@property:margin` | unverified | — | — | — |
 | `interface:PlaceholderProps@property:name` | unverified | — | — | — |
 | `interface:PlaceholderProps@property:softBreakBefore` | unverified | — | — | — |
-| `interface:PlaceholderProps@property:tabStops` | unverified | — | — | — |
+| `interface:PlaceholderProps@property:tabStops` | supported | AddTextOptions.tabStops<br>ParagraphTabStop<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js | Native covers the effective PlaceholderProps.tabStops output with strict paragraph tab stops and preserves every stop through serialization and reopen. |
 | `interface:PlaceholderProps@property:textDirection` | unverified | — | — | — |
 | `interface:PlaceholderProps@property:transparency` | unverified | — | — | — |
 | `interface:PlaceholderProps@property:type` | unverified | — | — | — |
@@ -2592,10 +2550,10 @@ None.
 | `union:interface:PlaceholderProps@property:bullet@path:bullet.numberType#romanUcPeriod` | defect-excluded | AddTextOptions.bullet<br>NumberedBullet.style<br>NumberingStyle<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.numberType and all sixteen legal tokens but its writer ignores the field and reads deprecated bullet.style instead. |
 | `union:interface:PlaceholderProps@property:bullet@path:bullet.type#bullet` | defect-excluded | AddTextOptions.bullet<br>CharacterBullet.kind<br>NumberedBullet.kind<br>SlideModel.addPlaceholder | tests:packages/pptxgenjs-adapter/src/index.test.ts<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 declares PlaceholderProps.bullet.type='bullet', but its object writer only handles the number branch and emits no bullet for this legal token. |
 | `union:interface:PlaceholderProps@property:bullet@path:bullet.type#number` | deliberate-difference | AddTextOptions.bullet<br>CharacterBullet.kind<br>NumberedBullet.kind<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native represents PlaceholderProps bullets with a strict discriminated union, actual Unicode characters, bounded indentation and start values, and deterministic OOXML; PptxGenJS uses permissive inline fields and truthy fallbacks. |
-| `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#ctr` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#dec` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#l` | unverified | — | — | — |
-| `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#r` | unverified | — | — | — |
+| `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#ctr` | deliberate-difference | AddTextOptions.tabStops<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps PlaceholderProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
+| `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#dec` | deliberate-difference | AddTextOptions.tabStops<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps PlaceholderProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
+| `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#l` | deliberate-difference | AddTextOptions.tabStops<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps PlaceholderProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
+| `union:interface:PlaceholderProps@property:tabStops@path:tabStops.alignment#r` | deliberate-difference | AddTextOptions.tabStops<br>ParagraphTabStopAlignment<br>RichTextParagraph.tabStops<br>SlideModel.addPlaceholder | code:packages/model/src/rich-text.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>tests:packages/sdk/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native maps PlaceholderProps.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch. |
 | `union:interface:PlaceholderProps@property:textDirection#horz` | unverified | — | — | — |
 | `union:interface:PlaceholderProps@property:textDirection#vert` | unverified | — | — | — |
 | `union:interface:PlaceholderProps@property:textDirection#vert270` | unverified | — | — | — |

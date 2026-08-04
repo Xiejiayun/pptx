@@ -17136,6 +17136,115 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('creates edits clears and reopens tab stops in all six formats', async () => {
+    const tabStops = [
+      { position: 1.25, alignment: 'left' as const },
+      { position: 2.5, alignment: 'center' as const },
+      { position: 3.75, alignment: 'right' as const },
+      { position: 4.5, alignment: 'decimal' as const },
+    ];
+    const expectedTabXml = '<a:tab pos="1143000" algn="l"/>'
+      + '<a:tab pos="2286000" algn="ctr"/>'
+      + '<a:tab pos="3429000" algn="r"/>'
+      + '<a:tab pos="4114800" algn="dec"/>';
+    for (const format of Object.keys(PRESENTATION_FORMAT_PROFILES) as PresentationFormat[]) {
+      const created = PptxDocument.create({ format });
+      const layout = created.layouts[0]!;
+      layout.addPlaceholder('Placeholder\t100', {
+        name: 'tab-stops-placeholder',
+        type: 'body',
+        index: 101,
+        tabStops,
+      });
+      const slide = created.addSlide();
+      slide.addText('Text\t12.50', { name: 'tab-stops-text', tabStops });
+      slide.addTable([[{
+        text: [{ runs: [{ text: 'Cell\t42.75' }], tabStops }],
+      }]], { name: 'tab-stops-table' });
+
+      const beforeInvalidBytes = created.opcPackage.requirePart(slide.partUri).bytes.slice();
+      const beforeInvalidJournal = [...created.opcPackage.mutations];
+      const beforeInvalidShapeCount = slide.shapes.length;
+      expect(() => slide.addText('Invalid tab stop', {
+        tabStops: [{ position: 1, alignment: 'tab' as never }],
+      })).toThrow(/alignment/u);
+      expect(created.opcPackage.requirePart(slide.partUri).bytes).toEqual(beforeInvalidBytes);
+      expect(created.opcPackage.mutations).toEqual(beforeInvalidJournal);
+      expect(slide.shapes).toHaveLength(beforeInvalidShapeCount);
+      expect(created.diagnostics).toEqual([]);
+
+      const first = await PptxDocument.open(await created.write());
+      expect(first.diagnostics).toEqual([]);
+      const firstText = first.slides[0]!.shapes.find(
+        (shape): shape is ShapeModel => shape instanceof ShapeModel
+          && shape.name === 'tab-stops-text',
+      )!;
+      const firstPlaceholder = first.layouts[0]!.placeholders.find(
+        (shape): shape is ShapeModel => shape instanceof ShapeModel
+          && shape.name === 'tab-stops-placeholder',
+      )!;
+      const firstTable = first.slides[0]!.shapes.find(
+        (shape): shape is TableModel => shape instanceof TableModel
+          && shape.name === 'tab-stops-table',
+      )!;
+      expect(firstText.richText[0]!.tabStops).toEqual(tabStops);
+      expect(firstPlaceholder.richText[0]!.tabStops).toEqual(tabStops);
+      expect(firstTable.rows[0]!.cells[0]!.richText[0]!.tabStops).toEqual(tabStops);
+
+      const detached = firstText.richText as unknown as Array<{
+        tabStops?: Array<{ position: number }>;
+      }>;
+      detached[0]!.tabStops![0]!.position = 99;
+      expect(firstText.richText[0]!.tabStops).toEqual(tabStops);
+
+      const firstSlideXml = new TextDecoder().decode(
+        first.opcPackage.requirePart(first.slides[0]!.partUri).bytes,
+      );
+      const firstLayoutXml = new TextDecoder().decode(
+        first.opcPackage.requirePart(first.layouts[0]!.partUri).bytes,
+      );
+      expect((firstSlideXml.match(new RegExp(expectedTabXml, 'g')) ?? []).length).toBe(2);
+      expect(firstLayoutXml).toContain(expectedTabXml);
+
+      firstText.richText = [{
+        runs: [{ text: 'Edited\t12.50' }],
+        tabStops: [{ position: 2.75, alignment: 'decimal' }],
+      }];
+      firstPlaceholder.richText = [{ runs: [{ text: 'Explicit empty' }], tabStops: [] }];
+      firstTable.setCellRichText(0, 0, [{ runs: [{ text: 'Cleared' }], tabStops: false }]);
+      const second = await PptxDocument.open(await first.write());
+      expect(second.diagnostics).toEqual([]);
+      const secondText = second.slides[0]!.shapes.find(
+        (shape): shape is ShapeModel => shape instanceof ShapeModel
+          && shape.name === 'tab-stops-text',
+      )!;
+      const secondPlaceholder = second.layouts[0]!.placeholders.find(
+        (shape): shape is ShapeModel => shape instanceof ShapeModel
+          && shape.name === 'tab-stops-placeholder',
+      )!;
+      const secondTable = second.slides[0]!.shapes.find(
+        (shape): shape is TableModel => shape instanceof TableModel
+          && shape.name === 'tab-stops-table',
+      )!;
+      expect(secondText.richText[0]!.tabStops).toEqual([
+        { position: 2.75, alignment: 'decimal' },
+      ]);
+      expect(secondPlaceholder.richText[0]!.tabStops).toEqual([]);
+      expect(secondTable.rows[0]!.cells[0]!.richText[0]!.tabStops).toBeUndefined();
+      const secondSlideXml = new TextDecoder().decode(
+        second.opcPackage.requirePart(second.slides[0]!.partUri).bytes,
+      );
+      const secondLayoutXml = new TextDecoder().decode(
+        second.opcPackage.requirePart(second.layouts[0]!.partUri).bytes,
+      );
+      expect(secondSlideXml).toContain('<a:tab pos="2514600" algn="dec"/>');
+      expect((secondSlideXml.match(/<a:tab\b/g) ?? []).length).toBe(1);
+      expect(secondLayoutXml).toContain('<a:tabLst></a:tabLst>');
+      expect(validatePackage(second.opcPackage).filter(({ severity }) => severity === 'error'))
+        .toEqual([]);
+    }
+  });
+
   it('creates, replaces, rolls back, and round-trips paragraph spacing', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();

@@ -14898,6 +14898,140 @@ describe('importPptxGenJS', () => {
     expect(slideXml(tableToSlidesVariant, 0)).toBe(slideXml(tableToSlidesBaseline, 0));
   });
 
+  it('locks tab stop behavior across every declared owner', async () => {
+    const tabStops = [
+      { position: 1, alignment: 'l' },
+      { position: 1.25, alignment: 'r' },
+      { position: 1.5, alignment: 'ctr' },
+      { position: 1.75, alignment: 'dec' },
+    ] as const;
+    const expectedStops = [
+      { position: 1, alignment: 'left' },
+      { position: 1.25, alignment: 'right' },
+      { position: 1.5, alignment: 'center' },
+      { position: 1.75, alignment: 'decimal' },
+    ];
+    const expectedXml = '<a:tab pos="914400" algn="l"/>'
+      + '<a:tab pos="1143000" algn="r"/>'
+      + '<a:tab pos="1371600" algn="ctr"/>'
+      + '<a:tab pos="1600200" algn="dec"/>';
+    const namedOwnerXml = (xml: string, name: string, ownerTag: 'p:sp' | 'p:graphicFrame') => {
+      const nameOffset = xml.indexOf(`name="${name}"`);
+      expect(nameOffset).toBeGreaterThanOrEqual(0);
+      const start = xml.lastIndexOf(`<${ownerTag}`, nameOffset);
+      const end = xml.indexOf(`</${ownerTag}>`, nameOffset);
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(end).toBeGreaterThan(nameOffset);
+      return xml.slice(start, end + ownerTag.length + 3);
+    };
+
+    const source = new PptxGenJS();
+    const slideNumberSlide = source.addSlide();
+    slideNumberSlide.slideNumber = {
+      x: 0,
+      y: 0,
+      w: 1,
+      h: 0.3,
+      tabStops,
+    } as unknown as PptxGenJSSlideNumberProps;
+    const slide = source.addSlide();
+    slide.addText('Text\t12.50', {
+      objectName: 'tab-stops-text',
+      x: 0,
+      y: 0,
+      w: 4,
+      h: 0.5,
+      tabStops,
+    });
+    slide.addTable([[{
+      text: 'Cell\t42.75',
+      options: { tabStops },
+    }]], {
+      objectName: 'tab-stops-cell',
+      x: 0,
+      y: 1,
+      w: 4,
+      h: 0.5,
+    });
+    slide.addTable([['Table default\tignored']], {
+      objectName: 'tab-stops-table-inert',
+      x: 0,
+      y: 2,
+      w: 4,
+      h: 0.5,
+      tabStops,
+    });
+    source.defineSlideMaster({
+      title: 'TAB-STOPS-OWNER-MATRIX',
+      objects: [{
+        placeholder: {
+          text: 'Placeholder\t100',
+          options: {
+            name: 'tab-stops-placeholder',
+            objectName: 'tab-stops-placeholder',
+            type: 'body',
+            x: 0,
+            y: 0,
+            w: 4,
+            h: 0.5,
+            tabStops,
+          },
+        },
+      }],
+    });
+    source.addSlide({ masterName: 'TAB-STOPS-OWNER-MATRIX' });
+
+    const imported = await openPptxGenJSPublicOutput(source);
+    const text = imported.slides[1]!.shapes.find(
+      (shape): shape is ShapeModel => shape instanceof ShapeModel
+        && shape.name === 'tab-stops-text',
+    )!;
+    const cellTable = imported.slides[1]!.shapes.find(
+      (shape): shape is TableModel => shape instanceof TableModel
+        && shape.name === 'tab-stops-cell',
+    )!;
+    const layout = imported.layouts.find(({ name }) => name === 'TAB-STOPS-OWNER-MATRIX')!;
+    const placeholder = layout.placeholders.find(
+      (shape): shape is ShapeModel => shape instanceof ShapeModel
+        && shape.name === 'tab-stops-placeholder',
+    )!;
+    expect(text.richText[0]!.tabStops).toEqual(expectedStops);
+    expect(cellTable.rows[0]!.cells[0]!.richText[0]!.tabStops).toEqual(expectedStops);
+    expect(placeholder.text).toBe('Placeholder\t100');
+
+    const ownerSlideXml = slideXml(imported, 1);
+    const textXml = namedOwnerXml(ownerSlideXml, 'tab-stops-text', 'p:sp');
+    const cellXml = namedOwnerXml(ownerSlideXml, 'tab-stops-cell', 'p:graphicFrame');
+    const inertTableXml = namedOwnerXml(
+      ownerSlideXml,
+      'tab-stops-table-inert',
+      'p:graphicFrame',
+    );
+    const layoutXml = new TextDecoder().decode(
+      imported.opcPackage.requirePart(layout.partUri).bytes,
+    );
+    const placeholderXml = namedOwnerXml(layoutXml, 'tab-stops-placeholder', 'p:sp');
+    expect(textXml).toContain(expectedXml);
+    expect(cellXml).toContain(expectedXml);
+    expect(placeholderXml).toContain(expectedXml);
+    expect(inertTableXml).not.toContain('<a:tabLst>');
+
+    const slideNumberXml = slideNumberOwnerState(imported, imported.slides[0]!.partUri).xml
+      .match(/<p:sp(?:\s[^>]*)?>[\s\S]*?<p:ph\b[^>]*\btype="sldNum"[\s\S]*?<\/p:sp>/u)?.[0];
+    expect(slideNumberXml).toBeDefined();
+    expect(slideNumberXml).not.toContain('<a:tabLst>');
+
+    const generateTableToSlides = async (stops?: unknown) => {
+      const presentation = new PptxGenJS();
+      await withTableToSlidesGlobals(tableToSlidesFixture(), () =>
+        presentation.tableToSlides('report', stops === undefined ? {} : { tabStops: stops }));
+      return openPptxGenJSPublicOutput(presentation);
+    };
+    const tableToSlidesBaseline = await generateTableToSlides();
+    const tableToSlidesVariant = await generateTableToSlides(tabStops);
+    expect(slideXml(tableToSlidesVariant, 0)).toBe(slideXml(tableToSlidesBaseline, 0));
+  });
+
   it('imports public PptxGenJS output and continues editing in the OOXML kernel', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

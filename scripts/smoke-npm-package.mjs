@@ -9853,6 +9853,133 @@ const tableToSlidesState = {
 const tableToSlides = Object.values(tableToSlidesState).every(
   (value) => value === true || value === 0,
 );
+const packedTabStops = [
+  { position: 1.25, alignment: 'left' },
+  { position: 2.5, alignment: 'center' },
+  { position: 3.75, alignment: 'right' },
+  { position: 4.5, alignment: 'decimal' },
+];
+const packedTabStopsXml = '<a:tab pos="1143000" algn="l"/>'
+  + '<a:tab pos="2286000" algn="ctr"/>'
+  + '<a:tab pos="3429000" algn="r"/>'
+  + '<a:tab pos="4114800" algn="dec"/>';
+const tabStopsDeck = PptxDocument.create();
+const tabStopsLayout = tabStopsDeck.layouts[0];
+const packedTabStopsPlaceholder = tabStopsLayout.addPlaceholder(
+  'Packed placeholder\t100',
+  {
+    name: 'packed_tab_stops_placeholder',
+    type: 'body',
+    index: 502,
+    tabStops: packedTabStops,
+  },
+);
+const tabStopsSlide = tabStopsDeck.addSlide();
+const packedTabStopsText = tabStopsSlide.addText('Packed text\t12.50', {
+  name: 'packed_tab_stops_text',
+  tabStops: packedTabStops,
+});
+const packedTabStopsTable = tabStopsSlide.addTable([[{
+  text: [{ runs: [{ text: 'Packed cell\t42.75' }], tabStops: packedTabStops }],
+}]], { name: 'packed_tab_stops_table' });
+const packedTabStopsImmediate =
+  JSON.stringify(packedTabStopsText.richText[0].tabStops) ===
+    JSON.stringify(packedTabStops) &&
+  JSON.stringify(packedTabStopsPlaceholder.richText[0].tabStops) ===
+    JSON.stringify(packedTabStops) &&
+  JSON.stringify(packedTabStopsTable.rows[0].cells[0].richText[0].tabStops) ===
+    JSON.stringify(packedTabStops);
+const packedTabStopsSnapshot = packedTabStopsText.richText;
+packedTabStopsSnapshot[0].tabStops[0].position = 99;
+const packedTabStopsSnapshotDetached =
+  packedTabStopsText.richText[0].tabStops[0].position === 1.25;
+const packedTabStopsInitialSlideXml = new TextDecoder().decode(
+  tabStopsDeck.opcPackage.requirePart(tabStopsSlide.partUri).bytes,
+);
+const packedTabStopsInitialLayoutXml = new TextDecoder().decode(
+  tabStopsDeck.opcPackage.requirePart(tabStopsLayout.partUri).bytes,
+);
+const packedTabStopsInitialOoxml =
+  (packedTabStopsInitialSlideXml.match(new RegExp(packedTabStopsXml, 'g')) ?? [])
+    .length === 2 &&
+  packedTabStopsInitialLayoutXml.includes(packedTabStopsXml);
+const packedTabStopsBeforeInvalid = tabStopsDeck.opcPackage
+  .requirePart(tabStopsSlide.partUri).bytes.slice();
+const packedTabStopsInvalidJournal = tabStopsDeck.opcPackage.mutations.length;
+const packedTabStopsInvalidShapeCount = tabStopsSlide.shapes.length;
+let packedTabStopsInvalidRejected = false;
+try {
+  tabStopsSlide.addText('Invalid tab', {
+    tabStops: [{ position: 1, alignment: 'tab' }],
+  });
+} catch {
+  packedTabStopsInvalidRejected = true;
+}
+const packedTabStopsAfterInvalid = tabStopsDeck.opcPackage
+  .requirePart(tabStopsSlide.partUri).bytes;
+const packedTabStopsInvalidRollback = packedTabStopsInvalidRejected &&
+  packedTabStopsInvalidJournal === tabStopsDeck.opcPackage.mutations.length &&
+  packedTabStopsInvalidShapeCount === tabStopsSlide.shapes.length &&
+  packedTabStopsBeforeInvalid.length === packedTabStopsAfterInvalid.length &&
+  packedTabStopsBeforeInvalid.every(
+    (value, index) => value === packedTabStopsAfterInvalid[index],
+  );
+packedTabStopsText.richText = [{
+  runs: [{ text: 'Packed edited\t12.50' }],
+  tabStops: [{ position: 2.75, alignment: 'decimal' }],
+}];
+packedTabStopsPlaceholder.richText = [{
+  runs: [{ text: 'Packed explicit empty tabs' }],
+  tabStops: [],
+}];
+packedTabStopsTable.setCellRichText(0, 0, [{
+  runs: [{ text: 'Packed cleared tabs' }],
+  tabStops: false,
+}]);
+const packedTabStopsEditedSlideXml = new TextDecoder().decode(
+  tabStopsDeck.opcPackage.requirePart(tabStopsSlide.partUri).bytes,
+);
+const packedTabStopsEditedLayoutXml = new TextDecoder().decode(
+  tabStopsDeck.opcPackage.requirePart(tabStopsLayout.partUri).bytes,
+);
+const packedTabStopsEditedOoxml =
+  packedTabStopsEditedSlideXml.includes('<a:tab pos="2514600" algn="dec"/>') &&
+  (packedTabStopsEditedSlideXml.match(/<a:tab\\b/g) ?? []).length === 1 &&
+  packedTabStopsEditedLayoutXml.includes('<a:tabLst></a:tabLst>');
+const reopenedTabStopsDeck = await PptxDocument.open(await tabStopsDeck.write());
+await reopenedTabStopsDeck.write({ compatibility: 'powerpoint-2010' });
+const reopenedPackedTabStopsText = reopenedTabStopsDeck.slides[0].shapes.find(
+  ({ name }) => name === packedTabStopsText.name,
+);
+const reopenedPackedTabStopsPlaceholder = reopenedTabStopsDeck.layouts[0].placeholders.find(
+  ({ name }) => name === packedTabStopsPlaceholder.name,
+);
+const reopenedPackedTabStopsTable = reopenedTabStopsDeck.slides[0].shapes.find(
+  ({ name }) => name === packedTabStopsTable.name,
+);
+const tabStopsState = {
+  snapshotDetached: packedTabStopsSnapshotDetached,
+  immediate: packedTabStopsImmediate,
+  initialOoxml: packedTabStopsInitialOoxml,
+  invalidRollback: packedTabStopsInvalidRollback,
+  editedOoxml: packedTabStopsEditedOoxml,
+  reopenedText: JSON.stringify(reopenedPackedTabStopsText.richText[0].tabStops) ===
+    JSON.stringify([{ position: 2.75, alignment: 'decimal' }]),
+  reopenedPlaceholder: JSON.stringify(
+    reopenedPackedTabStopsPlaceholder.richText[0].tabStops,
+  ) === JSON.stringify([]),
+  reopenedTable: reopenedPackedTabStopsTable.rows[0].cells[0]
+    .richText[0].tabStops === undefined,
+  diagnostics: tabStopsDeck.diagnostics.length === 0 &&
+    reopenedTabStopsDeck.diagnostics.length === 0,
+};
+const tabStops = Object.values(tabStopsState).every((value) => value === true);
+if (!tabStops) {
+  throw new Error('Packed tab stops lifecycle failed: ' + JSON.stringify({
+    state: tabStopsState,
+    diagnostics: reopenedTabStopsDeck.diagnostics,
+  }));
+}
 const packedBulletNumberingStyles = [
   'alphaLcParenBoth',
   'alphaLcParenR',
@@ -10024,6 +10151,8 @@ if (!bulletNumbering) {
   }));
 }
 const checks = {
+  tabStops,
+  tabStopsState,
   bulletNumbering,
   bulletNumberingState,
   slideNumbers,

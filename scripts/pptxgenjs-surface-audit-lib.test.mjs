@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 925);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 967);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
-      ...Array(227).fill('defect-excluded'),
-      ...Array(463).fill('supported'),
-      ...Array(152).fill('deliberate-difference'),
+      ...Array(248).fill('defect-excluded'),
+      ...Array(466).fill('supported'),
+      ...Array(170).fill('deliberate-difference'),
       ...Array(83).fill('deprecated-alias'),
     ].sort(),
   );
@@ -382,6 +382,40 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
     [...new Set(inertChartOptionEntries.map(({ status }) => status))],
     ['defect-excluded'],
   );
+  const tabStopsFamilyOwners = new Set([
+    'PlaceholderProps',
+    'SlideNumberProps',
+    'TableCellProps',
+    'TableProps',
+    'TableToSlidesProps',
+    'TextPropsOptions',
+  ]);
+  const tabStopsFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) => {
+    const owner = id.match(/interface:([^@]+)@property:tabStops/u)?.[1];
+    return owner !== undefined && tabStopsFamilyOwners.has(owner);
+  });
+  assert.equal(tabStopsFamilyEntries.length, 42);
+  assert.deepEqual(
+    Object.fromEntries(
+      ['supported', 'deliberate-difference', 'defect-excluded'].map((status) => [
+        status,
+        tabStopsFamilyEntries.filter((entry) => entry.status === status).length,
+      ]),
+    ),
+    { supported: 3, 'deliberate-difference': 18, 'defect-excluded': 21 },
+  );
+  for (const owner of tabStopsFamilyOwners) {
+    const entries = tabStopsFamilyEntries.filter(({ id }) =>
+      id.includes(`interface:${owner}@property:tabStops`));
+    assert.equal(entries.length, 7, owner);
+    assert.deepEqual(
+      entries.map(({ status }) => status).sort(),
+      ['PlaceholderProps', 'TableCellProps', 'TextPropsOptions'].includes(owner)
+        ? ['supported', ...Array(6).fill('deliberate-difference')].sort()
+        : Array(7).fill('defect-excluded'),
+      owner,
+    );
+  }
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries
       .filter(({ id }) => id.endsWith('#folderCorner'))

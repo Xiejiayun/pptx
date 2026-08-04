@@ -1435,6 +1435,151 @@ const BULLET_FAMILY_ENTRIES = Object.freeze([
   },
 ]);
 
+const TAB_STOPS_FAMILY_CONTROL_TITLE =
+  'locks tab stop behavior across every declared owner';
+const TAB_STOPS_FAMILY_OOXML_TITLE =
+  'creates edits clears and reopens tab stops in all six formats';
+const TAB_STOPS_FAMILY_ACTIVE_OWNERS = Object.freeze([
+  'PlaceholderProps',
+  'TableCellProps',
+  'TextPropsOptions',
+]);
+const TAB_STOPS_FAMILY_INERT_OWNERS = Object.freeze([
+  'SlideNumberProps',
+  'TableProps',
+  'TableToSlidesProps',
+]);
+const TAB_STOPS_FAMILY_FIELDS = Object.freeze(['alignment', 'position']);
+const TAB_STOPS_FAMILY_ALIGNMENT_TOKENS = Object.freeze(['ctr', 'dec', 'l', 'r']);
+
+function tabStopsFamilyInlineId(owner, field) {
+  return `inline:${linePropertyId(owner, 'tabStops')}@property:tabStops.${field}`;
+}
+
+function tabStopsFamilyUnionId(owner, value) {
+  return `union:${linePropertyId(owner, 'tabStops')}@path:tabStops.alignment#${value}`;
+}
+
+function tabStopsFamilyOwnerIds(owner) {
+  return [
+    linePropertyId(owner, 'tabStops'),
+    ...TAB_STOPS_FAMILY_FIELDS.map((field) => tabStopsFamilyInlineId(owner, field)),
+    ...TAB_STOPS_FAMILY_ALIGNMENT_TOKENS.map((value) =>
+      tabStopsFamilyUnionId(owner, value)),
+  ].sort();
+}
+
+function tabStopsFamilyNative(owner, id) {
+  const ownerMapping = owner === 'PlaceholderProps'
+    ? ['AddTextOptions.tabStops', 'RichTextParagraph.tabStops', 'SlideModel.addPlaceholder']
+    : owner === 'TextPropsOptions'
+      ? ['AddTextOptions.tabStops', 'RichTextParagraph.tabStops', 'SlideModel.addText']
+      : [
+          'AddTableCell.text',
+          'RichTextParagraph.tabStops',
+          'SlideModel.addTable',
+          'TableModel.setCellRichText',
+        ];
+  const fieldMapping = id.includes('tabStops.position')
+    ? ['ParagraphTabStop.position']
+    : id.includes('tabStops.alignment')
+      ? ['ParagraphTabStopAlignment']
+      : ['ParagraphTabStop', 'ParagraphTabStopAlignment'];
+  return [...fieldMapping, ...ownerMapping];
+}
+
+function tabStopsFamilyEvidence() {
+  return {
+    code: [{
+      path: 'packages/model/src/rich-text.internal.ts',
+      pattern: 'export function normalizeParagraphTabStops(',
+    }],
+    tests: [
+      {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: TAB_STOPS_FAMILY_CONTROL_TITLE,
+      },
+      {
+        path: 'packages/sdk/src/index.test.ts',
+        title: TAB_STOPS_FAMILY_OOXML_TITLE,
+      },
+    ],
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const tabStopsState = {',
+    }],
+    ooxml: [{
+      path: 'packages/sdk/src/index.test.ts',
+      pattern: TAB_STOPS_FAMILY_OOXML_TITLE,
+    }],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'const tabStopsState = {',
+    }],
+  };
+}
+
+function tabStopsFamilySupportedEntry(owner) {
+  const id = linePropertyId(owner, 'tabStops');
+  return {
+    id,
+    status: 'supported',
+    native: tabStopsFamilyNative(owner, id),
+    evidence: tabStopsFamilyEvidence(),
+    serialization: true,
+    client: true,
+    note: `Native covers the effective ${owner}.tabStops output with strict paragraph tab stops and preserves every stop through serialization and reopen.`,
+  };
+}
+
+function tabStopsFamilyDifferenceEntry(owner, id) {
+  return {
+    id,
+    status: 'deliberate-difference',
+    native: tabStopsFamilyNative(owner, id),
+    evidence: tabStopsFamilyEvidence(),
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: TAB_STOPS_FAMILY_CONTROL_TITLE,
+    },
+    serialization: true,
+    client: true,
+    note: `Native maps ${owner}.tabStops to semantic left/center/right/decimal alignments with finite signed-32-bit positions and preserves zero and negative values; PptxGenJS exposes l/ctr/r/dec and its truthy fallback changes position zero to one inch.`,
+  };
+}
+
+function tabStopsFamilyDefectEntry(owner, id) {
+  return {
+    id,
+    status: 'defect-excluded',
+    native: [],
+    evidence: {
+      code: [],
+      tests: [{
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: TAB_STOPS_FAMILY_CONTROL_TITLE,
+      }],
+      package: [],
+      ooxml: [],
+      clients: [],
+    },
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: TAB_STOPS_FAMILY_CONTROL_TITLE,
+    },
+    note: `PptxGenJS 4.0.1 inherits tabStops declarations into ${owner}, but its writer ignores the property, position, and all four alignment tokens for that owner.`,
+  };
+}
+
+const TAB_STOPS_FAMILY_ENTRIES = Object.freeze([
+  ...TAB_STOPS_FAMILY_ACTIVE_OWNERS.flatMap((owner) =>
+    tabStopsFamilyOwnerIds(owner).map((id) => id === linePropertyId(owner, 'tabStops')
+      ? tabStopsFamilySupportedEntry(owner)
+      : tabStopsFamilyDifferenceEntry(owner, id))),
+  ...TAB_STOPS_FAMILY_INERT_OWNERS.flatMap((owner) =>
+    tabStopsFamilyOwnerIds(owner).map((id) => tabStopsFamilyDefectEntry(owner, id))),
+]);
+
 const TABLE_TO_SLIDES_FILL_CONTROL_TITLE =
   'isolates the ignored tableToSlides fill declaration from computed CSS backgrounds';
 const TABLE_TO_SLIDES_FILL_DEFECT_ENTRY = Object.freeze({
@@ -1807,6 +1952,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...CHART_AXIS_BEHAVIOR_DIFFERENCE_ENTRIES,
     ...INERT_CHART_OPTION_DEFECT_ENTRIES,
     ...BULLET_FAMILY_ENTRIES,
+    ...TAB_STOPS_FAMILY_ENTRIES,
     ...['ShapeType', 'SHAPE_NAME'].flatMap((owner) =>
       DECLARED_PRESET_SHAPE_VALUES.map((value) => presetShapeCatalogEntry(owner, value))),
     ...['SchemeColor', 'ThemeColor'].flatMap((owner) =>

@@ -441,6 +441,119 @@ async (page) => {
           JSON.stringify(expectedBulletNumberingParagraphs)
         && Object.values(bulletNumberingState.exactOoxml).every(Boolean)
         && bulletNumberingState.diagnostics === 0;
+      const browserTabStops = [
+        { position: 1.25, alignment: 'left' },
+        { position: 2.5, alignment: 'center' },
+        { position: 3.75, alignment: 'right' },
+        { position: 4.5, alignment: 'decimal' },
+      ];
+      const browserTabStopsXml = '<a:tab pos="1143000" algn="l"/>'
+        + '<a:tab pos="2286000" algn="ctr"/>'
+        + '<a:tab pos="3429000" algn="r"/>'
+        + '<a:tab pos="4114800" algn="dec"/>';
+      const tabStopsDocument = api.PptxDocument.create();
+      const tabStopsLayout = tabStopsDocument.layouts[0];
+      const tabStopsPlaceholder = tabStopsLayout.addPlaceholder(
+        'Chrome placeholder\t100',
+        {
+          name: 'chrome_tab_stops_placeholder',
+          type: 'body',
+          index: 221,
+          tabStops: browserTabStops,
+        },
+      );
+      const tabStopsSlide = tabStopsDocument.addSlide();
+      const tabStopsText = tabStopsSlide.addText('Chrome text\t12.50', {
+        name: 'Chrome tab stops text',
+        tabStops: browserTabStops,
+      });
+      const tabStopsTable = tabStopsSlide.addTable([[{
+        text: [{ runs: [{ text: 'Chrome cell\t42.75' }], tabStops: browserTabStops }],
+      }]], { name: 'Chrome tab stops table' });
+      const initialTabStopsSlideXml = new TextDecoder().decode(
+        tabStopsDocument.opcPackage.requirePart(tabStopsSlide.partUri).bytes,
+      );
+      const initialTabStopsLayoutXml = new TextDecoder().decode(
+        tabStopsDocument.opcPackage.requirePart(tabStopsLayout.partUri).bytes,
+      );
+      const tabStopsSnapshot = tabStopsText.richText;
+      tabStopsSnapshot[0].tabStops[0].position = 99;
+      const tabStopsSnapshotDetached =
+        tabStopsText.richText[0].tabStops[0].position === 1.25;
+      const beforeInvalidTabStops = tabStopsDocument.opcPackage
+        .requirePart(tabStopsSlide.partUri).bytes.slice();
+      const invalidTabStopsJournal = tabStopsDocument.opcPackage.mutations.length;
+      const invalidTabStopsShapeCount = tabStopsSlide.shapes.length;
+      let invalidTabStopsRejected = false;
+      try {
+        tabStopsSlide.addText('Invalid tab', {
+          tabStops: [{ position: 1, alignment: 'tab' }],
+        });
+      } catch {
+        invalidTabStopsRejected = true;
+      }
+      const afterInvalidTabStops = tabStopsDocument.opcPackage
+        .requirePart(tabStopsSlide.partUri).bytes;
+      const invalidTabStopsRollback = invalidTabStopsRejected
+        && invalidTabStopsJournal === tabStopsDocument.opcPackage.mutations.length
+        && invalidTabStopsShapeCount === tabStopsSlide.shapes.length
+        && beforeInvalidTabStops.length === afterInvalidTabStops.length
+        && beforeInvalidTabStops.every(
+          (value, index) => value === afterInvalidTabStops[index],
+        );
+      tabStopsText.richText = [{
+        runs: [{ text: 'Chrome edited\t12.50' }],
+        tabStops: [{ position: 2.75, alignment: 'decimal' }],
+      }];
+      tabStopsPlaceholder.richText = [{
+        runs: [{ text: 'Chrome explicit empty tabs' }],
+        tabStops: [],
+      }];
+      tabStopsTable.setCellRichText(0, 0, [{
+        runs: [{ text: 'Chrome cleared tabs' }],
+        tabStops: false,
+      }]);
+      const editedTabStopsSlideXml = new TextDecoder().decode(
+        tabStopsDocument.opcPackage.requirePart(tabStopsSlide.partUri).bytes,
+      );
+      const editedTabStopsLayoutXml = new TextDecoder().decode(
+        tabStopsDocument.opcPackage.requirePart(tabStopsLayout.partUri).bytes,
+      );
+      const tabStopsOutput = await tabStopsDocument.writeBlob();
+      const reopenedTabStopsDocument = await api.PptxDocument.open(tabStopsOutput);
+      const reopenedTabStopsText = reopenedTabStopsDocument.slides[0].shapes.find(
+        ({ name }) => name === tabStopsText.name,
+      );
+      const reopenedTabStopsPlaceholder = reopenedTabStopsDocument.layouts[0].shapes.find(
+        ({ name }) => name === tabStopsPlaceholder.name,
+      );
+      const reopenedTabStopsTable = reopenedTabStopsDocument.slides[0].shapes.find(
+        ({ name }) => name === tabStopsTable.name,
+      );
+      const tabStopsState = {
+        snapshotDetached: tabStopsSnapshotDetached,
+        immediate: initialTabStopsSlideXml.includes(browserTabStopsXml)
+          && initialTabStopsLayoutXml.includes(browserTabStopsXml),
+        initialOoxml: (initialTabStopsSlideXml.match(/<a:tab\b/g) ?? []).length === 8,
+        invalidRollback: invalidTabStopsRollback,
+        editedOoxml: editedTabStopsSlideXml.includes(
+          '<a:tab pos="2514600" algn="dec"/>',
+        ) && (editedTabStopsSlideXml.match(/<a:tab\b/g) ?? []).length === 1
+          && editedTabStopsLayoutXml.includes('<a:tabLst></a:tabLst>'),
+        reopenedText: reopenedTabStopsText instanceof api.ShapeModel
+          && JSON.stringify(reopenedTabStopsText.richText[0].tabStops) ===
+            JSON.stringify([{ position: 2.75, alignment: 'decimal' }]),
+        reopenedPlaceholder: reopenedTabStopsPlaceholder instanceof api.ShapeModel
+          && JSON.stringify(reopenedTabStopsPlaceholder.richText[0].tabStops) ===
+            JSON.stringify([]),
+        reopenedTable: reopenedTabStopsTable instanceof api.TableModel
+          && reopenedTabStopsTable.rows[0].cells[0].richText[0].tabStops === undefined,
+        diagnostics: tabStopsDocument.diagnostics.length === 0
+          && reopenedTabStopsDocument.diagnostics.length === 0,
+      };
+      const tabStops = tabStopsOutput.type ===
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        && Object.values(tabStopsState).every(Boolean);
       const presetShapeDocument = api.PptxDocument.create();
       const presetShapeSlide = presetShapeDocument.addSlide();
       const presetShapeModels = api.PRESET_SHAPE_TYPES.map(
@@ -6184,6 +6297,8 @@ async (page) => {
         horizontalAlignmentState,
         verticalAlignments,
         verticalAlignmentState,
+        tabStops,
+        tabStopsState,
         bulletNumbering,
         bulletNumberingState,
         presetShapes,
@@ -6531,6 +6646,18 @@ async (page) => {
       textReopened: ['top', 'middle', 'bottom'],
       tableReopened: ['top', 'middle', 'bottom'],
       frozen: true,
+    },
+    tabStops: true,
+    tabStopsState: {
+      snapshotDetached: true,
+      immediate: true,
+      initialOoxml: true,
+      invalidRollback: true,
+      editedOoxml: true,
+      reopenedText: true,
+      reopenedPlaceholder: true,
+      reopenedTable: true,
+      diagnostics: true,
     },
     bulletNumbering: true,
     bulletNumberingState: {
