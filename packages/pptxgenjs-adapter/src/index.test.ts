@@ -1189,6 +1189,38 @@ describe('importPptxGenJS', () => {
       .toBe(nativeTable.rows[0]!.cells[0]!.verticalAlignment ?? 'top');
   });
 
+  it('isolates the ignored tableToSlides fill declaration from computed CSS backgrounds', async () => {
+    const generate = async (fill?: Record<string, unknown>) => {
+      const generated = new PptxGenJS();
+      await withTableToSlidesGlobals(tableToSlidesFixture(), () =>
+        generated.tableToSlides('report', fill === undefined ? {} : { fill }));
+      return openPptxGenJSPublicOutput(generated);
+    };
+    const omitted = await generate();
+    const declared = await generate({ color: 'FF0000', transparency: 25 });
+    const fills = (document: PptxDocument) => {
+      const table = document.slides[0]!.shapes[0] as TableModel;
+      return table.rows.map((row) => row.cells.map(({ fill }) => fill));
+    };
+    const expected = Array.from({ length: 3 }, () => Array(2).fill({
+      kind: 'solid',
+      color: { kind: 'srgb', value: 'F0F1F2' },
+    }));
+    expect(fills(omitted)).toEqual(expected);
+    expect(fills(declared)).toEqual(expected);
+    const declaredXml = new TextDecoder().decode(
+      declared.opcPackage.requirePart(declared.slides[0]!.partUri).bytes,
+    );
+    expect(declaredXml).not.toContain('FF0000');
+    expect(declaredXml).not.toContain('75000');
+
+    const native = PptxDocument.create();
+    const pages = await withTableToSlidesGlobals(tableToSlidesFixture(), () =>
+      native.tableToSlides('report'));
+    expect(pages).toHaveLength(1);
+    expect(fills(native)).toEqual(expected);
+  });
+
   it('locks strict tableToSlides differences from PptxGenJS 4.0.1 defects', async () => {
     const generated = new PptxGenJS();
     const legacyOptions: Record<string, unknown> = {

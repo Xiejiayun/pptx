@@ -17022,28 +17022,63 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "imports PptxGenJS table-cell fills from direct cell properties"
+      },
       "declaredIn": "TableCellProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableFill = JSON.stringify(tableFillState)"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/table-cell-fill.internal.ts",
+            "pattern": "export function normalizeTableCellFill("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "edits table-cell fills through duplicate, rollback, and reopen lifecycles"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const initialCellFill = table?.rows[0]?.cells[0]?.fill;"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports PptxGenJS table-cell fills from direct cell properties"
+          }
+        ]
       },
       "id": "interface:TableCellProps@property:fill",
       "kind": "property",
       "name": "fill",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableCellOptions.fill",
+        "SlideModel.addTable",
+        "TableCell.fill",
+        "TableCellFill",
+        "TableModel.setCellFill"
+      ],
+      "note": "Native preserves the legal none/solid, sRGB/scheme, and transparency domain through strict TableCellFill creation and editing; PptxGenJS collapses explicit none and zero-alpha intent and permits malformed or out-of-range fill values that native rejects before mutation.",
       "optional": true,
       "owner": "TableCellProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "ShapeFillProps"
     },
     {
@@ -17750,28 +17785,62 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches native table-level solid fill creation to PptxGenJS final state"
+      },
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableFill = JSON.stringify(tableFillState)"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/table-cell-fill.internal.ts",
+            "pattern": "export function normalizeTableCellFill("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableFillDeckPath = join(directory, 'table-fill-smoke.pptx');"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableFillDocument = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches native table-level solid fill creation to PptxGenJS final state"
+          }
+        ]
       },
       "id": "interface:TableProps@property:fill",
       "kind": "property",
       "name": "fill",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTableOptions.fill",
+        "SlideModel.addTable",
+        "TableCellFill",
+        "TableModel.fill"
+      ],
+      "note": "Native preserves the legal none/solid, sRGB/scheme, and transparency domain through strict TableCellFill creation and editing; PptxGenJS collapses explicit none and zero-alpha intent and permits malformed or out-of-range fill values that native rejects before mutation.",
       "optional": true,
       "owner": "TableProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "ShapeFillProps"
     },
     {
@@ -18765,27 +18834,51 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "isolates the ignored tableToSlides fill declaration from computed CSS backgrounds"
+      },
       "declaredIn": "TableProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const tableToSlidesState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/table-to-slides-css.ts",
+            "pattern": "export function mapComputedCellOptions("
+          }
+        ],
         "ooxml": [],
-        "package": [],
-        "tests": []
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const tableToSlidesStyles ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "isolates the ignored tableToSlides fill declaration from computed CSS backgrounds"
+          }
+        ]
       },
       "id": "interface:TableToSlidesProps@property:fill",
       "kind": "property",
       "name": "fill",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits TableProps.fill into TableToSlidesProps but drops the option before creating any auto-paged table; computed CSS backgrounds alone determine cell fills, which native exposes directly without copying the inert declaration.",
       "optional": true,
       "owner": "TableToSlidesProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "ShapeFillProps"
     },
     {
@@ -62931,13 +63024,13 @@
   ],
   "complete": false,
   "counts": {
-    "defect-excluded": 3,
-    "deliberate-difference": 58,
+    "defect-excluded": 4,
+    "deliberate-difference": 60,
     "deprecated-alias": 75,
     "stale": 0,
     "supported": 415,
     "unsupported": 0,
-    "unverified": 1223
+    "unverified": 1220
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -63499,7 +63592,6 @@
     "interface:TableCellProps@property:bullet",
     "interface:TableCellProps@property:color",
     "interface:TableCellProps@property:colspan",
-    "interface:TableCellProps@property:fill",
     "interface:TableCellProps@property:fontFace",
     "interface:TableCellProps@property:fontSize",
     "interface:TableCellProps@property:highlight",
@@ -63527,7 +63619,6 @@
     "interface:TableProps@property:bullet",
     "interface:TableProps@property:colW",
     "interface:TableProps@property:color",
-    "interface:TableProps@property:fill",
     "interface:TableProps@property:fontFace",
     "interface:TableProps@property:fontSize",
     "interface:TableProps@property:h",
@@ -63566,7 +63657,6 @@
     "interface:TableToSlidesProps@property:bullet",
     "interface:TableToSlidesProps@property:colW",
     "interface:TableToSlidesProps@property:color",
-    "interface:TableToSlidesProps@property:fill",
     "interface:TableToSlidesProps@property:fontFace",
     "interface:TableToSlidesProps@property:fontSize",
     "interface:TableToSlidesProps@property:h",

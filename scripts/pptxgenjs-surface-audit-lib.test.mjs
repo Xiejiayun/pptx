@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 551);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 554);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
-      ...Array(3).fill('defect-excluded'),
+      ...Array(4).fill('defect-excluded'),
       ...Array(415).fill('supported'),
-      ...Array(58).fill('deliberate-difference'),
+      ...Array(60).fill('deliberate-difference'),
       ...Array(75).fill('deprecated-alias'),
     ].sort(),
   );
@@ -174,6 +174,25 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(
     fillFamilyById.get('interface:ShapeFillProps@property:alpha')?.canonical,
     'interface:ShapeFillProps@property:transparency',
+  );
+  const tableFillEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
+    /^interface:(?:TableCellProps|TableProps|TableToSlidesProps)@property:fill$/u.test(id));
+  assert.deepEqual(
+    tableFillEntries.map(({ id, status }) => ({ id, status })),
+    [
+      {
+        id: 'interface:TableCellProps@property:fill',
+        status: 'deliberate-difference',
+      },
+      {
+        id: 'interface:TableProps@property:fill',
+        status: 'deliberate-difference',
+      },
+      {
+        id: 'interface:TableToSlidesProps@property:fill',
+        status: 'defect-excluded',
+      },
+    ],
   );
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries

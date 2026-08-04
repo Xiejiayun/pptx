@@ -507,6 +507,90 @@ const DEPRECATED_FILL_ENTRY = Object.freeze((() => {
     note: 'PptxGenJS declares alpha as a deprecated transparency alias across shape and text fills; when both nonzero fields are present it writes duplicate alpha children, while native rejects the alias and exposes only the strict canonical transparency field.',
   };
 })());
+const TABLE_FILL_CONTROLS = Object.freeze({
+  TableCellProps: 'imports PptxGenJS table-cell fills from direct cell properties',
+  TableProps: 'matches native table-level solid fill creation to PptxGenJS final state',
+});
+
+function tableFillEntry(owner) {
+  const id = linePropertyId(owner, 'fill');
+  const tableLevel = owner === 'TableProps';
+  const title = TABLE_FILL_CONTROLS[owner];
+  return {
+    id,
+    status: 'deliberate-difference',
+    native: tableLevel
+      ? ['TableCellFill', 'AddTableOptions.fill', 'TableModel.fill', 'SlideModel.addTable']
+      : [
+          'TableCellFill',
+          'AddTableCellOptions.fill',
+          'TableCell.fill',
+          'TableModel.setCellFill',
+          'SlideModel.addTable',
+        ],
+    evidence: {
+      code: [{
+        path: 'packages/model/src/table-cell-fill.internal.ts',
+        pattern: 'export function normalizeTableCellFill(',
+      }],
+      tests: [{ path: 'packages/pptxgenjs-adapter/src/index.test.ts', title }],
+      package: [{
+        path: 'scripts/smoke-npm-package.mjs',
+        pattern: tableLevel
+          ? 'const tableFillDocument = PptxDocument.create();'
+          : 'const initialCellFill = table?.rows[0]?.cells[0]?.fill;',
+      }],
+      ooxml: [{
+        path: tableLevel
+          ? 'scripts/smoke-npm-package.mjs'
+          : 'packages/sdk/src/index.test.ts',
+        pattern: tableLevel
+          ? "const tableFillDeckPath = join(directory, 'table-fill-smoke.pptx');"
+          : 'edits table-cell fills through duplicate, rollback, and reopen lifecycles',
+      }],
+      clients: [{
+        path: 'scripts/playwright-browser-smoke.js',
+        pattern: 'const tableFill = JSON.stringify(tableFillState)',
+      }],
+    },
+    control: { path: 'packages/pptxgenjs-adapter/src/index.test.ts', pattern: title },
+    serialization: true,
+    client: true,
+    note: 'Native preserves the legal none/solid, sRGB/scheme, and transparency domain through strict TableCellFill creation and editing; PptxGenJS collapses explicit none and zero-alpha intent and permits malformed or out-of-range fill values that native rejects before mutation.',
+  };
+}
+
+const TABLE_TO_SLIDES_FILL_CONTROL_TITLE =
+  'isolates the ignored tableToSlides fill declaration from computed CSS backgrounds';
+const TABLE_TO_SLIDES_FILL_DEFECT_ENTRY = Object.freeze({
+  id: linePropertyId('TableToSlidesProps', 'fill'),
+  status: 'defect-excluded',
+  native: [],
+  evidence: {
+    code: [{
+      path: 'packages/sdk/src/table-to-slides-css.ts',
+      pattern: 'export function mapComputedCellOptions(',
+    }],
+    tests: [{
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      title: TABLE_TO_SLIDES_FILL_CONTROL_TITLE,
+    }],
+    package: [{
+      path: 'scripts/smoke-npm-package.mjs',
+      pattern: 'const tableToSlidesStyles =',
+    }],
+    ooxml: [],
+    clients: [{
+      path: 'scripts/playwright-browser-smoke.js',
+      pattern: 'const tableToSlidesState = {',
+    }],
+  },
+  control: {
+    path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+    pattern: TABLE_TO_SLIDES_FILL_CONTROL_TITLE,
+  },
+  note: 'PptxGenJS 4.0.1 inherits TableProps.fill into TableToSlidesProps but drops the option before creating any auto-paged table; computed CSS backgrounds alone determine cell fills, which native exposes directly without copying the inert declaration.',
+});
 
 function presetShapeCatalogEntry(owner, value) {
   const id = `union:${owner}#${value}`;
@@ -836,6 +920,8 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...DEPRECATED_LINE_ENTRIES,
     ...CANONICAL_FILL_ATOM_IDS.map((id) => canonicalFillEntry(id)),
     DEPRECATED_FILL_ENTRY,
+    ...['TableCellProps', 'TableProps'].map((owner) => tableFillEntry(owner)),
+    TABLE_TO_SLIDES_FILL_DEFECT_ENTRY,
     ...['ShapeType', 'SHAPE_NAME'].flatMap((owner) =>
       DECLARED_PRESET_SHAPE_VALUES.map((value) => presetShapeCatalogEntry(owner, value))),
     ...['SchemeColor', 'ThemeColor'].flatMap((owner) =>

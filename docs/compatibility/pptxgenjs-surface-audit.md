@@ -11,11 +11,11 @@
 | Status | Count |
 | --- | ---: |
 | supported | 415 |
-| deliberate-difference | 58 |
+| deliberate-difference | 60 |
 | deprecated-alias | 75 |
-| defect-excluded | 3 |
+| defect-excluded | 4 |
 | unsupported | 0 |
-| unverified | 1223 |
+| unverified | 1220 |
 | stale | 0 |
 
 ## Runtime declaration differences
@@ -584,7 +584,6 @@ None.
 - `interface:TableCellProps@property:bullet`
 - `interface:TableCellProps@property:color`
 - `interface:TableCellProps@property:colspan`
-- `interface:TableCellProps@property:fill`
 - `interface:TableCellProps@property:fontFace`
 - `interface:TableCellProps@property:fontSize`
 - `interface:TableCellProps@property:highlight`
@@ -612,7 +611,6 @@ None.
 - `interface:TableProps@property:bullet`
 - `interface:TableProps@property:colW`
 - `interface:TableProps@property:color`
-- `interface:TableProps@property:fill`
 - `interface:TableProps@property:fontFace`
 - `interface:TableProps@property:fontSize`
 - `interface:TableProps@property:h`
@@ -651,7 +649,6 @@ None.
 - `interface:TableToSlidesProps@property:bullet`
 - `interface:TableToSlidesProps@property:colW`
 - `interface:TableToSlidesProps@property:color`
-- `interface:TableToSlidesProps@property:fill`
 - `interface:TableToSlidesProps@property:fontFace`
 - `interface:TableToSlidesProps@property:fontSize`
 - `interface:TableToSlidesProps@property:h`
@@ -2543,7 +2540,7 @@ None.
 | `interface:TableCellProps@property:bullet` | unverified | — | — | — |
 | `interface:TableCellProps@property:color` | unverified | — | — | — |
 | `interface:TableCellProps@property:colspan` | unverified | — | — | — |
-| `interface:TableCellProps@property:fill` | unverified | — | — | — |
+| `interface:TableCellProps@property:fill` | deliberate-difference | AddTableCellOptions.fill<br>SlideModel.addTable<br>TableCell.fill<br>TableCellFill<br>TableModel.setCellFill | code:packages/model/src/table-cell-fill.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:packages/sdk/src/index.test.ts<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native preserves the legal none/solid, sRGB/scheme, and transparency domain through strict TableCellFill creation and editing; PptxGenJS collapses explicit none and zero-alpha intent and permits malformed or out-of-range fill values that native rejects before mutation. |
 | `interface:TableCellProps@property:fontFace` | unverified | — | — | — |
 | `interface:TableCellProps@property:fontSize` | unverified | — | — | — |
 | `interface:TableCellProps@property:highlight` | unverified | — | — | — |
@@ -2571,7 +2568,7 @@ None.
 | `interface:TableProps@property:bullet` | unverified | — | — | — |
 | `interface:TableProps@property:colW` | unverified | — | — | — |
 | `interface:TableProps@property:color` | unverified | — | — | — |
-| `interface:TableProps@property:fill` | unverified | — | — | — |
+| `interface:TableProps@property:fill` | deliberate-difference | AddTableOptions.fill<br>SlideModel.addTable<br>TableCellFill<br>TableModel.fill | code:packages/model/src/table-cell-fill.internal.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>ooxml:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | Native preserves the legal none/solid, sRGB/scheme, and transparency domain through strict TableCellFill creation and editing; PptxGenJS collapses explicit none and zero-alpha intent and permits malformed or out-of-range fill values that native rejects before mutation. |
 | `interface:TableProps@property:fontFace` | unverified | — | — | — |
 | `interface:TableProps@property:fontSize` | unverified | — | — | — |
 | `interface:TableProps@property:h` | unverified | — | — | — |
@@ -2609,7 +2606,7 @@ None.
 | `interface:TableToSlidesProps@property:bullet` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:colW` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:color` | unverified | — | — | — |
-| `interface:TableToSlidesProps@property:fill` | unverified | — | — | — |
+| `interface:TableToSlidesProps@property:fill` | defect-excluded | — | code:packages/sdk/src/table-to-slides-css.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs<br>clients:scripts/playwright-browser-smoke.js<br>control:packages/pptxgenjs-adapter/src/index.test.ts | PptxGenJS 4.0.1 inherits TableProps.fill into TableToSlidesProps but drops the option before creating any auto-paged table; computed CSS backgrounds alone determine cell fills, which native exposes directly without copying the inert declaration. |
 | `interface:TableToSlidesProps@property:fontFace` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:fontSize` | unverified | — | — | — |
 | `interface:TableToSlidesProps@property:h` | unverified | — | — | — |
