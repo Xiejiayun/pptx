@@ -10,12 +10,12 @@
 
 | Status | Count |
 | --- | ---: |
-| supported | 0 |
+| supported | 7 |
 | deliberate-difference | 0 |
 | deprecated-alias | 0 |
-| defect-excluded | 0 |
+| defect-excluded | 1 |
 | unsupported | 0 |
-| unverified | 1774 |
+| unverified | 1766 |
 | stale | 0 |
 
 ## Runtime declaration differences
@@ -37,23 +37,15 @@ None.
 - `class:PptxGenJS#tableToSlides`
 - `class:PptxGenJS#write`
 - `class:PptxGenJS#writeFile`
-- `class:PptxGenJS@property:AlignH`
-- `class:PptxGenJS@property:AlignV`
 - `class:PptxGenJS@property:ChartType`
-- `class:PptxGenJS@property:OutputType`
-- `class:PptxGenJS@property:PlaceholderType`
-- `class:PptxGenJS@property:SchemeColor`
-- `class:PptxGenJS@property:ShapeType`
 - `class:PptxGenJS@property:author`
 - `class:PptxGenJS@property:company`
 - `class:PptxGenJS@property:layout`
-- `class:PptxGenJS@property:presLayout`
 - `class:PptxGenJS@property:revision`
 - `class:PptxGenJS@property:rtlMode`
 - `class:PptxGenJS@property:subject`
 - `class:PptxGenJS@property:theme`
 - `class:PptxGenJS@property:title`
-- `class:PptxGenJS@property:version`
 - `inline:interface:IChartOpts@property:bullet@property:bullet.characterCode`
 - `inline:interface:IChartOpts@property:bullet@property:bullet.code`
 - `inline:interface:IChartOpts@property:bullet@property:bullet.indent`
@@ -1808,9 +1800,9 @@ None.
 
 | Atom | Status | Native | Evidence | Note |
 | --- | --- | --- | --- | --- |
-| `class:PptxGenJS@property:AlignH` | unverified | — | — | — |
-| `class:PptxGenJS@property:AlignV` | unverified | — | — | — |
-| `class:PptxGenJS@property:SchemeColor` | unverified | — | — | — |
+| `class:PptxGenJS@property:AlignH` | supported | TEXT_ALIGNMENTS | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs | Native publishes the same four frozen horizontal alignment values. |
+| `class:PptxGenJS@property:AlignV` | supported | TEXT_VERTICAL_ALIGNMENTS | code:packages/model/src/text.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs | Native publishes the same three frozen vertical alignment values. |
+| `class:PptxGenJS@property:SchemeColor` | supported | SCHEME_COLORS | code:packages/model/src/scheme-color.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs | Native exposes the same ten key/value mappings as an immutable shared catalog. |
 | `class:PptxGenJS@property:author` | unverified | — | — | — |
 | `class:PptxGenJS@property:company` | unverified | — | — | — |
 | `class:PptxGenJS@property:revision` | unverified | — | — | — |
@@ -2101,7 +2093,7 @@ None.
 
 | Atom | Status | Native | Evidence | Note |
 | --- | --- | --- | --- | --- |
-| `class:PptxGenJS@property:ShapeType` | unverified | — | — | — |
+| `class:PptxGenJS@property:ShapeType` | supported | PRESET_SHAPE_TYPES | code:packages/model/src/preset-shape.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs | Native exposes and creates every one of the 178 declared canonical preset shape values. |
 | `inline:interface:ShapeProps@property:points@property:points.close` | unverified | — | — | — |
 | `inline:interface:ShapeProps@property:points@property:points.curve` | unverified | — | — | — |
 | `inline:interface:ShapeProps@property:points@property:points.curve.hR` | unverified | — | — | — |
@@ -3414,9 +3406,9 @@ None.
 | --- | --- | --- | --- | --- |
 | `class:PptxGenJS#defineLayout` | unverified | — | — | — |
 | `class:PptxGenJS#defineSlideMaster` | unverified | — | — | — |
-| `class:PptxGenJS@property:PlaceholderType` | unverified | — | — | — |
+| `class:PptxGenJS@property:PlaceholderType` | defect-excluded | — | tests:scripts/pptxgenjs-runtime-probe.test.mjs<br>control:scripts/pptxgenjs-runtime-probe.test.mjs | PptxGenJS 4.0.1 declares PlaceholderType on the instance but the real runtime property is absent. |
 | `class:PptxGenJS@property:layout` | unverified | — | — | — |
-| `class:PptxGenJS@property:presLayout` | unverified | — | — | — |
+| `class:PptxGenJS@property:presLayout` | supported | PptxDocument.presLayout | code:packages/sdk/src/index.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs | Native projects detached standard and custom presentation dimensions through a getter. |
 | `class:PptxGenJS@property:theme` | unverified | — | — | — |
 | `inline:interface:PlaceholderProps@property:bullet@property:bullet.characterCode` | unverified | — | — | — |
 | `inline:interface:PlaceholderProps@property:bullet@property:bullet.code` | unverified | — | — | — |
@@ -3551,8 +3543,8 @@ None.
 | `class:PptxGenJS#stream` | unverified | — | — | — |
 | `class:PptxGenJS#write` | unverified | — | — | — |
 | `class:PptxGenJS#writeFile` | unverified | — | — | — |
-| `class:PptxGenJS@property:OutputType` | unverified | — | — | — |
-| `class:PptxGenJS@property:version` | unverified | — | — | — |
+| `class:PptxGenJS@property:OutputType` | supported | OUTPUT_TYPES | code:packages/sdk/src/output-type.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs | Native publishes all six catalog values and returns the matching Node/browser representations. |
+| `class:PptxGenJS@property:version` | supported | PPTX_VERSION<br>PptxDocument.version | code:packages/sdk/src/version.ts<br>tests:packages/pptxgenjs-adapter/src/index.test.ts<br>package:scripts/smoke-npm-package.mjs | Native exposes one immutable library version through constants, instances, declarations, and packed consumers. |
 | `interface:WriteBaseProps@property:compression` | unverified | — | — | — |
 | `interface:WriteFileProps@property:compression` | unverified | — | — | — |
 | `interface:WriteFileProps@property:fileName` | unverified | — | — | — |

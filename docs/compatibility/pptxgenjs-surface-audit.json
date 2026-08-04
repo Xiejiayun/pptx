@@ -235,22 +235,39 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "export const TEXT_ALIGNMENTS = Object.freeze(["
+          }
+        ],
         "ooxml": [],
-        "package": [],
-        "tests": []
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "throw new Error('Browser horizontal alignment catalog failed');"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the PptxGenJS horizontal alignment runtime catalog"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:AlignH",
       "kind": "property",
       "name": "AlignH",
-      "native": [],
-      "note": "",
+      "native": [
+        "TEXT_ALIGNMENTS"
+      ],
+      "note": "Native publishes the same four frozen horizontal alignment values.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": true,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "typeof PptxGenJS.AlignH"
     },
     {
@@ -261,22 +278,39 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "export const TEXT_VERTICAL_ALIGNMENTS = Object.freeze(["
+          }
+        ],
         "ooxml": [],
-        "package": [],
-        "tests": []
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "throw new Error('Browser vertical alignment catalog failed');"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the PptxGenJS vertical alignment runtime catalog"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:AlignV",
       "kind": "property",
       "name": "AlignV",
-      "native": [],
-      "note": "",
+      "native": [
+        "TEXT_VERTICAL_ALIGNMENTS"
+      ],
+      "note": "Native publishes the same three frozen vertical alignment values.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": true,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "typeof PptxGenJS.AlignV"
     },
     {
@@ -313,27 +347,48 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/sdk/src/output-type.ts",
+            "pattern": "export const OUTPUT_TYPES = Object.freeze(["
+          }
+        ],
         "ooxml": [],
-        "package": [],
-        "tests": []
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedOutputTypeDocument = PptxDocument.create();"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the PptxGenJS output type runtime catalog and return kinds"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:OutputType",
       "kind": "property",
       "name": "OutputType",
-      "native": [],
-      "note": "",
+      "native": [
+        "OUTPUT_TYPES"
+      ],
+      "note": "Native publishes all six catalog values and returns the matching Node/browser representations.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": true,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "typeof PptxGenJS.OutputType"
     },
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "scripts/pptxgenjs-runtime-probe.test.mjs",
+        "pattern": "assert.equal(first.catalogs.PlaceholderType, null);"
+      },
       "declaredIn": "PptxGenJS",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -342,19 +397,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "scripts/pptxgenjs-runtime-probe.test.mjs",
+            "title": "probes the locked public runtime and declared catalogs deterministically"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:PlaceholderType",
       "kind": "property",
       "name": "PlaceholderType",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 declares PlaceholderType on the instance but the real runtime property is absent.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": true,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "typeof PptxGenJS.PLACEHOLDER_TYPES"
     },
     {
@@ -365,22 +425,39 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/scheme-color.ts",
+            "pattern": "export const SCHEME_COLORS = Object.freeze({"
+          }
+        ],
         "ooxml": [],
-        "package": [],
-        "tests": []
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedSchemeColorEntries = Object.entries(SCHEME_COLORS);"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the public PptxGenJS SchemeColor helper and legal output"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:SchemeColor",
       "kind": "property",
       "name": "SchemeColor",
-      "native": [],
-      "note": "",
+      "native": [
+        "SCHEME_COLORS"
+      ],
+      "note": "Native exposes the same ten key/value mappings as an immutable shared catalog.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": true,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "typeof PptxGenJS.SchemeColor"
     },
     {
@@ -391,22 +468,39 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export const PRESET_SHAPE_TYPES = Object.freeze(["
+          }
+        ],
         "ooxml": [],
-        "package": [],
-        "tests": []
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const typedPresetCatalog: readonly PresetShapeType[] = PRESET_SHAPE_TYPES;"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "reads every legal PptxGenJS preset shape public output"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:ShapeType",
       "kind": "property",
       "name": "ShapeType",
-      "native": [],
-      "note": "",
+      "native": [
+        "PRESET_SHAPE_TYPES"
+      ],
+      "note": "Native exposes and creates every one of the 178 declared canonical preset shape values.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": true,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "typeof PptxGenJS.ShapeType"
     },
     {
@@ -495,22 +589,39 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/sdk/src/index.ts",
+            "pattern": "get presLayout(): PresentationLayout {"
+          }
+        ],
         "ooxml": [],
-        "package": [],
-        "tests": []
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedDefaultLayout = PptxDocument.create().presLayout;"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches the public presentation layout projection and locks the custom-name boundary"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:presLayout",
       "kind": "property",
       "name": "presLayout",
-      "native": [],
-      "note": "",
+      "native": [
+        "PptxDocument.presLayout"
+      ],
+      "note": "Native projects detached standard and custom presentation dimensions through a getter.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": true,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "PptxGenJS.PresLayout"
     },
     {
@@ -651,22 +762,40 @@
       "deprecatedSignatures": [],
       "evidence": {
         "clients": [],
-        "code": [],
+        "code": [
+          {
+            "path": "packages/sdk/src/version.ts",
+            "pattern": "export const PPTX_VERSION = '0.1.0' as const;"
+          }
+        ],
         "ooxml": [],
-        "package": [],
-        "tests": []
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const version: PptxVersion = PPTX_VERSION;"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "reports each library runtime version through its public instance"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:version",
       "kind": "property",
       "name": "version",
-      "native": [],
-      "note": "",
+      "native": [
+        "PPTX_VERSION",
+        "PptxDocument.version"
+      ],
+      "note": "Native exposes one immutable library version through constants, instances, declarations, and packed consumers.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": true,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
@@ -46160,13 +46289,13 @@
   ],
   "complete": false,
   "counts": {
-    "defect-excluded": 0,
+    "defect-excluded": 1,
     "deliberate-difference": 0,
     "deprecated-alias": 0,
     "stale": 0,
-    "supported": 0,
+    "supported": 7,
     "unsupported": 0,
-    "unverified": 1774
+    "unverified": 1766
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -46181,23 +46310,15 @@
     "class:PptxGenJS#tableToSlides",
     "class:PptxGenJS#write",
     "class:PptxGenJS#writeFile",
-    "class:PptxGenJS@property:AlignH",
-    "class:PptxGenJS@property:AlignV",
     "class:PptxGenJS@property:ChartType",
-    "class:PptxGenJS@property:OutputType",
-    "class:PptxGenJS@property:PlaceholderType",
-    "class:PptxGenJS@property:SchemeColor",
-    "class:PptxGenJS@property:ShapeType",
     "class:PptxGenJS@property:author",
     "class:PptxGenJS@property:company",
     "class:PptxGenJS@property:layout",
-    "class:PptxGenJS@property:presLayout",
     "class:PptxGenJS@property:revision",
     "class:PptxGenJS@property:rtlMode",
     "class:PptxGenJS@property:subject",
     "class:PptxGenJS@property:theme",
     "class:PptxGenJS@property:title",
-    "class:PptxGenJS@property:version",
     "inline:interface:IChartOpts@property:bullet@property:bullet.characterCode",
     "inline:interface:IChartOpts@property:bullet@property:bullet.code",
     "inline:interface:IChartOpts@property:bullet@property:bullet.indent",

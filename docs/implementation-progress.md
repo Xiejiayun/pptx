@@ -1201,8 +1201,32 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 对等结论与后续认证
 
-- 公开 capability checklist 已达到 100%；不再存在已知 `tableToSlides` 或其他锁定 PptxGenJS 4.0.1 公开表面能力缺口，本专项 10/10 完成。
-- “最终完整 PptxGenJS parity 已认证”仍保留给独立 peer/client audit：Windows PowerPoint corpus、macOS Keynote corpus、受控 Google Slides import 与外部复核。它们是认证工作，不再是已知实现缺口。
+- 旧人工 capability checklist 在本专项范围内达到 100%，`tableToSlides` 本身 10/10 完成；该数字是历史 checkpoint，不再代表整个 PptxGenJS 4.0.1 声明表面。
+- 当前完成性结论以逐原子的 [PptxGenJS 全表面审计](./compatibility/pptxgenjs-surface-audit.md) 为准；客户端 corpus 仍是最终认证门禁。
+
+## PptxGenJS 4.0.1 全表面完成性审计
+
+状态：审计基础设施完成；首批 8 个原子已直接分类
+
+### 当前可信矩阵
+
+- 从锁定 `types/index.d.ts` 解析出 1,774 个可达公开能力原子，声明 SHA-256 为 `0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5`。
+- 当前状态为 `supported = 7`、`defect-excluded = 1`、`unsupported = 0`、`unverified = 1,766`、`stale = 0`；证据闭合进度为 8/1,774（约 0.45%）。该百分比衡量逐原子认证，不等于已有实现功能只有 0.45%。
+- 首批关闭 `version`、`presLayout`、`AlignH`、`AlignV`、`OutputType`、`SchemeColor`、`ShapeType`；真实 PptxGenJS 4.0.1 缺少声明中的实例 `PlaceholderType`，因此该声明原子以直接运行时对照归入 `defect-excluded`。
+- 运行时入口 SHA-256 为 `873d182a8e2e1c0b5e522ef146117936b96b9b2024667bd4c1de59e2b031d27a`，稳定探针 SHA-256 为 `fe342796785d4b14e88757a0a28b56cb1cd76457de83e67b241a6a3d3bb06b64`。探针同时锁定 runtime `ShapeType.custGeom` 这一声明外目录项。
+- 显式 `pnpm audit:pptxgenjs` 会在任何 `unsupported`、`unverified`、`stale`、证据失效或制品漂移时失败；当前按设计失败于 1,766 个 `unverified` 原子。
+
+### 后续队列
+
+1. shared coordinates、sizing、object metadata 与 hyperlink/action；
+2. presentation/slide lifecycle 与完整 theme cascade；
+3. text/shape advanced styles；
+4. image lifecycle/styles；
+5. media/chart advanced options；
+6. table/master/layout/placeholder residuals；
+7. packed package、browser、PPTX 与客户端 corpus 最终认证。
+
+审计基础提交链为 `553d745`、`faa0c04`、`120578a`、`0b6094e`、`4133e9e`、`4a13301`。后续每个 gap family 继续独立设计、测试、复核、提交和同步，只有生成矩阵中的开放状态实际减少才计入进度。
 
 ## 0.1.0 初始验收
 
