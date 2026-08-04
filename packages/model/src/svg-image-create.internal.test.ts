@@ -117,6 +117,26 @@ describe('embedded SVG image normalization', () => {
     });
   });
 
+  it('resolves SVG image percentage coordinates through the shared appearance path', () => {
+    const slideSize = Object.freeze({ width: inches(10), height: inches(8) });
+    expect(normalizeEmbeddedSvgImage(
+      new Uint8Array([1]),
+      new Uint8Array([2]),
+      {
+        x: '12.5%',
+        y: '25%',
+        width: '37.5%',
+        height: '50%',
+      },
+      slideSize,
+    )).toMatchObject({
+      x: inches(1.25),
+      y: inches(2),
+      width: inches(3.75),
+      height: inches(4),
+    });
+  });
+
   it('rejects non-byte and empty SVG or fallback payloads', () => {
     const valid = new Uint8Array([1]);
     for (const value of [undefined, null, [], [1], new ArrayBuffer(1), 'image', 1]) {

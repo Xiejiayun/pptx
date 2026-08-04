@@ -135,6 +135,64 @@ describe('embedded raster image normalization', () => {
     });
   });
 
+  it('resolves strict raster image percentage coordinates against the current slide size', () => {
+    const slideSize = Object.freeze({ width: inches(10), height: inches(8) });
+    const normalized = normalizeEmbeddedRasterImage(new Uint8Array([1]), {
+      contentType: 'image/png',
+      x: '10%',
+      y: '20%',
+      width: '30%',
+      height: '40%',
+    }, slideSize);
+
+    expect(normalized).toMatchObject({
+      x: inches(1),
+      y: inches(1.6),
+      width: inches(3),
+      height: inches(3.2),
+    });
+    expect(normalizeEmbeddedRasterImage(new Uint8Array([1]), {
+      contentType: 'image/png',
+      x: inches(1),
+      y: inches(2),
+      width: inches(3),
+      height: inches(4),
+    }, slideSize)).toMatchObject({
+      x: inches(1),
+      y: inches(2),
+      width: inches(3),
+      height: inches(4),
+    });
+
+    for (const options of [
+      { contentType: 'image/png', x: '10%' },
+      { contentType: 'image/png', x: ' 10%' },
+      { contentType: 'image/png', width: '0%' },
+      { contentType: 'image/png', height: '-10%' },
+    ]) {
+      expect(() => normalizeEmbeddedRasterImage(
+        new Uint8Array([1]),
+        options,
+        options.x === '10%' ? undefined : slideSize,
+      )).toThrow();
+    }
+
+    let reads = 0;
+    const accessor = Object.defineProperty({ contentType: 'image/png' }, 'x', {
+      enumerable: true,
+      get() {
+        reads += 1;
+        return '10%';
+      },
+    });
+    expect(() => normalizeEmbeddedRasterImage(
+      new Uint8Array([1]),
+      accessor,
+      slideSize,
+    )).toThrow(TypeError);
+    expect(reads).toBe(0);
+  });
+
   it('rejects non-byte and empty payloads', () => {
     const options = { contentType: 'image/png' };
     for (const value of [undefined, null, [], [1], new ArrayBuffer(1), 'png', 1]) {

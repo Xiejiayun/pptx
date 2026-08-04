@@ -5,6 +5,7 @@ import {
   type NormalizedEmbeddedImageAppearance,
 } from './image-create.internal.js';
 import type { PlaceholderIdentity } from './placeholder.js';
+import type { SlideSize } from './units.js';
 
 export const SVG_IMAGE_EXTENSION_URI =
   '{96DAC541-7B7A-43D3-8B79-37D633B846F1}';
@@ -35,10 +36,11 @@ export function normalizeEmbeddedSvgImage(
   svgBytes: unknown,
   fallbackPngBytes: unknown,
   options: unknown = {},
+  slideSize?: Readonly<SlideSize>,
 ): NormalizedEmbeddedSvgImage {
   const detachedSvgBytes = normalizeSvgBytes(svgBytes);
   const rasterOptions = normalizeSvgOptions(options);
-  const fallback = normalizeEmbeddedRasterImage(fallbackPngBytes, rasterOptions);
+  const fallback = normalizeEmbeddedRasterImage(fallbackPngBytes, rasterOptions, slideSize);
   const {
     bytes: detachedFallbackPngBytes,
     contentType: _contentType,

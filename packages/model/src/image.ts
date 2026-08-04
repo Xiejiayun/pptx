@@ -1,4 +1,4 @@
-import type { Transform } from './units.js';
+import type { TransformInput } from './units.js';
 import type { PlaceholderSelector } from './placeholder.js';
 
 export type RasterImageContentType = 'image/png' | 'image/jpeg' | 'image/gif';
@@ -11,7 +11,7 @@ export interface ImageSourceRectangle {
   readonly bottom: number;
 }
 
-export interface AddImageOptions extends Partial<Transform> {
+export interface AddImageOptions extends Partial<TransformInput> {
   readonly contentType: RasterImageContentType;
   readonly name?: string;
   readonly altText?: string;
@@ -19,7 +19,7 @@ export interface AddImageOptions extends Partial<Transform> {
   readonly sourceRectangle?: ImageSourceRectangle;
 }
 
-export interface AddSvgImageOptions extends Partial<Transform> {
+export interface AddSvgImageOptions extends Partial<TransformInput> {
   readonly name?: string;
   readonly altText?: string;
   readonly placeholder?: PlaceholderSelector;

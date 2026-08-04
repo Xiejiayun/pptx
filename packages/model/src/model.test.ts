@@ -619,8 +619,8 @@ describe('PresentationModel', () => {
     const picture = slide.addImage(Uint8Array.of(137, 80, 78, 71), {
       contentType: 'image/png',
       placeholder: 'hero_image',
-      x: inches(9),
-      width: inches(9),
+      x: '90%',
+      width: '90%',
       sourceRectangle: { left: 10, top: 5, right: 10, bottom: 5 },
     });
     const chart = await slide.addChart('bar', [{

@@ -7,7 +7,8 @@ import {
   renderImageSourceRectangle,
   type NormalizedImageSourceRectangle,
 } from './image-source-rectangle.internal.js';
-import { EMU_PER_INCH } from './units.js';
+import { resolveSlideCoordinate } from './slide-coordinate.internal.js';
+import { EMU_PER_INCH, type Emu, type SlideSize } from './units.js';
 
 const MAX_ROTATION = 21_600_000;
 const OPTION_KEYS = new Set([
@@ -49,6 +50,7 @@ export interface NormalizedEmbeddedRasterImage
 export function normalizeEmbeddedRasterImage(
   bytes: unknown,
   options: unknown,
+  slideSize?: Readonly<SlideSize>,
 ): NormalizedEmbeddedRasterImage {
   if (!(bytes instanceof Uint8Array)) {
     throw new TypeError('Embedded raster image bytes must be a Uint8Array');
@@ -64,10 +66,24 @@ export function normalizeEmbeddedRasterImage(
   const placeholder = values.placeholder === undefined
     ? undefined
     : normalizePlaceholderSelector(values.placeholder);
-  const width = normalizeInteger(values.width, EMU_PER_INCH, 'width');
-  const height = normalizeInteger(values.height, EMU_PER_INCH, 'height');
+  const width = resolveImageCoordinate(
+    values.width,
+    'horizontal',
+    slideSize,
+    EMU_PER_INCH as Emu,
+    'width',
+  );
+  const height = resolveImageCoordinate(
+    values.height,
+    'vertical',
+    slideSize,
+    EMU_PER_INCH as Emu,
+    'height',
+  );
   if (width <= 0) throw new RangeError('Embedded raster image width must be positive');
   if (height <= 0) throw new RangeError('Embedded raster image height must be positive');
+  const x = resolveImageCoordinate(values.x, 'horizontal', slideSize, 0 as Emu, 'x');
+  const y = resolveImageCoordinate(values.y, 'vertical', slideSize, 0 as Emu, 'y');
   const rotation = normalizeInteger(values.rotation, 0, 'rotation');
   if (rotation < -MAX_ROTATION || rotation > MAX_ROTATION) {
     throw new RangeError(
@@ -88,8 +104,8 @@ export function normalizeEmbeddedRasterImage(
     name,
     altText,
     ...(placeholder === undefined ? {} : { placeholder }),
-    x: normalizeInteger(values.x, 0, 'x'),
-    y: normalizeInteger(values.y, 0, 'y'),
+    x,
+    y,
     width,
     height,
     rotation,
@@ -211,6 +227,25 @@ function normalizeInteger(value: unknown, defaultValue: number, name: string): n
     throw new RangeError(`Embedded raster image ${name} must be a safe integer`);
   }
   return value === 0 ? 0 : value;
+}
+
+function resolveImageCoordinate(
+  value: unknown,
+  axis: 'horizontal' | 'vertical',
+  slideSize: Readonly<SlideSize> | undefined,
+  fallback: Emu,
+  name: string,
+): Emu {
+  if (value === undefined || typeof value === 'number') {
+    return normalizeInteger(value, fallback, name) as Emu;
+  }
+  return resolveSlideCoordinate(
+    value,
+    axis,
+    slideSize,
+    fallback,
+    `Embedded raster image ${name}`,
+  );
 }
 
 function normalizeBoolean(value: unknown, defaultValue: boolean, name: string): boolean {

@@ -1383,7 +1383,11 @@ export class SlideModel {
   }
 
   addImage(bytes: Uint8Array, options: AddImageOptions): ImageModel {
-    const definition = normalizeEmbeddedRasterImage(bytes, options);
+    const definition = normalizeEmbeddedRasterImage(
+      bytes,
+      options,
+      this.presentation.slideSize,
+    );
     return this.presentation.opcPackage.transaction(() => {
       const pkg = this.presentation.opcPackage;
       const owner = definition.placeholder === undefined
@@ -1444,7 +1448,12 @@ export class SlideModel {
     fallbackPngBytes: Uint8Array,
     options: AddSvgImageOptions = {},
   ): ImageModel {
-    const definition = normalizeEmbeddedSvgImage(svgBytes, fallbackPngBytes, options);
+    const definition = normalizeEmbeddedSvgImage(
+      svgBytes,
+      fallbackPngBytes,
+      options,
+      this.presentation.slideSize,
+    );
     return this.presentation.opcPackage.transaction(() => {
       const pkg = this.presentation.opcPackage;
       const owner = definition.placeholder === undefined
