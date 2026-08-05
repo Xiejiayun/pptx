@@ -1279,3 +1279,12 @@ $ pptx-inspect --json package inspect output.pptx
 - Shared lifecycle 覆盖 URL/internal/self、omitted/empty tooltip、exact no-op、relationship reuse、URL↔slide、复制隔离、回滚、write/reopen、图片媒体/外观保持与 owner-bound OOXML，并锁定异步 source 期间 target move、target/owner delete+same-URI replacement 以及 invalid pre-I/O。PptxGenJS rich outer control 会生成 dangling `rIdundefined`；Native 有意输出合法 whole-shape/run ownership。
 - Focused model/SDK/adapter 为 4/4，完整 Vitest 为 93 passed / 1 skipped files、1,841 passed / 1 skipped tests（97.03s），TypeScript 与 audit 8/8 通过。Fresh actual tarball 为 726,424 bytes、66 entries，SHA-256 `cf8ff70e932f11b2fe830d06d33cd4edae7a3fc50fbe127498a2ddd7757b22f1`；installed npm lifecycle 与 persistent browser shared probe 均通过。Node/browser evidence deck 均为 24,776 bytes、26 parts、31 relationships、4 slides、4 shapes，SHA-256 分别为 `bc774ec41fa69707a5403bfff3af3dc968de90c3cb9f52358aa65631bb284052` 与 `addb86cf1e7e0559d449b1eceba54e6289bcae34c2a7a1d9e0d5301fa9764588`，26/26 解压 parts byte-identical；PowerPoint 2010 为 0 errors / 1 条预期 external-link warning。
 - 权威矩阵更新为 1,740/1,774（98.08%）：supported 757、deliberate-difference 518、deprecated-alias 94、defect-excluded 371、unverified 34、unsupported/stale 0，diagnostics 0。下一族为 Data/Path Inheritance（4 项）。
+
+## PptxGenJS 全表面：Data/Path Inheritance
+
+状态：能力族 4/4 完成
+
+- `DataOrPathProps.data/path` 归为 deliberate-difference：PptxGenJS image/media 接受二选一字段并在同时提供时采用 data；Native 保持无歧义的单一 typed `ImageSource` / `MediaSource`。
+- `TextPropsOptions.data/path` 归为 defect-excluded：PptxGenJS plain/rich text writer 都忽略字段，normalized slide XML byte-identical，sentinel 不进入任何 package part；Native 不新增 inert aliases。
+- Aggregate adapter control 为 1/1，fresh runtime probe 为 14/14，native write/reopen 为 7/7，PowerPoint 2010 为 0 errors / 0 warnings。该族无产品实现变化，复用上一批 npm tarball、persistent Chrome、SDK 与 OOXML source-owner 证据。
+- 权威矩阵更新为 1,744/1,774（98.31%）：supported 757、deliberate-difference 520、deprecated-alias 94、defect-excluded 373、unverified 30、unsupported/stale 0，diagnostics 0。下一族为 Placeholder Text Style（4 项）。

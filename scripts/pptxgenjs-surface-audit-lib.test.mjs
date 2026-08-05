@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1740);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1744);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
-      ...Array(371).fill('defect-excluded'),
+      ...Array(373).fill('defect-excluded'),
       ...Array(757).fill('supported'),
-      ...Array(518).fill('deliberate-difference'),
+      ...Array(520).fill('deliberate-difference'),
       ...Array(94).fill('deprecated-alias'),
     ].sort(),
   );
@@ -178,6 +178,61 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
       'deliberate-difference',
     ].sort(),
   );
+  const dataPathInheritanceIds = new Set([
+    'interface:DataOrPathProps@property:data',
+    'interface:DataOrPathProps@property:path',
+    'interface:TextPropsOptions@property:data',
+    'interface:TextPropsOptions@property:path',
+  ]);
+  const dataPathInheritanceEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => dataPathInheritanceIds.has(id));
+  assert.equal(dataPathInheritanceEntries.length, 4);
+  assert.deepEqual(
+    dataPathInheritanceEntries.map(({ id, status }) => ({ id, status }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+    [
+      { id: 'interface:DataOrPathProps@property:data', status: 'deliberate-difference' },
+      { id: 'interface:DataOrPathProps@property:path', status: 'deliberate-difference' },
+      { id: 'interface:TextPropsOptions@property:data', status: 'defect-excluded' },
+      { id: 'interface:TextPropsOptions@property:path', status: 'defect-excluded' },
+    ],
+  );
+  for (const entry of dataPathInheritanceEntries) {
+    assert.equal(
+      entry.control.pattern,
+      'closes inherited data and path declarations against real source owners',
+    );
+    if (entry.status === 'defect-excluded') {
+      assert.deepEqual(entry.native, []);
+      assert.deepEqual(entry.evidence.code, []);
+      assert.deepEqual(entry.evidence.package, []);
+      assert.deepEqual(entry.evidence.ooxml, []);
+      assert.deepEqual(entry.evidence.clients, []);
+      assert.equal(entry.serialization, false);
+      assert.equal(entry.client, false);
+    } else {
+      assert.deepEqual(entry.native, [
+        'ImageSource',
+        'MediaSource',
+        'PptxDocument.addImage',
+        'PptxDocument.addAudio',
+        'PptxDocument.addVideo',
+        'resolveImageSource',
+      ]);
+      assert.deepEqual(entry.evidence.package.map(({ pattern }) => pattern), [
+        'const packedSvgPath =',
+        'const pathAudio =',
+        'const dataVideo =',
+      ]);
+      assert.deepEqual(entry.evidence.clients.map(({ pattern }) => pattern), [
+        'const imageSourceSizingTransformState = {',
+        'const browserAudio = await mediaDocument.addAudio(',
+      ]);
+      assert.equal(entry.evidence.ooxml.length, 2);
+      assert.equal(entry.serialization, true);
+      assert.equal(entry.client, true);
+    }
+  }
   const lineFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
     /^(?:union:)?interface:(?:ShapeLineProps@property:(?:alpha|beginArrowType|color|dashType|endArrowType|lineDash|lineHead|lineTail|pt|size|transparency|type|width)|(?:ShapeProps|TextPropsOptions)@property:(?:line|lineDash|lineHead|lineSize|lineTail))(?:#.+)?$/u
       .test(id));

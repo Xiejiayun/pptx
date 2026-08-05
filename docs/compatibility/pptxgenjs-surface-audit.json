@@ -9018,54 +9018,214 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes inherited data and path declarations against real source owners"
+      },
       "declaredIn": "DataOrPathProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageSourceSizingTransformState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserAudio = await mediaDocument.addAudio("
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/raster-image-source.ts",
+            "pattern": "export type ImageSource = RasterImageSource;"
+          },
+          {
+            "path": "packages/sdk/src/raster-image-source.ts",
+            "pattern": "export async function resolveImageSource("
+          },
+          {
+            "path": "packages/codecs/src/media.ts",
+            "pattern": "export type MediaSource = string | Uint8Array | ArrayBuffer | Blob | MediaByteStream;"
+          },
+          {
+            "path": "packages/codecs/src/media-source.internal.ts",
+            "pattern": "export async function resolveMediaCreationInputs("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "adds detected raster image sources with immediate live model state"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedSvgPath ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const pathAudio ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const dataVideo ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes inherited data and path declarations against real source owners"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS path and data images through the document source loader"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:DataOrPathProps@property:data",
       "kind": "property",
       "name": "data",
-      "native": [],
-      "note": "",
+      "native": [
+        "ImageSource",
+        "MediaSource",
+        "PptxDocument.addAudio",
+        "PptxDocument.addImage",
+        "PptxDocument.addVideo",
+        "resolveImageSource"
+      ],
+      "note": "Native requires one typed ImageSource or MediaSource instead of PptxGenJS ambiguous simultaneous data/path fields and owner-specific precedence.",
       "optional": true,
       "owner": "DataOrPathProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes inherited data and path declarations against real source owners"
+      },
       "declaredIn": "DataOrPathProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageSourceSizingTransformState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserAudio = await mediaDocument.addAudio("
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/sdk/src/raster-image-source.ts",
+            "pattern": "export type ImageSource = RasterImageSource;"
+          },
+          {
+            "path": "packages/sdk/src/raster-image-source.ts",
+            "pattern": "export async function resolveImageSource("
+          },
+          {
+            "path": "packages/codecs/src/media.ts",
+            "pattern": "export type MediaSource = string | Uint8Array | ArrayBuffer | Blob | MediaByteStream;"
+          },
+          {
+            "path": "packages/codecs/src/media-source.internal.ts",
+            "pattern": "export async function resolveMediaCreationInputs("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "adds detected raster image sources with immediate live model state"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates every public media source, MIME family, poster family, and external mode"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedSvgPath ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const pathAudio ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const dataVideo ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes inherited data and path declarations against real source owners"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS path and data images through the document source loader"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches valid PptxGenJS public audio and video media output semantically"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1"
+          }
+        ]
       },
       "id": "interface:DataOrPathProps@property:path",
       "kind": "property",
       "name": "path",
-      "native": [],
-      "note": "",
+      "native": [
+        "ImageSource",
+        "MediaSource",
+        "PptxDocument.addAudio",
+        "PptxDocument.addImage",
+        "PptxDocument.addVideo",
+        "resolveImageSource"
+      ],
+      "note": "Native requires one typed ImageSource or MediaSource instead of PptxGenJS ambiguous simultaneous data/path fields and owner-specific precedence.",
       "optional": true,
       "owner": "DataOrPathProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
@@ -43000,6 +43160,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes inherited data and path declarations against real source owners"
+      },
       "declaredIn": "DataOrPathProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -43008,19 +43172,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes inherited data and path declarations against real source owners"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:data",
       "kind": "property",
       "name": "data",
       "native": [],
-      "note": "",
+      "note": "TextPropsOptions inherits data/path declarations that PptxGenJS 4.0.1 ignores for plain and rich text; native exposes no inert text-source aliases.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "string"
     },
     {
@@ -44786,6 +44955,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes inherited data and path declarations against real source owners"
+      },
       "declaredIn": "DataOrPathProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -44794,19 +44967,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes inherited data and path declarations against real source owners"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:path",
       "kind": "property",
       "name": "path",
       "native": [],
-      "note": "",
+      "note": "TextPropsOptions inherits data/path declarations that PptxGenJS 4.0.1 ignores for plain and rich text; native exposes no inert text-source aliases.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "string"
     },
     {
@@ -101484,13 +101662,13 @@
   ],
   "complete": false,
   "counts": {
-    "defect-excluded": 371,
-    "deliberate-difference": 518,
+    "defect-excluded": 373,
+    "deliberate-difference": 520,
     "deprecated-alias": 94,
     "stale": 0,
     "supported": 757,
     "unsupported": 0,
-    "unverified": 34
+    "unverified": 30
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -101500,8 +101678,6 @@
     "class:PptxGenJS@property:ChartType",
     "inline:interface:IChartOpts@property:titlePos@property:titlePos.x",
     "inline:interface:IChartOpts@property:titlePos@property:titlePos.y",
-    "interface:DataOrPathProps@property:data",
-    "interface:DataOrPathProps@property:path",
     "interface:IChartOpts@property:bar3DShape",
     "interface:IChartOpts@property:dataBorder",
     "interface:IChartOpts@property:dataLabelBkgrdColors",
@@ -101521,8 +101697,6 @@
     "interface:ShapeProps@property:align",
     "interface:ShapeProps@property:angleRange",
     "interface:ShapeProps@property:arcThicknessRatio",
-    "interface:TextPropsOptions@property:data",
-    "interface:TextPropsOptions@property:path",
     "union:ChartLineCap#flat",
     "union:ChartLineCap#round",
     "union:ChartLineCap#square",

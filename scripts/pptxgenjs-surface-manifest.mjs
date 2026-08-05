@@ -6850,6 +6850,86 @@ const HYPERLINK_OWNERS_6_FAMILY_ENTRIES = Object.freeze(
   HYPERLINK_OWNERS_6_IDS.map((id) => hyperlinkOwners6Entry(id)),
 );
 
+const DATA_PATH_INHERITANCE_4_CONTROL_TITLE =
+  'closes inherited data and path declarations against real source owners';
+const DATA_PATH_INHERITANCE_4_IDS = Object.freeze([
+  'interface:DataOrPathProps@property:data',
+  'interface:DataOrPathProps@property:path',
+  'interface:TextPropsOptions@property:data',
+  'interface:TextPropsOptions@property:path',
+]);
+
+function dataPathInheritance4Entry(id) {
+  const textOwner = id.startsWith('interface:TextPropsOptions');
+  return {
+    id,
+    status: textOwner ? 'defect-excluded' : 'deliberate-difference',
+    native: textOwner
+      ? []
+      : [
+          'ImageSource',
+          'MediaSource',
+          'PptxDocument.addImage',
+          'PptxDocument.addAudio',
+          'PptxDocument.addVideo',
+          'resolveImageSource',
+        ],
+    evidence: {
+      code: textOwner
+        ? []
+        : [
+            { path: 'packages/sdk/src/raster-image-source.ts', pattern: 'export type ImageSource = RasterImageSource;' },
+            { path: 'packages/sdk/src/raster-image-source.ts', pattern: 'export async function resolveImageSource(' },
+            { path: 'packages/codecs/src/media.ts', pattern: 'export type MediaSource = string | Uint8Array | ArrayBuffer | Blob | MediaByteStream;' },
+            { path: 'packages/codecs/src/media-source.internal.ts', pattern: 'export async function resolveMediaCreationInputs(' },
+          ],
+      tests: [
+        { path: 'packages/pptxgenjs-adapter/src/index.test.ts', title: DATA_PATH_INHERITANCE_4_CONTROL_TITLE },
+        ...(textOwner
+          ? []
+          : [
+              { path: 'packages/pptxgenjs-adapter/src/index.test.ts', title: 'matches PptxGenJS path and data images through the document source loader' },
+              { path: 'packages/pptxgenjs-adapter/src/index.test.ts', title: 'matches valid PptxGenJS public audio and video media output semantically' },
+              { path: 'packages/pptxgenjs-adapter/src/index.test.ts', title: 'locks ImageProps source, sizing, and transform divergences against PptxGenJS 4.0.1' },
+              { path: 'packages/pptxgenjs-adapter/src/index.test.ts', title: 'locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1' },
+            ]),
+      ],
+      package: textOwner
+        ? []
+        : [
+            { path: 'scripts/smoke-npm-package.mjs', pattern: 'const packedSvgPath =' },
+            { path: 'scripts/smoke-npm-package.mjs', pattern: 'const pathAudio =' },
+            { path: 'scripts/smoke-npm-package.mjs', pattern: 'const dataVideo =' },
+          ],
+      ooxml: textOwner
+        ? []
+        : [
+            { path: 'packages/sdk/src/index.test.ts', pattern: 'adds detected raster image sources with immediate live model state' },
+            { path: 'packages/sdk/src/index.test.ts', pattern: 'creates every public media source, MIME family, poster family, and external mode' },
+          ],
+      clients: textOwner
+        ? []
+        : [
+            { path: 'scripts/playwright-browser-smoke.js', pattern: 'const imageSourceSizingTransformState = {' },
+            { path: 'scripts/playwright-browser-smoke.js', pattern: 'const browserAudio = await mediaDocument.addAudio(' },
+          ],
+    },
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: DATA_PATH_INHERITANCE_4_CONTROL_TITLE,
+    },
+    serialization: !textOwner,
+    client: !textOwner,
+    note: textOwner
+      ? 'TextPropsOptions inherits data/path declarations that PptxGenJS 4.0.1 ignores for plain and rich text; native exposes no inert text-source aliases.'
+      : 'Native requires one typed ImageSource or MediaSource instead of PptxGenJS ambiguous simultaneous data/path fields and owner-specific precedence.',
+  };
+}
+
+const DATA_PATH_INHERITANCE_4_FAMILY_ENTRIES = Object.freeze(
+  DATA_PATH_INHERITANCE_4_IDS.map((id) => dataPathInheritance4Entry(id)),
+);
+
 function deepFreeze(value, seen = new Set()) {
   if (value === null || typeof value !== 'object' || seen.has(value)) return value;
   seen.add(value);
@@ -6951,6 +7031,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...SHAPE_TEXT_TRANSFORM_IDENTITY_FAMILY_ENTRIES,
     ...CORE_CONTENT_PRIMITIVE_INPUTS_14_FAMILY_ENTRIES,
     ...HYPERLINK_OWNERS_6_FAMILY_ENTRIES,
+    ...DATA_PATH_INHERITANCE_4_FAMILY_ENTRIES,
     ...MEDIA_CORE_FAMILY_ENTRIES,
     ...PLACEHOLDER_CORE_FAMILY_ENTRIES,
     ...SHAPE_CUSTOM_PATH_FAMILY_ENTRIES,

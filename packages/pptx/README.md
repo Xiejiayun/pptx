@@ -1743,4 +1743,14 @@ document.slides[0].title.text = 'Updated';
 await document.download('updated.pptx');
 ```
 
+## PptxGenJS parity status
+
+The Data/Path Inheritance family closes four declaration atoms. Native keeps
+one typed `ImageSource` or `MediaSource` instead of ambiguous simultaneous
+`data`/`path` fields, and does not add the inert text aliases inherited by
+PptxGenJS `TextPropsOptions`. The authoritative matrix is now 1,744/1,774
+(98.31%) classified with 30 remaining and zero unsupported, stale, or
+diagnostic entries. This evidence-only family reuses the latest actual npm,
+persistent-browser, SDK, OOXML, and PowerPoint 2010 source-owner gates.
+
 Project documentation and source: [github.com/Xiejiayun/pptx](https://github.com/Xiejiayun/pptx)

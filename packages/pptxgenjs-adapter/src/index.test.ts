@@ -7650,6 +7650,139 @@ describe('importPptxGenJS', () => {
     expect(reopened.diagnostics).toEqual([]);
   }, 20_000);
 
+  it('closes inherited data and path declarations against real source owners', async () => {
+    const classifications = [
+      ...['data', 'path'].map((property) => ({
+        id: `interface:DataOrPathProps@property:${property}`,
+        status: 'deliberate-difference',
+      })),
+      ...['data', 'path'].map((property) => ({
+        id: `interface:TextPropsOptions@property:${property}`,
+        status: 'defect-excluded',
+      })),
+    ].sort((left, right) => left.id.localeCompare(right.id));
+    expect(classifications).toHaveLength(4);
+    expect(new Set(classifications.map(({ id }) => id)).size).toBe(4);
+    expect(classifications.map(({ status }) => status).sort()).toEqual([
+      'defect-excluded',
+      'defect-excluded',
+      'deliberate-difference',
+      'deliberate-difference',
+    ]);
+
+    const directory = await mkdtemp(join(tmpdir(), 'pptxgenjs-data-path-'));
+    const imagePath = join(directory, 'path.gif');
+    const audioPath = join(directory, 'path.mp3');
+    const imageDataBytes = new Uint8Array(Buffer.from(PNG_DATA_URI.split(',')[1]!, 'base64'));
+    const imagePathBytes = new Uint8Array(Buffer.from(GIF_DATA_URI.split(',')[1]!, 'base64'));
+    const audioData = 'data:audio/mpeg;base64,AQIDBA==';
+    const audioDataBytes = Uint8Array.of(1, 2, 3, 4);
+    const audioPathBytes = Uint8Array.of(9, 10, 11, 12, 13);
+    const dataSentinel = 'TEXT_DATA_SENTINEL_SHOULD_NOT_SERIALIZE';
+    const pathSentinel = 'TEXT_PATH_SENTINEL_SHOULD_NOT_SERIALIZE';
+    try {
+      await writeFile(imagePath, imagePathBytes);
+      await writeFile(audioPath, audioPathBytes);
+      const generated = new PptxGenJS();
+      generated.addSlide().addImage({
+        data: PNG_DATA_URI, path: imagePath, objectName: 'image-both', x: 1, y: 1, w: 2, h: 2,
+      });
+      generated.addSlide().addImage({
+        path: imagePath, objectName: 'image-path', x: 1, y: 1, w: 2, h: 2,
+      });
+      generated.addSlide().addImage({
+        data: PNG_DATA_URI, objectName: 'image-data', x: 1, y: 1, w: 2, h: 2,
+      });
+      generated.addSlide().addMedia({
+        type: 'audio', data: audioData, path: audioPath, cover: PNG_DATA_URI, extn: 'mp3',
+        objectName: 'media-both', x: 1, y: 1, w: 2, h: 1,
+      });
+      generated.addSlide().addMedia({
+        type: 'audio', path: audioPath, cover: PNG_DATA_URI,
+        objectName: 'media-path', x: 1, y: 1, w: 2, h: 1,
+      });
+      generated.addSlide().addMedia({
+        type: 'audio', data: audioData, cover: PNG_DATA_URI, extn: 'mp3',
+        objectName: 'media-data', x: 1, y: 1, w: 2, h: 1,
+      });
+      generated.addSlide().addText('Plain inert source', {
+        objectName: 'plain-byte-control', x: 1, y: 1, w: 4, h: 1,
+      });
+      generated.addSlide().addText('Plain inert source', {
+        data: dataSentinel, path: pathSentinel,
+        objectName: 'plain-byte-control', x: 1, y: 1, w: 4, h: 1,
+      });
+      const richRuns = [
+        { text: 'Rich inert ', options: { bold: true } },
+        { text: 'source', options: { color: '112233' } },
+      ];
+      generated.addSlide().addText(richRuns, {
+        objectName: 'rich-byte-control', x: 1, y: 1, w: 4, h: 1,
+      });
+      generated.addSlide().addText(richRuns, {
+        data: dataSentinel, path: pathSentinel,
+        objectName: 'rich-byte-control', x: 1, y: 1, w: 4, h: 1,
+      });
+
+      const imported = await openPptxGenJSPublicOutput(generated);
+      const importedImages = imported.slides.slice(0, 3)
+        .map((slide) => slide.shapes[0] as ImageModel);
+      expect(importedImages.map((image, index) =>
+        embeddedRasterState(imported, index, image).bytes)).toEqual([
+        [...imageDataBytes],
+        [...imagePathBytes],
+        [...imageDataBytes],
+      ]);
+      expect(embeddedRasterState(imported, 0, importedImages[0]!).altText).toBe(imagePath);
+
+      const importedMedia = imported.slides.slice(3, 6)
+        .map((_, index) => embeddedMediaStates(imported, index + 3)[0]!);
+      expect(importedMedia.map(({ mediaBytes }) => mediaBytes)).toEqual([
+        [...audioDataBytes],
+        [...audioPathBytes],
+        [...audioDataBytes],
+      ]);
+      expect(slideXml(imported, 3)).not.toContain(audioPath);
+
+      const normalizeTextXml = (xml: string) => xml
+        .replace(/<p:cSld name="Slide \d+"/gu, '<p:cSld name="Slide #"')
+        .replace(/<p:cNvPr id="\d+"/gu, '<p:cNvPr id="#"');
+      expect(normalizeTextXml(slideXml(imported, 6)))
+        .toBe(normalizeTextXml(slideXml(imported, 7)));
+      expect(normalizeTextXml(slideXml(imported, 8)))
+        .toBe(normalizeTextXml(slideXml(imported, 9)));
+      for (const part of imported.opcPackage.parts) {
+        const text = new TextDecoder().decode(part.bytes);
+        expect(text).not.toContain(dataSentinel);
+        expect(text).not.toContain(pathSentinel);
+      }
+
+      const native = PptxDocument.create();
+      native.addSlide();
+      native.addSlide();
+      native.addSlide();
+      const nativeImage = await native.addImage(0, imageDataBytes, { contentType: 'image/png' });
+      const nativeAudio = await native.addAudio(1, audioData, { poster: PNG_DATA_URI });
+      const nativeText = native.slides[2]!.addText('Plain inert source');
+      expect(embeddedRasterState(native, 0, nativeImage).bytes).toEqual([...imageDataBytes]);
+      expect(embeddedMediaStates(native, 1)[0]!.mediaBytes).toEqual([...audioDataBytes]);
+      for (const owner of [nativeImage, nativeAudio, nativeText]) {
+        expect('data' in owner).toBe(false);
+        expect('path' in owner).toBe(false);
+      }
+      const reopened = await PptxDocument.open(await native.write({
+        compatibility: 'powerpoint-2010',
+      }));
+      expect(embeddedRasterState(reopened, 0, reopened.slides[0]!.shapes[0] as ImageModel).bytes)
+        .toEqual([...imageDataBytes]);
+      expect(embeddedMediaStates(reopened, 1)[0]!.mediaBytes).toEqual([...audioDataBytes]);
+      expect(native.diagnostics).toEqual([]);
+      expect(reopened.diagnostics).toEqual([]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }, 20_000);
+
   it('closes PptxGenJS shape and text transform identity through strict native state', async () => {
     const classifications = [
       ...['flipH', 'flipV', 'objectName', 'rectRadius', 'rotate'].map((property) => ({

@@ -1585,6 +1585,8 @@ Node evidence deck 为 93,142 bytes、29 parts / 41 relationships、5 slides / 4
 
 Fresh 66-entry actual tarball 为 726,424 bytes，SHA-256 `cf8ff70e932f11b2fe830d06d33cd4edae7a3fc50fbe127498a2ddd7757b22f1`。Node 与 persistent browser evidence deck 均为 24,776 bytes、26 parts、31 relationships、4 slides、4 shapes，SHA-256 分别为 `bc774ec41fa69707a5403bfff3af3dc968de90c3cb9f52358aa65631bb284052` 与 `addb86cf1e7e0559d449b1eceba54e6289bcae34c2a7a1d9e0d5301fa9764588`；26/26 解压部件 byte-identical。Installed Node/CLI、browser、owner-bound OOXML 与 PowerPoint 2010 profile 均通过，validation 为 0 errors / 1 条预期 external-link warning；异步图片源 target move、target/owner delete+same-URI replacement、invalid pre-I/O 也全部通过。完整逐项状态见 [PptxGenJS public-surface audit](./docs/compatibility/pptxgenjs-surface-audit.md)。
 
+Data/Path Inheritance 能力族一次关闭 4 项，矩阵现为 1,744/1,774（98.31%），剩余 30：supported 757、deliberate-difference 520、deprecated-alias 94、defect-excluded 373，unsupported/stale 与 diagnostics 均为 0。PptxGenJS 的真实 image/media owner 支持合法 `data` 或 `path`，同时给出时以 `data` 为准；Native 有意保持单一 typed `ImageSource` / `MediaSource`。`TextPropsOptions.data/path` 在 PptxGenJS plain/rich writer 中完全无效，Native 不增加 inert aliases。本族无产品实现改动，复用上一批 actual npm、persistent browser 与 OOXML source-owner 证据。
+
 ## 开发
 
 ```sh
