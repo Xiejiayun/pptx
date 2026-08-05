@@ -3150,6 +3150,107 @@ describe('PresentationModel', () => {
     expect(reopened.opcPackage.requirePart(mediaPartUri).bytes).toEqual(mediaBytes);
   });
 
+  it('creates, edits, duplicates, rolls back, and reopens image hyperlinks', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const source = model.addSlide();
+    const target = model.addSlide();
+    const urlInput = {
+      url: 'https://images.example?a=1&b=2',
+      tooltip: 'Raster & link',
+    };
+    const raster = source.addImage(new Uint8Array([1, 2, 3]), {
+      contentType: 'image/png',
+      name: 'Linked raster',
+      hyperlink: urlInput,
+    });
+    const svg = source.addSvgImage(
+      new TextEncoder().encode('<svg/>'),
+      new Uint8Array([137, 80, 78, 71]),
+      {
+        name: 'Linked SVG',
+        hyperlink: { slide: model.slides.indexOf(target) + 1, tooltip: '' },
+      },
+    );
+    urlInput.url = 'https://mutated.example';
+    urlInput.tooltip = 'Mutated';
+
+    expect(raster.hyperlink).toEqual({
+      url: 'https://images.example?a=1&b=2',
+      tooltip: 'Raster & link',
+    });
+    expect(svg.hyperlink).toEqual({ slide: 2, tooltip: '' });
+    expect(Object.isFrozen(raster.hyperlink)).toBe(true);
+    const imageTargets = [raster.sourcePartUri, svg.fallbackPartUri, svg.svgPartUri];
+    const rasterRelationship = source.relationships.find(
+      ({ type, target: relationshipTarget }) =>
+        type === HYPERLINK_RELATIONSHIP
+        && relationshipTarget === 'https://images.example?a=1&b=2',
+    )!;
+    const svgRelationship = source.relationships.find(
+      ({ type, resolvedTarget }) =>
+        type === SLIDE_RELATIONSHIP && resolvedTarget === target.partUri,
+    )!;
+    const xml = new TextDecoder().decode(pkg.requirePart(source.partUri).bytes);
+    expect(xml).toContain(
+      `<a:hlinkClick r:id="${rasterRelationship.id}" tooltip="Raster &amp; link"/>`,
+    );
+    expect(xml).toContain(
+      `<a:hlinkClick r:id="${svgRelationship.id}" tooltip="" `
+      + 'action="ppaction://hlinksldjump"/>',
+    );
+
+    const beforeNoOp = packageSnapshot(pkg);
+    raster.hyperlink = { url: 'https://images.example?a=1&b=2', tooltip: 'Raster & link' };
+    expect(packageSnapshot(pkg)).toEqual(beforeNoOp);
+    raster.hyperlink = { url: 'https://images.example?a=1&b=2', tooltip: '' };
+    expect(source.relationships.find(({ id }) => id === rasterRelationship.id)).toBeDefined();
+    raster.hyperlink = { slide: 2 };
+    expect(raster.hyperlink).toEqual({ slide: 2 });
+    expect(source.relationships.find(({ id }) => id === rasterRelationship.id)).toMatchObject({
+      type: SLIDE_RELATIONSHIP,
+      resolvedTarget: target.partUri,
+    });
+
+    model.moveSlide(1, 0);
+    expect(raster.hyperlink).toEqual({ slide: 1 });
+    expect(svg.hyperlink).toEqual({ slide: 1, tooltip: '' });
+    const duplicateSlide = model.duplicateSlide(model.slides.indexOf(source));
+    const duplicatedRaster = duplicateSlide.shapes[0] as ImageModel;
+    expect(duplicatedRaster.hyperlink).toEqual({ slide: 1 });
+    duplicatedRaster.hyperlink = { url: 'https://duplicate.example' };
+    expect(raster.hyperlink).toEqual({ slide: 1 });
+
+    const beforeRollback = packageSnapshot(pkg);
+    expect(() => pkg.transaction(() => {
+      raster.hyperlink = { url: 'https://rollback.example' };
+      svg.hyperlink = undefined;
+      throw new Error('restore image hyperlinks');
+    })).toThrow('restore image hyperlinks');
+    expect(packageSnapshot(pkg)).toEqual(beforeRollback);
+    expect(raster.hyperlink).toEqual({ slide: 1 });
+    expect(svg.hyperlink).toEqual({ slide: 1, tooltip: '' });
+
+    const beforeInvalid = packageSnapshot(pkg);
+    const shapesBeforeInvalid = source.shapes;
+    expect(() => source.addImage(new Uint8Array([9]), {
+      contentType: 'image/png',
+      hyperlink: { slide: 99 },
+    })).toThrow(/out of range/);
+    expect(packageSnapshot(pkg)).toEqual(beforeInvalid);
+    expect(source.shapes).toEqual(shapesBeforeInvalid);
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSource = reopened.slides.find(({ partUri }) => partUri === source.partUri)!;
+    const [reopenedRaster, reopenedSvg] = reopenedSource.shapes as ImageModel[];
+    expect(reopenedRaster!.hyperlink).toEqual({ slide: 1 });
+    expect(reopenedSvg!.hyperlink).toEqual({ slide: 1, tooltip: '' });
+    expect([
+      reopenedRaster!.sourcePartUri,
+      reopenedSvg!.fallbackPartUri,
+      reopenedSvg!.svgPartUri,
+    ]).toEqual(imageTargets);
+  });
+
   it('edits ordinary shape and text identity without changing transform geometry or content', async () => {
     const { pkg, model } = emptyPresentationModel();
     const slide = model.addSlide();

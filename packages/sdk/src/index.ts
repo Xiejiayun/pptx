@@ -70,6 +70,7 @@ import { resolveSvgFallback } from './svg-image-fallback.js';
 import {
   commitPreparedImage,
   prepareImageSource,
+  prepareNormalizedImageSource,
 } from './prepared-image-source.js';
 import {
   normalizeDefineSlideMasterOptions,
@@ -746,7 +747,44 @@ export class PptxDocument extends PresentationModel {
   ): Promise<ImageModel> {
     const slide = this.slides[slideIndex];
     if (!slide) throw new RangeError(`Slide index ${slideIndex} is out of range`);
-    return commitPreparedImage(slide, await prepareImageSource(source, options));
+    const normalized = normalizeAddImageSourceOptions(options);
+    const requestedTarget = normalized.imageOptions.hyperlink?.slide;
+    const targetSlide = requestedTarget === undefined
+      ? undefined
+      : this.slides[requestedTarget - 1];
+    if (requestedTarget !== undefined && targetSlide === undefined) {
+      throw new RangeError(`Embedded image hyperlink slide ${requestedTarget} is out of range`);
+    }
+    const mutationOffset = this.opcPackage.mutations.length;
+    const ownerPartUri = slide.partUri;
+    const targetPartUri = targetSlide?.partUri;
+    const prepared = await prepareNormalizedImageSource(source, normalized);
+    const deletesAfterStart = this.opcPackage.mutations
+      .slice(mutationOffset)
+      .filter(({ kind }) => kind === 'delete');
+    if (deletesAfterStart.some(({ uri }) => uri === ownerPartUri)) {
+      throw new RangeError('Image owner slide was deleted while loading source');
+    }
+    if (
+      targetPartUri !== undefined
+      && deletesAfterStart.some(({ uri }) => uri === targetPartUri)
+    ) {
+      throw new RangeError('Embedded image hyperlink target was deleted while loading source');
+    }
+    if (this.slides.indexOf(slide) === -1) {
+      throw new RangeError('Image owner slide was deleted while loading source');
+    }
+    const currentTargetIndex = targetSlide === undefined
+      ? undefined
+      : this.slides.indexOf(targetSlide);
+    if (targetSlide !== undefined && currentTargetIndex === -1) {
+      throw new RangeError('Embedded image hyperlink target was deleted while loading source');
+    }
+    return commitPreparedImage(
+      slide,
+      prepared,
+      currentTargetIndex === undefined ? undefined : currentTargetIndex + 1,
+    );
   }
 
   async setSlideBackgroundImage(

@@ -9070,80 +9070,227 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS hyperlink owners through shared strict native state"
+      },
       "declaredIn": "HyperlinkProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const hyperlinkOwners6State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/hyperlink.ts",
+            "pattern": "readonly slide: number;"
+          },
+          {
+            "path": "packages/model/src/shape-hyperlink.internal.ts",
+            "pattern": "export function normalizeHyperlink("
+          },
+          {
+            "path": "packages/model/src/shape-hyperlink.internal.ts",
+            "pattern": "export function readShapeHyperlink("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/hyperlink-owners-6-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const hyperlinkOwners6Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS hyperlink owners through shared strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens image hyperlinks"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates raster and SVG image hyperlinks through the public SDK surface"
+          }
+        ]
       },
       "id": "interface:HyperlinkProps@property:slide",
       "kind": "property",
       "name": "slide",
-      "native": [],
-      "note": "",
+      "native": [
+        "Hyperlink.slide",
+        "ImageModel.hyperlink",
+        "ShapeModel.hyperlink"
+      ],
+      "note": "Native preserves strict detached URL or one-based slide hyperlink state, optional tooltip intent, relationship lifecycle, package serialization, and reopen behavior across declared owners.",
       "optional": true,
       "owner": "HyperlinkProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS hyperlink owners through shared strict native state"
+      },
       "declaredIn": "HyperlinkProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const hyperlinkOwners6State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/hyperlink.ts",
+            "pattern": "readonly tooltip?: string;"
+          },
+          {
+            "path": "packages/model/src/shape-hyperlink.internal.ts",
+            "pattern": "export function normalizeHyperlink("
+          },
+          {
+            "path": "packages/model/src/shape-hyperlink.internal.ts",
+            "pattern": "export function readShapeHyperlink("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/hyperlink-owners-6-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const hyperlinkOwners6Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS hyperlink owners through shared strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens image hyperlinks"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates raster and SVG image hyperlinks through the public SDK surface"
+          }
+        ]
       },
       "id": "interface:HyperlinkProps@property:tooltip",
       "kind": "property",
       "name": "tooltip",
-      "native": [],
-      "note": "",
+      "native": [
+        "Hyperlink.tooltip",
+        "ImageModel.hyperlink",
+        "ShapeModel.hyperlink"
+      ],
+      "note": "Native preserves strict detached URL or one-based slide hyperlink state, optional tooltip intent, relationship lifecycle, package serialization, and reopen behavior across declared owners.",
       "optional": true,
       "owner": "HyperlinkProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS hyperlink owners through shared strict native state"
+      },
       "declaredIn": "HyperlinkProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const hyperlinkOwners6State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/hyperlink.ts",
+            "pattern": "readonly url: string;"
+          },
+          {
+            "path": "packages/model/src/shape-hyperlink.internal.ts",
+            "pattern": "export function normalizeHyperlink("
+          },
+          {
+            "path": "packages/model/src/shape-hyperlink.internal.ts",
+            "pattern": "export function readShapeHyperlink("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/hyperlink-owners-6-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const hyperlinkOwners6Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS hyperlink owners through shared strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens image hyperlinks"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates raster and SVG image hyperlinks through the public SDK surface"
+          }
+        ]
       },
       "id": "interface:HyperlinkProps@property:url",
       "kind": "property",
       "name": "url",
-      "native": [],
-      "note": "",
+      "native": [
+        "Hyperlink.url",
+        "ImageModel.hyperlink",
+        "ShapeModel.hyperlink"
+      ],
+      "note": "Native preserves strict detached URL or one-based slide hyperlink state, optional tooltip intent, relationship lifecycle, package serialization, and reopen behavior across declared owners.",
       "optional": true,
       "owner": "HyperlinkProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
@@ -26775,28 +26922,82 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS hyperlink owners through shared strict native state"
+      },
       "declaredIn": "ImageProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const hyperlinkOwners6State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/image.ts",
+            "pattern": "readonly hyperlink?: Hyperlink;"
+          },
+          {
+            "path": "packages/model/src/image-create.internal.ts",
+            "pattern": "normalizeHyperlink(values.hyperlink, 'Embedded image hyperlink')"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "export class ImageModel extends BaseShapeModel {"
+          },
+          {
+            "path": "packages/sdk/src/raster-image-source.ts",
+            "pattern": "normalizeHyperlink(values[key], 'Raster image hyperlink')"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/hyperlink-owners-6-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const hyperlinkOwners6Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS hyperlink owners through shared strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens image hyperlinks"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates raster and SVG image hyperlinks through the public SDK surface"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:hyperlink",
       "kind": "property",
       "name": "hyperlink",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddImageOptions.hyperlink",
+        "AddImageSourceOptions.hyperlink",
+        "AddSvgImageOptions.hyperlink",
+        "ImageModel.hyperlink"
+      ],
+      "note": "Native preserves strict detached URL or one-based slide hyperlink state, optional tooltip intent, relationship lifecycle, package serialization, and reopen behavior across declared owners.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "HyperlinkProps"
     },
     {
@@ -33503,28 +33704,77 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS hyperlink owners through shared strict native state"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const hyperlinkOwners6State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "readonly hyperlink?: Hyperlink;"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "get hyperlink(): Hyperlink | undefined {"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "setShapeHyperlink(id: number, value: Hyperlink | undefined): void {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/hyperlink-owners-6-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const hyperlinkOwners6Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS hyperlink owners through shared strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens image hyperlinks"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates raster and SVG image hyperlinks through the public SDK surface"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:hyperlink",
       "kind": "property",
       "name": "hyperlink",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddShapeOptions.hyperlink",
+        "Hyperlink",
+        "ShapeModel.hyperlink"
+      ],
+      "note": "Native preserves strict detached URL or one-based slide hyperlink state, optional tooltip intent, relationship lifecycle, package serialization, and reopen behavior across declared owners.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "HyperlinkProps"
     },
     {
@@ -43386,28 +43636,78 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS hyperlink owners through shared strict native state"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const hyperlinkOwners6State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "readonly hyperlink?: Hyperlink;"
+          },
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "readonly hyperlink?: Hyperlink | false;"
+          },
+          {
+            "path": "packages/model/src/shape-hyperlink.internal.ts",
+            "pattern": "export function readTextRunHyperlink("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/hyperlink-owners-6-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const hyperlinkOwners6Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS hyperlink owners through shared strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens image hyperlinks"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates raster and SVG image hyperlinks through the public SDK surface"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:hyperlink",
       "kind": "property",
       "name": "hyperlink",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.hyperlink",
+        "Hyperlink",
+        "RichTextRunStyle.hyperlink",
+        "ShapeModel.hyperlink"
+      ],
+      "note": "Native intentionally emits valid whole-shape and inherited run ownership instead of PptxGenJS 4.0.1 dangling rIdundefined rich outer hyperlinks.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "HyperlinkProps"
     },
     {
@@ -101185,12 +101485,12 @@
   "complete": false,
   "counts": {
     "defect-excluded": 371,
-    "deliberate-difference": 517,
+    "deliberate-difference": 518,
     "deprecated-alias": 94,
     "stale": 0,
-    "supported": 752,
+    "supported": 757,
     "unsupported": 0,
-    "unverified": 40
+    "unverified": 34
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -101202,9 +101502,6 @@
     "inline:interface:IChartOpts@property:titlePos@property:titlePos.y",
     "interface:DataOrPathProps@property:data",
     "interface:DataOrPathProps@property:path",
-    "interface:HyperlinkProps@property:slide",
-    "interface:HyperlinkProps@property:tooltip",
-    "interface:HyperlinkProps@property:url",
     "interface:IChartOpts@property:bar3DShape",
     "interface:IChartOpts@property:dataBorder",
     "interface:IChartOpts@property:dataLabelBkgrdColors",
@@ -101216,7 +101513,6 @@
     "interface:IChartOpts@property:lineCap",
     "interface:IChartOpts@property:shadow",
     "interface:IChartOpts@property:titleAlign",
-    "interface:ImageProps@property:hyperlink",
     "interface:OptsChartGridLine@property:cap",
     "interface:PlaceholderProps@property:align",
     "interface:PlaceholderProps@property:margin",
@@ -101225,9 +101521,7 @@
     "interface:ShapeProps@property:align",
     "interface:ShapeProps@property:angleRange",
     "interface:ShapeProps@property:arcThicknessRatio",
-    "interface:ShapeProps@property:hyperlink",
     "interface:TextPropsOptions@property:data",
-    "interface:TextPropsOptions@property:hyperlink",
     "interface:TextPropsOptions@property:path",
     "union:ChartLineCap#flat",
     "union:ChartLineCap#round",

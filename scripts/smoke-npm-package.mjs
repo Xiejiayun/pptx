@@ -49,6 +49,13 @@ try {
       'utf8',
     ),
   );
+  await writeFile(
+    join(directory, 'hyperlink-owners-6-lifecycle-probe.mjs'),
+    await readFile(
+      join(repositoryRoot, 'scripts/hyperlink-owners-6-lifecycle-probe.mjs'),
+      'utf8',
+    ),
+  );
   run('npm', [
     'install',
     '--ignore-scripts',
@@ -474,6 +481,7 @@ import { runChartPresentation91LifecycleProbe } from './chart-presentation-91-li
 import { runImageIdentityEffects5LifecycleProbe } from './image-identity-effects-5-lifecycle-probe.mjs';
 import { runShapeTextTransformIdentity13LifecycleProbe } from './shape-text-transform-identity-13-lifecycle-probe.mjs';
 import { runCoreContentPrimitiveInputs14LifecycleProbe } from './core-content-primitive-inputs-14-lifecycle-probe.mjs';
+import { runHyperlinkOwners6LifecycleProbe } from './hyperlink-owners-6-lifecycle-probe.mjs';
 const installedManifestVersion = ${JSON.stringify(manifest.version)};
 const chartPresentation91Probe = await runChartPresentation91LifecycleProbe(
   { ChartModel, PptxDocument, chartWorkbookMatches },
@@ -552,6 +560,26 @@ const coreContentPrimitiveInputs14State = {
 await writeFile(
   'core-content-primitive-inputs-14-smoke.pptx',
   coreContentPrimitiveInputs14Probe.explicitOutputBytes,
+);
+const hyperlinkOwners6Probe = await runHyperlinkOwners6LifecycleProbe({ PptxDocument });
+const hyperlinkOwners6 = hyperlinkOwners6Probe.ok;
+const hyperlinkOwners6State = {
+  callerDetached: hyperlinkOwners6Probe.state.created.callerDetached,
+  noOp: hyperlinkOwners6Probe.state.noOp,
+  relationshipReuse: hyperlinkOwners6Probe.state.tooltipRelationshipReuse &&
+    hyperlinkOwners6Probe.state.targetSwitchReuse,
+  rollback: hyperlinkOwners6Probe.state.rollback,
+  duplicateIsolation: hyperlinkOwners6Probe.state.duplicateIsolation,
+  mediaPreserved: hyperlinkOwners6Probe.state.mediaPreserved,
+  exactOoxml: Object.values(hyperlinkOwners6Probe.state.exactOoxml).every(Boolean),
+  diagnostics: hyperlinkOwners6Probe.state.diagnostics.createdErrors === 0 &&
+    hyperlinkOwners6Probe.state.diagnostics.createdWarnings === 1 &&
+    hyperlinkOwners6Probe.state.diagnostics.reopenedErrors === 0 &&
+    hyperlinkOwners6Probe.state.diagnostics.reopenedWarnings === 0,
+};
+await writeFile(
+  'hyperlink-owners-6-smoke.pptx',
+  hyperlinkOwners6Probe.explicitOutputBytes,
 );
 const created = PptxDocument.create({ rtlMode: true });
 const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });
@@ -11036,6 +11064,8 @@ const checks = {
   shapeTextTransformIdentity13State,
   coreContentPrimitiveInputs14,
   coreContentPrimitiveInputs14State,
+  hyperlinkOwners6,
+  hyperlinkOwners6State,
   chartPresentation91,
   chartPresentation91State,
   chartAxisAdvanced,

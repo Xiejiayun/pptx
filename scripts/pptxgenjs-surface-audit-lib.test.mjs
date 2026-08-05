@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1734);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1740);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(371).fill('defect-excluded'),
-      ...Array(752).fill('supported'),
-      ...Array(517).fill('deliberate-difference'),
+      ...Array(757).fill('supported'),
+      ...Array(518).fill('deliberate-difference'),
       ...Array(94).fill('deprecated-alias'),
     ].sort(),
   );
@@ -158,6 +158,24 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
     [
       ...Array(5).fill('supported'),
       ...Array(9).fill('deliberate-difference'),
+    ].sort(),
+  );
+  const hyperlinkOwnerIds = new Set([
+    'interface:HyperlinkProps@property:slide',
+    'interface:HyperlinkProps@property:tooltip',
+    'interface:HyperlinkProps@property:url',
+    'interface:ImageProps@property:hyperlink',
+    'interface:ShapeProps@property:hyperlink',
+    'interface:TextPropsOptions@property:hyperlink',
+  ]);
+  const hyperlinkOwnerEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => hyperlinkOwnerIds.has(id));
+  assert.equal(hyperlinkOwnerEntries.length, 6);
+  assert.deepEqual(
+    hyperlinkOwnerEntries.map(({ status }) => status).sort(),
+    [
+      ...Array(5).fill('supported'),
+      'deliberate-difference',
     ].sort(),
   );
   const lineFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
@@ -1720,7 +1738,7 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
     PPTXGENJS_SURFACE_MANIFEST.entries.some(
       ({ id }) => id === addTablePropertyId('ImageProps', 'hyperlink'),
     ),
-    false,
+    true,
   );
   const shapeTextTransformIdentityExpected = [
     ...['flipH', 'flipV', 'objectName', 'rectRadius', 'rotate'].map((property) => ({

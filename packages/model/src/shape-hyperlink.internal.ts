@@ -464,11 +464,17 @@ function containsInvalidXmlCharacter(value: string): boolean {
 function inspectHyperlinkContainer(
   shape: XmlElement,
 ): HyperlinkContainerState | undefined {
-  if (shape.localName !== 'sp' || namespaceUri(shape) !== PRESENTATION_NAMESPACE) {
+  if (namespaceUri(shape) !== PRESENTATION_NAMESPACE) {
     return undefined;
   }
+  const nonVisualContainerName = shape.localName === 'sp'
+    ? 'nvSpPr'
+    : shape.localName === 'pic'
+      ? 'nvPicPr'
+      : undefined;
+  if (nonVisualContainerName === undefined) return undefined;
   const nonVisualContainers = directChildren(shape)
-    .filter(({ localName }) => localName === 'nvSpPr');
+    .filter(({ localName }) => localName === nonVisualContainerName);
   if (
     nonVisualContainers.length !== 1
     || namespaceUri(nonVisualContainers[0]!) !== PRESENTATION_NAMESPACE

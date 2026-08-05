@@ -514,6 +514,14 @@ export class MediaModel extends BaseShapeModel {
 }
 
 export class ImageModel extends BaseShapeModel {
+  get hyperlink(): Hyperlink | undefined {
+    return this.slide.getShapeHyperlink(this.id);
+  }
+
+  set hyperlink(value: Hyperlink | undefined) {
+    this.slide.setShapeHyperlink(this.id, value);
+  }
+
   get altText(): string | undefined {
     return this.slide.getImageAltText(this.id);
   }

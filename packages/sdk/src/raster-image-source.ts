@@ -8,6 +8,7 @@ import {
   normalizeImageSizing,
   type ImageSizing,
 } from './raster-image-sizing.js';
+import { normalizeHyperlink } from '@pptx/model/internal/shape-hyperlink';
 import { inspectSvgImage, type SvgImageInfo } from './svg-image-source.js';
 
 const PNG_SIGNATURE = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -22,6 +23,7 @@ const JPEG_SOF_MARKERS = new Set([
 const MODEL_IMAGE_OPTION_KEYS = new Set([
   'name',
   'altText',
+  'hyperlink',
   'placeholder',
   'x',
   'y',
@@ -192,7 +194,9 @@ export function normalizeAddImageSourceOptions(
     if (Object.hasOwn(values, key)) {
       imageOptions[key] = key === 'shadow'
         ? detachDataObject(values[key], 'Raster image shadow')
-        : values[key];
+        : key === 'hyperlink'
+          ? normalizeHyperlink(values[key], 'Raster image hyperlink')
+          : values[key];
     }
   }
   Object.freeze(imageOptions);

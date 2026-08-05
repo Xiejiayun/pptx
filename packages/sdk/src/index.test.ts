@@ -6640,6 +6640,138 @@ describe('PptxDocument vertical slice', () => {
     }
   });
 
+  it('creates raster and SVG image hyperlinks through the public SDK surface', async () => {
+    const document = PptxDocument.create();
+    const source = document.addSlide();
+    document.addSlide();
+    const rasterLink = {
+      url: 'https://sdk-images.example?a=1&b=2',
+      tooltip: 'SDK raster',
+    };
+    const rasterPending = document.addImage(0, sdkPngHeader(16, 9), {
+      name: 'SDK raster hyperlink',
+      hyperlink: rasterLink,
+    });
+    rasterLink.url = 'https://mutated.example';
+    rasterLink.tooltip = 'Mutated';
+    const raster = await rasterPending;
+
+    const svgLink: { slide: number; tooltip?: string } = { slide: 2, tooltip: '' };
+    const svgPending = document.addImage(0, sdkSvg(16, 9), {
+      fallback: sdkPngHeader(1, 1),
+      name: 'SDK SVG hyperlink',
+      hyperlink: svgLink,
+    });
+    svgLink.slide = 1;
+    delete svgLink.tooltip;
+    const svg = await svgPending;
+
+    expect(raster.hyperlink).toEqual({
+      url: 'https://sdk-images.example?a=1&b=2',
+      tooltip: 'SDK raster',
+    });
+    expect(svg.hyperlink).toEqual({ slide: 2, tooltip: '' });
+    expect(svg.isSvg).toBe(true);
+    expect(source.shapes).toEqual([raster, svg]);
+    const sourceXml = new TextDecoder().decode(
+      document.opcPackage.requirePart(source.partUri).bytes,
+    );
+    expect(sourceXml).toContain('tooltip="SDK raster"');
+    expect(sourceXml).toContain('tooltip="" action="ppaction://hlinksldjump"');
+
+    const beforeInvalid = {
+      parts: document.opcPackage.parts.map(({ uri, bytes }) => ({
+        uri,
+        bytes: new Uint8Array(bytes),
+      })),
+      graph: document.opcPackage.graph,
+      mutations: [...document.opcPackage.mutations],
+      shapes: source.shapes,
+    };
+    await expect(document.addImage(0, sdkPngHeader(1, 1), {
+      hyperlink: { slide: 99 },
+    })).rejects.toThrow(/out of range/);
+    expect({
+      parts: document.opcPackage.parts.map(({ uri, bytes }) => ({
+        uri,
+        bytes: new Uint8Array(bytes),
+      })),
+      graph: document.opcPackage.graph,
+      mutations: [...document.opcPackage.mutations],
+      shapes: source.shapes,
+    }).toEqual(beforeInvalid);
+
+    const reopened = await PptxDocument.open(await document.write());
+    const [reopenedRaster, reopenedSvg] = reopened.slides[0]!.shapes as ImageModel[];
+    expect(reopenedRaster!.hyperlink).toEqual({
+      url: 'https://sdk-images.example?a=1&b=2',
+      tooltip: 'SDK raster',
+    });
+    expect(reopenedSvg!.hyperlink).toEqual({ slide: 2, tooltip: '' });
+    expect(validatePackage(reopened.opcPackage).filter(({ severity }) => severity === 'error'))
+      .toEqual([]);
+  });
+
+  it('binds async image hyperlink targets by slide identity before reading the source', async () => {
+    const deferredSource = () => {
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const source: RasterImageSource = {
+        async *[Symbol.asyncIterator]() {
+          await gate;
+          yield sdkPngHeader(1, 1);
+        },
+      };
+      return { source, release };
+    };
+
+    const reordered = PptxDocument.create();
+    const owner = reordered.addSlide();
+    const target = reordered.addSlide();
+    reordered.addSlide();
+    const reorderGate = deferredSource();
+    const pendingReorder = reordered.addImage(0, reorderGate.source, {
+      hyperlink: { slide: 2 },
+    });
+    reordered.moveSlide(1, 2);
+    reorderGate.release();
+    const reorderedImage = await pendingReorder;
+    expect(reorderedImage.hyperlink).toEqual({ slide: 3 });
+    expect(owner.relationships.some(({ resolvedTarget }) =>
+      resolvedTarget === target.partUri)).toBe(true);
+
+    const deleted = PptxDocument.create();
+    deleted.addSlide();
+    deleted.addSlide();
+    deleted.addSlide();
+    const deleteGate = deferredSource();
+    const pendingDelete = deleted.addImage(0, deleteGate.source, {
+      hyperlink: { slide: 2 },
+    });
+    deleted.deleteSlide(1);
+    deleted.addSlide();
+    const beforeRejectedCommit = await sdkPackageSnapshot(deleted);
+    deleteGate.release();
+    await expect(pendingDelete).rejects.toThrow(/target was deleted/);
+    expect(await sdkPackageSnapshot(deleted)).toEqual(beforeRejectedCommit);
+
+    const deletedOwner = PptxDocument.create();
+    deletedOwner.addSlide();
+    deletedOwner.addSlide();
+    const ownerGate = deferredSource();
+    const pendingOwner = deletedOwner.addImage(0, ownerGate.source, {
+      hyperlink: { slide: 2 },
+    });
+    deletedOwner.deleteSlide(0);
+    deletedOwner.addSlide();
+    const beforeOwnerReject = await sdkPackageSnapshot(deletedOwner);
+    ownerGate.release();
+    await expect(pendingOwner).rejects.toThrow(/owner slide was deleted/);
+    expect(await sdkPackageSnapshot(deletedOwner)).toEqual(beforeOwnerReject);
+  });
+
   it('adds detected raster image sources with immediate live model state', async () => {
     const document = PptxDocument.create();
     const slide = document.addSlide();
@@ -7295,6 +7427,7 @@ describe('PptxDocument vertical slice', () => {
       () => document.addImage(0, countedSource, {
         sourceRectangle: { left: 0, top: 0, right: 0, bottom: 0 },
       } as never),
+      () => document.addImage(0, countedSource, { hyperlink: { slide: 99 } }),
     ];
     for (const invoke of invalidPreIo) {
       await expect(invoke()).rejects.toBeInstanceOf(Error);

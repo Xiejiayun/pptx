@@ -1,5 +1,9 @@
 import { escapeXmlAttribute } from '@pptx/lossless-xml';
 import type { RasterImageContentType } from './image.js';
+import {
+  normalizeHyperlink,
+  type NormalizedHyperlink,
+} from './shape-hyperlink.internal.js';
 import { normalizePlaceholderSelector } from './placeholder.internal.js';
 import type { PlaceholderIdentity, PlaceholderSelector } from './placeholder.js';
 import {
@@ -20,6 +24,7 @@ const OPTION_KEYS = new Set([
   'contentType',
   'name',
   'altText',
+  'hyperlink',
   'placeholder',
   'x',
   'y',
@@ -37,6 +42,7 @@ const OPTION_KEYS = new Set([
 export interface NormalizedEmbeddedImageAppearance {
   readonly name: string | undefined;
   readonly altText: string;
+  readonly hyperlink?: NormalizedHyperlink;
   readonly placeholder?: PlaceholderSelector;
   readonly x: number;
   readonly y: number;
@@ -74,6 +80,9 @@ export function normalizeEmbeddedRasterImage(
   const contentType = normalizeContentType(values.contentType);
   const name = normalizeXmlString(values.name, undefined, 'name');
   const altText = normalizeXmlString(values.altText, 'preencoded.png', 'altText');
+  const hyperlink = values.hyperlink === undefined
+    ? undefined
+    : normalizeHyperlink(values.hyperlink, 'Embedded image hyperlink');
   const placeholder = values.placeholder === undefined
     ? undefined
     : normalizePlaceholderSelector(values.placeholder);
@@ -117,6 +126,7 @@ export function normalizeEmbeddedRasterImage(
     extension: extensionFor(contentType),
     name,
     altText,
+    ...(hyperlink === undefined ? {} : { hyperlink }),
     ...(placeholder === undefined ? {} : { placeholder }),
     x,
     y,

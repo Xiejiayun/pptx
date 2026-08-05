@@ -15,6 +15,7 @@ export const SVG_IMAGE_NAMESPACE =
 const OPTION_KEYS = new Set([
   'name',
   'altText',
+  'hyperlink',
   'placeholder',
   'x',
   'y',

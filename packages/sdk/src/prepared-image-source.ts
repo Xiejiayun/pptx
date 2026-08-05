@@ -29,7 +29,13 @@ export async function prepareImageSource(
   source: ImageSource,
   options: AddImageSourceOptions = {},
 ): Promise<Readonly<PreparedImageSource>> {
-  const normalized = normalizeAddImageSourceOptions(options);
+  return prepareNormalizedImageSource(source, normalizeAddImageSourceOptions(options));
+}
+
+export async function prepareNormalizedImageSource(
+  source: ImageSource,
+  normalized: Readonly<NormalizedAddImageSourceOptions>,
+): Promise<Readonly<PreparedImageSource>> {
   const resolved = await resolveImageSource(source, normalized.signal);
   assertImageContentType(normalized.contentType, resolved);
   if (resolved.info.contentType !== 'image/svg+xml') {
@@ -52,8 +58,24 @@ export async function prepareImageSource(
 export function commitPreparedImage(
   slide: SlideModel,
   prepared: Readonly<PreparedImageSource>,
+  internalHyperlinkSlide?: number,
 ): ImageModel {
   const { resolved, options } = prepared;
+  const originalHyperlink = options.imageOptions.hyperlink;
+  if (internalHyperlinkSlide !== undefined && originalHyperlink?.slide === undefined) {
+    throw new TypeError('Internal image hyperlink target requires a slide hyperlink');
+  }
+  const imageOptions = internalHyperlinkSlide === undefined
+    ? options.imageOptions
+    : Object.freeze({
+        ...options.imageOptions,
+        hyperlink: Object.freeze({
+          slide: internalHyperlinkSlide,
+          ...(originalHyperlink!.tooltip === undefined
+            ? {}
+            : { tooltip: originalHyperlink!.tooltip }),
+        }),
+      });
   const placement = options.sizing === undefined
     ? undefined
     : calculateImageSizing(
@@ -66,13 +88,13 @@ export function commitPreparedImage(
       ) as Pick<AddSvgImageOptions, 'width' | 'height' | 'sourceRectangle'>;
   if (resolved.info.contentType !== 'image/svg+xml') {
     return slide.addImage(resolved.bytes, {
-      ...options.imageOptions,
+      ...imageOptions,
       ...(placement ?? {}),
       contentType: resolved.info.contentType,
     });
   }
   return slide.addSvgImage(resolved.bytes, prepared.fallbackPngBytes!, {
-    ...options.imageOptions,
+    ...imageOptions,
     ...(placement ?? {}),
   });
 }

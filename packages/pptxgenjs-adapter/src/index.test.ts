@@ -7534,6 +7534,122 @@ describe('importPptxGenJS', () => {
     expect(reopened.diagnostics).toEqual([]);
   }, 20_000);
 
+  it('closes PptxGenJS hyperlink owners through shared strict native state', async () => {
+    const classifications = [
+      ...[
+        'interface:HyperlinkProps@property:slide',
+        'interface:HyperlinkProps@property:tooltip',
+        'interface:HyperlinkProps@property:url',
+        'interface:ImageProps@property:hyperlink',
+        'interface:ShapeProps@property:hyperlink',
+      ].map((id) => ({ id, status: 'supported' })),
+      {
+        id: 'interface:TextPropsOptions@property:hyperlink',
+        status: 'deliberate-difference',
+      },
+    ].sort((left, right) => left.id.localeCompare(right.id));
+    expect(classifications).toHaveLength(6);
+    expect(new Set(classifications.map(({ id }) => id)).size).toBe(6);
+    expect({
+      supported: classifications.filter(({ status }) => status === 'supported').length,
+      deliberate: classifications.filter(
+        ({ status }) => status === 'deliberate-difference',
+      ).length,
+    }).toEqual({ supported: 5, deliberate: 1 });
+
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const first = generated.addSlide();
+    generated.addSlide();
+    generated.addSlide();
+    const shapeLink = {
+      url: 'https://example.com/shape?a=1&b=2',
+      tooltip: 'Shape & tip',
+    };
+    const imageLink = { slide: 3, tooltip: '' };
+    const textLink = { url: 'mailto:text@example.com', tooltip: 'Text tip' };
+    const richOuterLink = { url: 'https://example.com/rich-outer' };
+    first.addShape(generated.ShapeType.rect!, {
+      objectName: 'Hyperlink Shape',
+      x: 0.5,
+      y: 0.5,
+      w: 2,
+      h: 0.5,
+      hyperlink: shapeLink,
+    });
+    first.addImage({
+      objectName: 'Hyperlink Image',
+      data: PNG_DATA_URI,
+      x: 0.5,
+      y: 1.25,
+      w: 2,
+      h: 1,
+      hyperlink: imageLink,
+    });
+    first.addText('Plain hyperlink', {
+      objectName: 'Hyperlink Text',
+      x: 0.5,
+      y: 2.5,
+      w: 2,
+      h: 0.5,
+      hyperlink: textLink,
+    });
+    first.addText([
+      { text: 'Rich outer one', options: { bold: true } },
+      { text: ' two', options: { italic: true } },
+    ], {
+      objectName: 'Hyperlink Rich Outer',
+      x: 0.5,
+      y: 3.25,
+      w: 2,
+      h: 0.5,
+      hyperlink: richOuterLink,
+    });
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const [shape, image, text, richOuter] = imported.slides[0]!.shapes;
+    expect((shape as ShapeModel).hyperlink).toEqual({
+      url: 'https://example.com/shape?a=1&b=2',
+      tooltip: 'Shape & tip',
+    });
+    expect((image as ImageModel).hyperlink).toEqual({ slide: 3, tooltip: '' });
+    expect((text as ShapeModel).hyperlink).toEqual({
+      url: 'mailto:text@example.com',
+      tooltip: 'Text tip',
+    });
+    expect((richOuter as ShapeModel).hyperlink).toBeUndefined();
+    expect(Object.hasOwn(shapeLink, '_rId')).toBe(true);
+    expect(Object.hasOwn(imageLink, '_rId')).toBe(true);
+    expect(Object.hasOwn(textLink, '_rId')).toBe(true);
+    const importedXml = slideXml(imported, 0);
+    expect(importedXml.match(/r:id="rIdundefined"/g)).toHaveLength(3);
+    expect(pictureXml(imported, 0, (image as ImageModel).id)).toContain(
+      'tooltip="" action="ppaction://hlinksldjump"',
+    );
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    native.addSlide();
+    native.addSlide();
+    const nativeInput: { slide: number; tooltip?: string } = { slide: 3, tooltip: '' };
+    const nativeImage = nativeSlide.addImage(
+      new Uint8Array(Buffer.from(PNG_DATA_URI.split(',')[1]!, 'base64')),
+      { contentType: 'image/png', hyperlink: nativeInput },
+    );
+    nativeInput.slide = 1;
+    delete nativeInput.tooltip;
+    expect(nativeImage.hyperlink).toEqual({ slide: 3, tooltip: '' });
+    expect(Object.hasOwn(nativeInput, '_rId')).toBe(false);
+    expect(slideXml(native, 0)).not.toContain('rIdundefined');
+    const reopened = await PptxDocument.open(await native.write({
+      compatibility: 'powerpoint-2010',
+    }));
+    expect((reopened.slides[0]!.shapes[0] as ImageModel).hyperlink)
+      .toEqual({ slide: 3, tooltip: '' });
+    expect(native.diagnostics).toEqual([]);
+    expect(reopened.diagnostics).toEqual([]);
+  }, 20_000);
+
   it('closes PptxGenJS shape and text transform identity through strict native state', async () => {
     const classifications = [
       ...['flipH', 'flipV', 'objectName', 'rectRadius', 'rotate'].map((property) => ({

@@ -6762,6 +6762,94 @@ const SHAPE_CUSTOM_PATH_FAMILY_ENTRIES = Object.freeze(
   SHAPE_CUSTOM_PATH_ATOMS.map((id) => shapeCustomPathEntry(id)),
 );
 
+const HYPERLINK_OWNERS_6_CONTROL_TITLE =
+  'closes PptxGenJS hyperlink owners through shared strict native state';
+const HYPERLINK_OWNERS_6_IDS = Object.freeze([
+  'interface:HyperlinkProps@property:slide',
+  'interface:HyperlinkProps@property:tooltip',
+  'interface:HyperlinkProps@property:url',
+  'interface:ImageProps@property:hyperlink',
+  'interface:ShapeProps@property:hyperlink',
+  'interface:TextPropsOptions@property:hyperlink',
+]);
+
+function hyperlinkOwners6Entry(id) {
+  const imageOwner = id === 'interface:ImageProps@property:hyperlink';
+  const shapeOwner = id === 'interface:ShapeProps@property:hyperlink';
+  const textOwner = id === 'interface:TextPropsOptions@property:hyperlink';
+  const field = id.split('@property:')[1];
+  const code = imageOwner
+    ? [
+        { path: 'packages/model/src/image.ts', pattern: 'readonly hyperlink?: Hyperlink;' },
+        {
+          path: 'packages/model/src/image-create.internal.ts',
+          pattern: "normalizeHyperlink(values.hyperlink, 'Embedded image hyperlink')",
+        },
+        { path: 'packages/model/src/shapes.ts', pattern: 'export class ImageModel extends BaseShapeModel {' },
+        { path: 'packages/sdk/src/raster-image-source.ts', pattern: "normalizeHyperlink(values[key], 'Raster image hyperlink')" },
+      ]
+    : shapeOwner
+      ? [
+          { path: 'packages/model/src/preset-shape.ts', pattern: 'readonly hyperlink?: Hyperlink;' },
+          { path: 'packages/model/src/shapes.ts', pattern: 'get hyperlink(): Hyperlink | undefined {' },
+          { path: 'packages/model/src/slide.ts', pattern: 'setShapeHyperlink(id: number, value: Hyperlink | undefined): void {' },
+        ]
+      : textOwner
+        ? [
+            { path: 'packages/model/src/slide.ts', pattern: 'readonly hyperlink?: Hyperlink;' },
+            { path: 'packages/model/src/text.ts', pattern: 'readonly hyperlink?: Hyperlink | false;' },
+            { path: 'packages/model/src/shape-hyperlink.internal.ts', pattern: 'export function readTextRunHyperlink(' },
+          ]
+        : [
+            {
+              path: 'packages/model/src/hyperlink.ts',
+              pattern: field === 'slide'
+                ? 'readonly slide: number;'
+                : field === 'tooltip'
+                  ? 'readonly tooltip?: string;'
+                  : 'readonly url: string;',
+            },
+            { path: 'packages/model/src/shape-hyperlink.internal.ts', pattern: 'export function normalizeHyperlink(' },
+            { path: 'packages/model/src/shape-hyperlink.internal.ts', pattern: 'export function readShapeHyperlink(' },
+          ];
+  const native = imageOwner
+    ? ['AddImageOptions.hyperlink', 'AddImageSourceOptions.hyperlink', 'AddSvgImageOptions.hyperlink', 'ImageModel.hyperlink']
+    : shapeOwner
+      ? ['AddShapeOptions.hyperlink', 'Hyperlink', 'ShapeModel.hyperlink']
+      : textOwner
+        ? ['AddTextOptions.hyperlink', 'Hyperlink', 'RichTextRunStyle.hyperlink', 'ShapeModel.hyperlink']
+        : [`Hyperlink.${field}`, 'ImageModel.hyperlink', 'ShapeModel.hyperlink'];
+  return {
+    id,
+    status: textOwner ? 'deliberate-difference' : 'supported',
+    native,
+    evidence: {
+      code,
+      tests: [
+        { path: 'packages/pptxgenjs-adapter/src/index.test.ts', title: HYPERLINK_OWNERS_6_CONTROL_TITLE },
+        { path: 'packages/model/src/model.test.ts', title: 'creates, edits, duplicates, rolls back, and reopens image hyperlinks' },
+        { path: 'packages/sdk/src/index.test.ts', title: 'creates raster and SVG image hyperlinks through the public SDK surface' },
+      ],
+      package: [{ path: 'scripts/smoke-npm-package.mjs', pattern: 'const hyperlinkOwners6Probe =' }],
+      ooxml: [{ path: 'scripts/hyperlink-owners-6-lifecycle-probe.mjs', pattern: 'const exactOoxml = {' }],
+      clients: [{ path: 'scripts/playwright-browser-smoke.js', pattern: 'const hyperlinkOwners6State = {' }],
+    },
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: HYPERLINK_OWNERS_6_CONTROL_TITLE,
+    },
+    serialization: true,
+    client: true,
+    note: textOwner
+      ? 'Native intentionally emits valid whole-shape and inherited run ownership instead of PptxGenJS 4.0.1 dangling rIdundefined rich outer hyperlinks.'
+      : 'Native preserves strict detached URL or one-based slide hyperlink state, optional tooltip intent, relationship lifecycle, package serialization, and reopen behavior across declared owners.',
+  };
+}
+
+const HYPERLINK_OWNERS_6_FAMILY_ENTRIES = Object.freeze(
+  HYPERLINK_OWNERS_6_IDS.map((id) => hyperlinkOwners6Entry(id)),
+);
+
 function deepFreeze(value, seen = new Set()) {
   if (value === null || typeof value !== 'object' || seen.has(value)) return value;
   seen.add(value);
@@ -6862,6 +6950,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...IMAGE_IDENTITY_EFFECTS_FAMILY_ENTRIES,
     ...SHAPE_TEXT_TRANSFORM_IDENTITY_FAMILY_ENTRIES,
     ...CORE_CONTENT_PRIMITIVE_INPUTS_14_FAMILY_ENTRIES,
+    ...HYPERLINK_OWNERS_6_FAMILY_ENTRIES,
     ...MEDIA_CORE_FAMILY_ENTRIES,
     ...PLACEHOLDER_CORE_FAMILY_ENTRIES,
     ...SHAPE_CUSTOM_PATH_FAMILY_ENTRIES,

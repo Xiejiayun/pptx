@@ -1,6 +1,7 @@
 import type { TransformInput } from './units.js';
 import type { PlaceholderSelector } from './placeholder.js';
 import type { ShapeShadow } from './preset-shape.js';
+import type { Hyperlink } from './hyperlink.js';
 
 export type RasterImageContentType = 'image/png' | 'image/jpeg' | 'image/gif';
 export type SvgImageContentType = 'image/svg+xml';
@@ -16,6 +17,7 @@ export interface AddImageOptions extends Partial<TransformInput> {
   readonly contentType: RasterImageContentType;
   readonly name?: string;
   readonly altText?: string;
+  readonly hyperlink?: Hyperlink;
   readonly placeholder?: PlaceholderSelector;
   readonly sourceRectangle?: ImageSourceRectangle;
   readonly rounding?: boolean;
@@ -26,6 +28,7 @@ export interface AddImageOptions extends Partial<TransformInput> {
 export interface AddSvgImageOptions extends Partial<TransformInput> {
   readonly name?: string;
   readonly altText?: string;
+  readonly hyperlink?: Hyperlink;
   readonly placeholder?: PlaceholderSelector;
   readonly sourceRectangle?: ImageSourceRectangle;
   readonly rounding?: boolean;

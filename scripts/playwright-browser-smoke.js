@@ -24,6 +24,10 @@ async (page) => {
     `${chartPresentationWorkspace}/scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs`,
     'utf8',
   );
+  const hyperlinkOwners6ProbeSource = await readFile(
+    `${chartPresentationWorkspace}/scripts/hyperlink-owners-6-lifecycle-probe.mjs`,
+    'utf8',
+  );
   const chartPresentationFixtureBase64 = Buffer
     .from(chartPresentationFixtureBytes).toString('base64');
   const chartPresentationProbeBase64 = Buffer
@@ -34,6 +38,8 @@ async (page) => {
     .from(shapeTextTransformIdentity13ProbeSource).toString('base64');
   const coreContentPrimitiveInputs14ProbeBase64 = Buffer
     .from(coreContentPrimitiveInputs14ProbeSource).toString('base64');
+  const hyperlinkOwners6ProbeBase64 = Buffer
+    .from(hyperlinkOwners6ProbeSource).toString('base64');
   const consoleErrors = [];
   const pageErrors = [];
   const networkErrors = [];
@@ -58,6 +64,7 @@ async (page) => {
       imageIdentityEffects5ProbeBase64: imageEffectsProbeBase64,
       shapeTextTransformIdentity13ProbeBase64: shapeTextIdentityProbeBase64,
       coreContentPrimitiveInputs14ProbeBase64: coreContentProbeBase64,
+      hyperlinkOwners6ProbeBase64: hyperlinkOwnersProbeBase64,
     }) => {
       const binary = atob(base64);
       const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
@@ -150,6 +157,30 @@ async (page) => {
       globalThis.__pptxCoreContentPrimitiveInputs14EvidenceBlob = new Blob(
         [coreContentPrimitiveInputs14Probe.explicitOutputBytes],
         { type: coreContentPrimitiveInputs14Probe.mime },
+      );
+      const hyperlinkOwners6ProbeModule = await import(
+        `data:text/javascript;base64,${hyperlinkOwnersProbeBase64}`
+      );
+      const hyperlinkOwners6Probe = await hyperlinkOwners6ProbeModule
+        .runHyperlinkOwners6LifecycleProbe(api);
+      const hyperlinkOwners6 = hyperlinkOwners6Probe.ok;
+      const hyperlinkOwners6State = {
+        callerDetached: hyperlinkOwners6Probe.state.created.callerDetached,
+        noOp: hyperlinkOwners6Probe.state.noOp,
+        relationshipReuse: hyperlinkOwners6Probe.state.tooltipRelationshipReuse &&
+          hyperlinkOwners6Probe.state.targetSwitchReuse,
+        rollback: hyperlinkOwners6Probe.state.rollback,
+        duplicateIsolation: hyperlinkOwners6Probe.state.duplicateIsolation,
+        mediaPreserved: hyperlinkOwners6Probe.state.mediaPreserved,
+        exactOoxml: Object.values(hyperlinkOwners6Probe.state.exactOoxml).every(Boolean),
+        diagnostics: hyperlinkOwners6Probe.state.diagnostics.createdErrors === 0 &&
+          hyperlinkOwners6Probe.state.diagnostics.createdWarnings === 1 &&
+          hyperlinkOwners6Probe.state.diagnostics.reopenedErrors === 0 &&
+          hyperlinkOwners6Probe.state.diagnostics.reopenedWarnings === 0,
+      };
+      globalThis.__pptxHyperlinkOwners6EvidenceBlob = new Blob(
+        [hyperlinkOwners6Probe.explicitOutputBytes],
+        { type: hyperlinkOwners6Probe.mime },
       );
       const chartPresentationProbeModule = await import(
         `data:text/javascript;base64,${presentationProbeBase64}`
@@ -8050,6 +8081,8 @@ async (page) => {
         shapeTextTransformIdentity13State,
         coreContentPrimitiveInputs14,
         coreContentPrimitiveInputs14State,
+        hyperlinkOwners6,
+        hyperlinkOwners6State,
         chartPresentation91,
         chartPresentation91State,
         chartPresentation: chartPresentation91,
@@ -8069,6 +8102,7 @@ async (page) => {
       imageIdentityEffects5ProbeBase64,
       shapeTextTransformIdentity13ProbeBase64,
       coreContentPrimitiveInputs14ProbeBase64,
+      hyperlinkOwners6ProbeBase64,
       base64: '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',
     },
   );
@@ -8127,6 +8161,22 @@ async (page) => {
     await writeFile(
       coreContentPrimitiveInputs14EvidenceOutput,
       Uint8Array.from(coreContentPrimitiveInputs14EvidenceBytes),
+    );
+  }
+  result.hyperlinkOwners6EvidenceFileName = 'browser-hyperlink-owners-6.pptx';
+  const hyperlinkOwners6EvidenceOutput = typeof process !== 'undefined'
+    ? process.env.PPTX_BROWSER_HYPERLINK_OWNERS_OUT
+      ?? globalThis.__pptxBrowserHyperlinkOwners6Output
+    : globalThis.__pptxBrowserHyperlinkOwners6Output;
+  if (typeof hyperlinkOwners6EvidenceOutput === 'string') {
+    const hyperlinkOwners6EvidenceBytes = await page.evaluate(async () => {
+      const blob = globalThis.__pptxHyperlinkOwners6EvidenceBlob;
+      if (!(blob instanceof Blob)) throw new Error('Missing hyperlink owners evidence Blob');
+      return Array.from(new Uint8Array(await blob.arrayBuffer()));
+    });
+    await writeFile(
+      hyperlinkOwners6EvidenceOutput,
+      Uint8Array.from(hyperlinkOwners6EvidenceBytes),
     );
   }
   result.chartPresentation91EvidenceFileName = 'browser-chart-presentation-91.pptx';
@@ -9906,6 +9956,17 @@ async (page) => {
       exactOoxml: true,
       diagnostics: true,
     },
+    hyperlinkOwners6: true,
+    hyperlinkOwners6State: {
+      callerDetached: true,
+      noOp: true,
+      relationshipReuse: true,
+      rollback: true,
+      duplicateIsolation: true,
+      mediaPreserved: true,
+      exactOoxml: true,
+      diagnostics: true,
+    },
     chartPresentation91: true,
     chartPresentation91State: {
       fixtureShape: true,
@@ -9938,6 +9999,7 @@ async (page) => {
       'browser-shape-text-transform-identity-13.pptx',
     coreContentPrimitiveInputs14EvidenceFileName:
       'browser-core-content-primitive-inputs-14.pptx',
+    hyperlinkOwners6EvidenceFileName: 'browser-hyperlink-owners-6.pptx',
     chartPresentation91EvidenceFileName: 'browser-chart-presentation-91.pptx',
     chartPresentationEvidenceFileName: 'browser-chart-presentation-91.pptx',
     textBoxFitEvidenceFileName: 'browser-text-box-fit.pptx',

@@ -9,6 +9,10 @@
     "./internal/chart-create": {
       "types": "./dist/chart-create.internal.d.ts",
       "import": "./dist/chart-create.internal.js"
+    },
+    "./internal/shape-hyperlink": {
+      "types": "./dist/shape-hyperlink.internal.d.ts",
+      "import": "./dist/shape-hyperlink.internal.js"
     }
   },
   "files": ["dist", "!dist/**/*.test.*"],

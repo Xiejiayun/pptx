@@ -1456,6 +1456,14 @@ export class SlideModel {
       options,
       this.presentation.slideSize,
     );
+    if (
+      definition.hyperlink?.slide !== undefined
+      && !this.presentation.slides[definition.hyperlink.slide - 1]
+    ) {
+      throw new RangeError(
+        `Embedded image hyperlink slide ${definition.hyperlink.slide} is out of range`,
+      );
+    }
     return this.presentation.opcPackage.transaction(() => {
       const pkg = this.presentation.opcPackage;
       const owner = definition.placeholder === undefined
@@ -1507,6 +1515,7 @@ export class SlideModel {
       if (!(image instanceof ImageModel) || image.kind !== 'image') {
         throw new ModelParseError(`Created image ${nextId} could not be resolved`, this.partUri);
       }
+      if (definition.hyperlink !== undefined) image.hyperlink = definition.hyperlink;
       return image;
     });
   }
@@ -1522,6 +1531,14 @@ export class SlideModel {
       options,
       this.presentation.slideSize,
     );
+    if (
+      definition.hyperlink?.slide !== undefined
+      && !this.presentation.slides[definition.hyperlink.slide - 1]
+    ) {
+      throw new RangeError(
+        `Embedded SVG image hyperlink slide ${definition.hyperlink.slide} is out of range`,
+      );
+    }
     return this.presentation.opcPackage.transaction(() => {
       const pkg = this.presentation.opcPackage;
       const owner = definition.placeholder === undefined
@@ -1585,6 +1602,7 @@ export class SlideModel {
       if (!(image instanceof ImageModel) || image.kind !== 'image') {
         throw new ModelParseError(`Created image ${nextId} could not be resolved`, this.partUri);
       }
+      if (definition.hyperlink !== undefined) image.hyperlink = definition.hyperlink;
       return image;
     });
   }
