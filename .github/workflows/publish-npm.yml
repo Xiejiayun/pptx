@@ -10,6 +10,11 @@ on:
         description: Existing release tag to publish
         required: true
         type: string
+      verify_only:
+        description: Verify an already-published tagged release without publishing again
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -62,12 +67,18 @@ jobs:
           LOCAL_INTEGRITY=$(node -e "const {createHash}=require('node:crypto'); const {readFileSync}=require('node:fs'); process.stdout.write('sha512-'+createHash('sha512').update(readFileSync(process.env.TARBALL)).digest('base64'))")
           echo "LOCAL_INTEGRITY=$LOCAL_INTEGRITY" >> "$GITHUB_ENV"
       - name: Ensure version is unpublished
+        env:
+          VERIFY_ONLY: ${{ inputs.verify_only || false }}
         run: |
           set +e
           RESULT=$(npm view "@jiayunxie/pptx@$PACKAGE_VERSION" version 2>&1)
           STATUS=$?
           set -e
           if test "$STATUS" -eq 0; then
+            if test "$VERIFY_ONLY" = true; then
+              echo "@jiayunxie/pptx@$PACKAGE_VERSION is published; continuing in verify-only mode"
+              exit 0
+            fi
             echo "@jiayunxie/pptx@$PACKAGE_VERSION is already published" >&2
             exit 1
           fi
@@ -75,18 +86,25 @@ jobs:
             printf '%s\n' "$RESULT" >&2
             exit "$STATUS"
           fi
+          if test "$VERIFY_ONLY" = true; then
+            echo "@jiayunxie/pptx@$PACKAGE_VERSION is not published" >&2
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
+        if: ${{ inputs.verify_only != true }}
         with:
           name: jiayunxie-pptx-${{ env.PACKAGE_VERSION }}
           path: ${{ env.TARBALL }}
           if-no-files-found: error
       - name: Publish with provenance
+        if: ${{ inputs.verify_only != true }}
         run: npm publish "$TARBALL" --access public --tag next --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
       - name: Verify registry publication
         run: |
-          for attempt in 1 2 3 4 5 6; do
+          READY=false
+          for attempt in $(seq 1 30); do
             PUBLISHED=$(npm view "@jiayunxie/pptx@$PACKAGE_VERSION" version 2>/dev/null || true)
             NEXT=$(npm view @jiayunxie/pptx dist-tags.next 2>/dev/null || true)
             DIST_OK=false
@@ -94,11 +112,17 @@ jobs:
               DIST_OK=$(node -e "const d=require('./artifacts/npm/registry-dist.json'); process.stdout.write(String(d.integrity===process.env.LOCAL_INTEGRITY && Boolean(d.attestations?.url)))")
             fi
             if test "$PUBLISHED" = "$PACKAGE_VERSION" && test "$NEXT" = "$PACKAGE_VERSION" && test "$DIST_OK" = true; then
+              READY=true
               break
             fi
-            test "$attempt" -lt 6
+            echo "registry verification attempt $attempt/30: version=$PUBLISHED next=$NEXT dist_ok=$DIST_OK"
             sleep 10
           done
+          if test "$READY" != true; then
+            echo "Expected integrity: $LOCAL_INTEGRITY" >&2
+            test ! -f artifacts/npm/registry-dist.json || cat artifacts/npm/registry-dist.json >&2
+            exit 1
+          fi
           mkdir -p artifacts/registry
           npm pack "@jiayunxie/pptx@$PACKAGE_VERSION" --pack-destination artifacts/registry
           node scripts/smoke-npm-package.mjs "artifacts/registry/jiayunxie-pptx-$PACKAGE_VERSION.tgz"
