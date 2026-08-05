@@ -33298,54 +33298,154 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS shape and text transform identity through strict native state"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeTextTransformIdentity13State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export interface AddShapeOptions extends Partial<TransformInput> {"
+          },
+          {
+            "path": "packages/model/src/units.ts",
+            "pattern": "readonly flipHorizontal: boolean;"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "setTransform(changes: Partial<Transform>): void {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/shape-text-transform-identity-13-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextTransformIdentity13Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS shape and text transform identity through strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "edits ordinary shape and text identity without changing transform geometry or content"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates preset shapes with deterministic defaults, transforms, order, and identity"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:flipH",
       "kind": "property",
       "name": "flipH",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddShapeOptions.flipHorizontal",
+        "BaseShapeModel.setTransform",
+        "BaseShapeModel.transform",
+        "Transform.flipHorizontal"
+      ],
+      "note": "Native preset shapes use strict explicit flipHorizontal boolean transform state instead of PptxGenJS truthiness coercion.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS shape and text transform identity through strict native state"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeTextTransformIdentity13State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export interface AddShapeOptions extends Partial<TransformInput> {"
+          },
+          {
+            "path": "packages/model/src/units.ts",
+            "pattern": "readonly flipVertical: boolean;"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "setTransform(changes: Partial<Transform>): void {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/shape-text-transform-identity-13-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextTransformIdentity13Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS shape and text transform identity through strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "edits ordinary shape and text identity without changing transform geometry or content"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates preset shapes with deterministic defaults, transforms, order, and identity"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:flipV",
       "kind": "property",
       "name": "flipV",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddShapeOptions.flipVertical",
+        "BaseShapeModel.setTransform",
+        "BaseShapeModel.transform",
+        "Transform.flipVertical"
+      ],
+      "note": "Native preset shapes use strict explicit flipVertical boolean transform state instead of PptxGenJS truthiness coercion.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
@@ -33708,28 +33808,85 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS shape and text transform identity through strict native state"
+      },
       "declaredIn": "ObjectNameProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeTextTransformIdentity13State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "readonly name?: string;"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "set name(value: string) {"
+          },
+          {
+            "path": "packages/model/src/image-appearance.internal.ts",
+            "pattern": "export function normalizeShapeName(value: unknown): string {"
+          },
+          {
+            "path": "packages/model/src/image-appearance.internal.ts",
+            "pattern": "export function replaceShapeName("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/shape-text-transform-identity-13-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextTransformIdentity13Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS shape and text transform identity through strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "edits ordinary shape and text identity without changing transform geometry or content"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "rejects unsafe ordinary shape identity owners without mutation"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates preset shapes with deterministic defaults, transforms, order, and identity"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:objectName",
       "kind": "property",
       "name": "objectName",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddShapeOptions.name",
+        "BaseShapeModel.name",
+        "SlideModel.setShapeName"
+      ],
+      "note": "Native consistently exposes strict XML-safe create/read/edit identity through name, including explicit empty values, instead of PptxGenJS objectName truthiness and fallback behavior.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
@@ -33813,54 +33970,150 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS shape and text transform identity through strict native state"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeTextTransformIdentity13State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "readonly adjustments?: readonly ShapeAdjustment[];"
+          },
+          {
+            "path": "packages/model/src/shape-adjustments.internal.ts",
+            "pattern": "export function replaceShapeAdjustments("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/shape-text-transform-identity-13-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextTransformIdentity13Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS shape and text transform identity through strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "edits ordinary shape and text identity without changing transform geometry or content"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "edits preset shape adjustments across duplicate, rollback, type reset, reopen, and all formats"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:rectRadius",
       "kind": "property",
       "name": "rectRadius",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddShapeOptions.adjustments",
+        "ShapeAdjustment",
+        "ShapeModel.adjustments"
+      ],
+      "note": "Native exposes exact strict preset-geometry adjustments instead of PptxGenJS extent-dependent rectRadius coercion.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS shape and text transform identity through strict native state"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeTextTransformIdentity13State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export interface AddShapeOptions extends Partial<TransformInput> {"
+          },
+          {
+            "path": "packages/model/src/units.ts",
+            "pattern": "readonly rotation: OoxmlAngle;"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "setTransform(changes: Partial<Transform>): void {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/shape-text-transform-identity-13-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextTransformIdentity13Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS shape and text transform identity through strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "edits ordinary shape and text identity without changing transform geometry or content"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates preset shapes with deterministic defaults, transforms, order, and identity"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:rotate",
       "kind": "property",
       "name": "rotate",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddShapeOptions.rotation",
+        "BaseShapeModel.setTransform",
+        "BaseShapeModel.transform",
+        "Transform.rotation",
+        "degrees"
+      ],
+      "note": "Native uses explicit OOXML-angle units and degrees() instead of PptxGenJS implicit degree numbers and truthy fallback.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
@@ -33937,6 +34190,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS shape and text transform identity through strict native state"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": true,
       "deprecatedSignatures": [],
@@ -33945,19 +34202,24 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS shape and text transform identity through strict native state"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:shapeName",
       "kind": "property",
       "name": "shapeName",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 declares deprecated shapeName but ignores it at runtime even when objectName is absent; native excludes inert declaration noise.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "string"
     },
     {
@@ -42448,54 +42710,154 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS shape and text transform identity through strict native state"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeTextTransformIdentity13State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTextOptions extends Partial<TransformInput> {"
+          },
+          {
+            "path": "packages/model/src/units.ts",
+            "pattern": "readonly flipHorizontal: boolean;"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "setTransform(changes: Partial<Transform>): void {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/shape-text-transform-identity-13-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextTransformIdentity13Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS shape and text transform identity through strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "edits ordinary shape and text identity without changing transform geometry or content"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, and round-trips a basic text shape with stable identity"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:flipH",
       "kind": "property",
       "name": "flipH",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.flipHorizontal",
+        "BaseShapeModel.setTransform",
+        "BaseShapeModel.transform",
+        "Transform.flipHorizontal"
+      ],
+      "note": "Native text shapes use strict explicit flipHorizontal boolean transform state instead of PptxGenJS truthiness coercion.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS shape and text transform identity through strict native state"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeTextTransformIdentity13State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTextOptions extends Partial<TransformInput> {"
+          },
+          {
+            "path": "packages/model/src/units.ts",
+            "pattern": "readonly flipVertical: boolean;"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "setTransform(changes: Partial<Transform>): void {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/shape-text-transform-identity-13-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextTransformIdentity13Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS shape and text transform identity through strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "edits ordinary shape and text identity without changing transform geometry or content"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, and round-trips a basic text shape with stable identity"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:flipV",
       "kind": "property",
       "name": "flipV",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.flipVertical",
+        "BaseShapeModel.setTransform",
+        "BaseShapeModel.transform",
+        "Transform.flipVertical"
+      ],
+      "note": "Native text shapes use strict explicit flipVertical boolean transform state instead of PptxGenJS truthiness coercion.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
@@ -42979,28 +43341,72 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS shape and text transform identity through strict native state"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeTextTransformIdentity13State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "readonly isTextBox?: boolean;"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "get isTextBox(): boolean | undefined {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/shape-text-transform-identity-13-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextTransformIdentity13Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS shape and text transform identity through strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "edits ordinary shape and text identity without changing transform geometry or content"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "preserves text box state across public owners and placeholder lifecycle"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:isTextBox",
       "kind": "property",
       "name": "isTextBox",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.isTextBox",
+        "ShapeModel.isTextBox"
+      ],
+      "note": "Native supports strict create/read/edit/reopen of direct cNvSpPr txBox state across text owners.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "boolean"
     },
     {
@@ -43607,28 +44013,85 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS shape and text transform identity through strict native state"
+      },
       "declaredIn": "ObjectNameProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeTextTransformIdentity13State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "readonly name?: string;"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "set name(value: string) {"
+          },
+          {
+            "path": "packages/model/src/image-appearance.internal.ts",
+            "pattern": "export function normalizeShapeName(value: unknown): string {"
+          },
+          {
+            "path": "packages/model/src/image-appearance.internal.ts",
+            "pattern": "export function replaceShapeName("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/shape-text-transform-identity-13-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextTransformIdentity13Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS shape and text transform identity through strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "edits ordinary shape and text identity without changing transform geometry or content"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "rejects unsafe ordinary shape identity owners without mutation"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, and round-trips a basic text shape with stable identity"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:objectName",
       "kind": "property",
       "name": "objectName",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.name",
+        "BaseShapeModel.name",
+        "SlideModel.setShapeName"
+      ],
+      "note": "Native consistently exposes strict XML-safe create/read/edit identity through name, including explicit empty values, instead of PptxGenJS objectName truthiness and fallback behavior.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
@@ -43922,54 +44385,150 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS shape and text transform identity through strict native state"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeTextTransformIdentity13State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "readonly rectRadius?: Emu;"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "const adjustments = rectRadius === undefined"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/shape-text-transform-identity-13-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextTransformIdentity13Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS shape and text transform identity through strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "edits ordinary shape and text identity without changing transform geometry or content"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates text shape rectangle radius across public owners and lifecycle"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:rectRadius",
       "kind": "property",
       "name": "rectRadius",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.rectRadius",
+        "ShapeAdjustment",
+        "ShapeModel.adjustments"
+      ],
+      "note": "Native exposes a strict explicit-unit rectRadius input and editable preset adjustments instead of PptxGenJS implicit-inch ratio coercion.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS shape and text transform identity through strict native state"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeTextTransformIdentity13State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTextOptions extends Partial<TransformInput> {"
+          },
+          {
+            "path": "packages/model/src/units.ts",
+            "pattern": "readonly rotation: OoxmlAngle;"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "setTransform(changes: Partial<Transform>): void {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/shape-text-transform-identity-13-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextTransformIdentity13Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS shape and text transform identity through strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "edits ordinary shape and text identity without changing transform geometry or content"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, and round-trips a basic text shape with stable identity"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:rotate",
       "kind": "property",
       "name": "rotate",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.rotation",
+        "BaseShapeModel.setTransform",
+        "BaseShapeModel.transform",
+        "Transform.rotation",
+        "degrees"
+      ],
+      "note": "Native uses explicit OOXML-angle units and degrees() instead of PptxGenJS implicit degree numbers and truthy fallback.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
@@ -44104,28 +44663,73 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS shape and text transform identity through strict native state"
+      },
       "declaredIn": "TextPropsOptions",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeTextTransformIdentity13State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "readonly shape?: PresetShapeType;"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "get presetType(): PresetShapeType | undefined {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/shape-text-transform-identity-13-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextTransformIdentity13Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS shape and text transform identity through strict native state"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "edits ordinary shape and text identity without changing transform geometry or content"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "reads and replaces preset types without changing unrelated shape content or identity"
+          }
+        ]
       },
       "id": "interface:TextPropsOptions@property:shape",
       "kind": "property",
       "name": "shape",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddTextOptions.shape",
+        "PRESET_SHAPE_TYPES",
+        "ShapeModel.presetType"
+      ],
+      "note": "Native supports the same text preset geometry through the typed shape input and editable presetType state.",
       "optional": true,
       "owner": "TextPropsOptions",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "SHAPE_NAME"
     },
     {
@@ -99891,13 +100495,13 @@
   ],
   "complete": false,
   "counts": {
-    "defect-excluded": 370,
-    "deliberate-difference": 498,
+    "defect-excluded": 371,
+    "deliberate-difference": 508,
     "deprecated-alias": 94,
     "stale": 0,
-    "supported": 745,
+    "supported": 747,
     "unsupported": 0,
-    "unverified": 67
+    "unverified": 54
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -99932,27 +100536,14 @@
     "interface:ShapeProps@property:align",
     "interface:ShapeProps@property:angleRange",
     "interface:ShapeProps@property:arcThicknessRatio",
-    "interface:ShapeProps@property:flipH",
-    "interface:ShapeProps@property:flipV",
     "interface:ShapeProps@property:hyperlink",
-    "interface:ShapeProps@property:objectName",
-    "interface:ShapeProps@property:rectRadius",
-    "interface:ShapeProps@property:rotate",
-    "interface:ShapeProps@property:shapeName",
     "interface:TableCell@property:options",
     "interface:TableCell@property:text",
     "interface:TextProps@property:options",
     "interface:TextProps@property:text",
     "interface:TextPropsOptions@property:data",
-    "interface:TextPropsOptions@property:flipH",
-    "interface:TextPropsOptions@property:flipV",
     "interface:TextPropsOptions@property:hyperlink",
-    "interface:TextPropsOptions@property:isTextBox",
-    "interface:TextPropsOptions@property:objectName",
     "interface:TextPropsOptions@property:path",
-    "interface:TextPropsOptions@property:rectRadius",
-    "interface:TextPropsOptions@property:rotate",
-    "interface:TextPropsOptions@property:shape",
     "union:ChartLineCap#flat",
     "union:ChartLineCap#round",
     "union:ChartLineCap#square",

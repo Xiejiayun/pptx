@@ -84,6 +84,7 @@ const shape = slide.addShape('roundRect', {
     tooltip: 'Open documentation',
   },
 });
+shape.name = 'Feature card updated';
 shape.arrows = { begin: 'diamond' };
 shape.arrows = { begin: 'none', end: 'oval' };
 shape.arrows = undefined;
@@ -118,7 +119,8 @@ shape.line = { kind: 'none' };
 shape.line = undefined;
 console.log(shape.presetType); // 'hexagon'
 console.log(PRESET_SHAPE_TYPES.length); // 178
-slide.addText('Quarterly results\nQ4 forecast', {
+const text = slide.addText('Quarterly results\nQ4 forecast', {
+  name: 'Quarterly results owner',
   x: inches(1),
   y: inches(1),
   width: inches(6),
@@ -133,6 +135,7 @@ slide.addText('Quarterly results\nQ4 forecast', {
   vert: 'vert270',
   wrap: true,
 });
+text.name = '';
 slide.addRichText([
   { indent: -12, runs: [{ text: 'مرحبا' }] },
   { indent: 18, marginLeft: 12, marginRight: 12, rtl: false, runs: [{ text: 'English override' }] },
@@ -541,7 +544,7 @@ The focused master/layout/placeholder run reports 45 passed / 434 skipped. Full 
 
 The two-slide native gallery contains 32 parts, 29 relationships, two layouts, and one master and validates with 0 errors / 0 warnings under the PowerPoint 2010 profile. The two-slide PptxGenJS control contains 36 parts and 34 relationships. Eight source and LibreOffice-round-trip pages render at 2400×1350 and 180 DPI and were inspected individually; their full-bleed backgrounds give the expected 0px minimum non-white margin. The fixtures deliberately use 1×1 black PNG background/image payloads, and the second native slide is deliberately retargeted to the blank default layout, so black/blank output is not evidence of lost inheritance. LibreOffice 26.8 retains two slides, two layouts, and one master, but rewrites placeholder identities and slide-number caches and removes audio plus embedded chart workbooks. This is a degradation record, not a complete round-trip pass. PowerPoint 16.112 returned the same `-9074` for native and control inputs and produced no PPTX/PDF output, so no PowerPoint round-trip pass is claimed.
 
-Full theme text cascade, percentage coordinates, advanced text/table/media/chart styling, and broader client certification remain pending. Advanced text now includes text-shape direct fill, simple line, begin/end arrows, simple shadow, outer and per-run hyperlinks, preset geometry, rounded-rectangle radius, direct `isTextBox` state, and rich-text `breakLine` paragraph splitting.
+Full theme text cascade, advanced text/table/media/chart styling, and broader client certification remain pending. Ordinary shape/text percentage coordinates, shared editable `name`, rotation, and horizontal/vertical flips are closed. Advanced text now includes text-shape direct fill, simple line, begin/end arrows, simple shadow, outer and per-run hyperlinks, preset geometry, rounded-rectangle radius, direct `isTextBox` state, and rich-text `breakLine` paragraph splitting.
 
 ## Create and edit text-shape fills
 
@@ -744,12 +747,14 @@ Final full Vitest is 1303 passed / 1 skipped and performance is 1/1 at 624ms. Mo
 
 ```ts
 const rounded = slide.addText('Rounded text', {
+  name: 'Rounded text owner',
   shape: 'roundRect',
   rectRadius: inches(0.5),
   width: inches(4),
   height: inches(2),
 });
 
+rounded.name = '';
 console.log(rounded.adjustments); // [{ name: 'adj', value: 25000 }]
 rounded.adjustments = [{ name: 'adj', value: 12500 }];
 ```
@@ -1464,7 +1469,7 @@ An actual packed-package gallery covers 4 slides and 22 evaluator targets. The o
 
 `Hyperlink` is a mutually exclusive `{ url, tooltip? } | { slide, tooltip? }` union used by `AddShapeOptions.hyperlink`, `AddTextOptions.hyperlink`, `ShapeModel.hyperlink`, `RichTextRunStyle.hyperlink`, `AddTableCellOptions.hyperlink`, and `TableModel.setCellHyperlink()`; readonly `TableCell.hyperlink` exposes the supported plain-cell direct state. URLs must be non-empty XML-safe strings; slide targets are one-based positive safe integers that must exist when assigned. Inputs and frozen getter snapshots are detached. Assignment is a whole replacement, so an omitted tooltip removes the direct attribute, an explicit empty tooltip preserves `tooltip=""`, and `undefined` clears the owned click link. Same-value assignment is an exact no-op. Internal relationships preserve target-slide identity across insert, delete, and reorder; duplicate self-links retarget to the duplicate, target deletion cleans click/hover references, and shared relationships use reference-aware clone-on-write and garbage collection. Text outer creation provides the shape click and default run link; explicit run links own independent relationships, and `false` suppresses the default. Native-created linked plain table cells own independent relationships on their only direct run; imported sharing is preserved until a target edit requires clone-on-write. PptxGenJS 4.0.1 materializes omitted tooltip as empty and can console-ignore or coerce invalid runtime values into duplicate or dangling links; native rejects those values before mutation. External links intentionally produce the validator's portability warning. Text-shape simple-line, arrow, simple-shadow, outer-hyperlink, and per-run rich-text hyperlink creation/editing plus plain table-cell hyperlink creation/read/edit/clear are supported.
 
-Hover editing, table graphic-frame/image/chart/media hyperlink creation, action navigation, arrow size, cap/compound/alignment/join editing, advanced line fill/custom dash creation, remaining text geometry shortcuts, and percentage positions remain pending. Plain single-run table-cell scalar links and rich/multi-paragraph cell default/local run links are supported.
+Hover editing, table graphic-frame/image/chart/media hyperlink creation, action navigation, arrow size, cap/compound/alignment/join editing, advanced line fill/custom dash creation, and remaining text geometry shortcuts remain pending. Ordinary shape/text percentage positions and transform identity are supported. Plain single-run table-cell scalar links and rich/multi-paragraph cell default/local run links are supported.
 
 `CreatePresentationOptions.title` and live `document.title` use the direct core-properties title. Omitted creation input writes no title, `''` writes an explicit empty title, and `undefined` clears only the direct field. Values are strict XML-safe strings; reads follow the package-root core-properties relationship instead of assuming a part URI or prefix, same-value/absent-clear operations are exact no-ops, missing metadata can be created, and unrelated subject/creator/revision/unknown content is preserved. Unsafe malformed or ambiguous ownership is rejected rather than guessed. PptxGenJS 4.0.1 defaults its own public `title` to `PptxGenJS Presentation`; native omitted creation intentionally remains `undefined`.
 
@@ -1676,6 +1681,12 @@ Two 63-file dist manifests are identical with SHA-256 `280e78ad56ad3cb5891b80a72
 The Node evidence deck is 93,142 bytes with 29 parts / 41 relationships and 5 slides / 4 generated pages, SHA-256 `923b84490d4e588d32d4a91cb55f2df37478d9b3e2b2ce5113285a2992b9f1e2`. The Chrome deck is 126,095 bytes with 33 parts / 53 relationships and 7 slides / 6 generated pages, SHA-256 `c60b0665cee91dfe114f7aebb537f2a13b933e7e0577d23c81486ac2eef6495a`. Both validate with 0 errors and only 8/12 expected external-link warnings. All 12 pages render at 2400×1350 with zero overflow and pass slide-by-slide review. LibreOffice 26.8 opens, saves, and reopens both decks with zero validation errors after save. Local PowerPoint 16.112 automation still returns the uniform `-9074` without producing a saved deck, so this environment is not recorded as a PowerPoint round-trip pass.
 
 The implementation/proof commit chain is `b22a065`, `8b7cca2`, `434129c`, `ab57e13`, `0dfe5c3`, `63fb2f2`, `63ecd98`, `00ca3c7`, `4df0839`, `0242491`, and `efec32b`; evidence is retained at `/tmp/pptx-table-to-slides-artifacts.2sH8Fw`. The locked PptxGenJS 4.0.1 public capability list is 100% covered, and actual-package/browser/PowerPoint-2010-validator/LibreOffice proof is complete. Final “full parity certified” status remains reserved for the independent peer/client audit, including Windows PowerPoint, macOS Keynote, and controlled Google Slides import; no missing public-surface implementation is currently known.
+
+## Current PptxGenJS 4.0.1 surface audit
+
+The declaration-atom matrix now closes 1,720/1,774 entries (96.96%), with 54 remaining: 747 supported, 508 deliberate differences, 94 deprecated aliases, and 371 defect exclusions; unsupported, stale, and diagnostics are all zero. The latest 13-atom Shape/Text Transform & Identity family verifies shared editable names, rotation, both flips, preset geometry, `rectRadius`, and `isTextBox` through the PptxGenJS 4.0.1 runtime control, native lifecycle tests, an actual npm tarball, persistent Chrome 150, and exact OOXML reads. The declared but runtime-inert `ShapeProps.shapeName` remains defect-excluded.
+
+The Node and browser evidence decks each contain 20 parts, two slides, and exactly two relationships per slide. All 20 decompressed parts are byte-identical, and both decks validate under the PowerPoint 2010 profile with zero errors and only the two expected `OPC_EXTERNAL_RELATIONSHIP` warnings.
 
 ## Edit an existing presentation
 

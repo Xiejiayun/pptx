@@ -3150,6 +3150,162 @@ describe('PresentationModel', () => {
     expect(reopened.opcPackage.requirePart(mediaPartUri).bytes).toEqual(mediaBytes);
   });
 
+  it('edits ordinary shape and text identity without changing transform geometry or content', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const shape = slide.addShape('roundRect', {
+      name: 'Shape original',
+      x: inches(1),
+      y: inches(1.5),
+      width: inches(3),
+      height: inches(1.5),
+      rotation: degrees(30),
+      flipHorizontal: true,
+      adjustments: [{ name: 'adj', value: 33_333 }],
+    });
+    const text = slide.addText('Identity text', {
+      name: 'Text original',
+      x: inches(4.5),
+      y: inches(1),
+      width: inches(4),
+      height: inches(2),
+      rotation: degrees(-15),
+      flipVertical: true,
+      shape: 'roundRect',
+      rectRadius: inches(0.25),
+      isTextBox: true,
+    });
+    const stableState = {
+      shape: {
+        transform: shape.transform,
+        presetType: shape.presetType,
+        adjustments: shape.adjustments,
+      },
+      text: {
+        transform: text.transform,
+        text: text.text,
+        presetType: text.presetType,
+        adjustments: text.adjustments,
+        isTextBox: text.isTextBox,
+      },
+      ids: [shape.id, text.id],
+      order: slide.shapes.map(({ id }) => id),
+      relationships: slide.relationships,
+    };
+
+    const beforeNoOp = packageSnapshot(pkg);
+    shape.name = shape.name;
+    text.name = text.name;
+    expect(packageSnapshot(pkg)).toEqual(beforeNoOp);
+
+    const beforeInvalid = packageSnapshot(pkg);
+    expect(() => {
+      (shape as unknown as { name: unknown }).name = 42;
+    }).toThrow('Shape name must be a string');
+    expect(packageSnapshot(pkg)).toEqual(beforeInvalid);
+
+    expect(() => pkg.transaction(() => {
+      shape.name = 'Rolled back shape';
+      text.name = '';
+      throw new Error('restore ordinary names');
+    })).toThrow('restore ordinary names');
+    expect(packageSnapshot(pkg)).toEqual(beforeNoOp);
+
+    shape.name = 'Shape & <edited>';
+    text.name = '';
+    const duplicateSlide = model.duplicateSlide(0);
+    const duplicateShape = duplicateSlide.shapes[0] as ShapeModel;
+    const duplicateText = duplicateSlide.shapes[1] as ShapeModel;
+    duplicateShape.name = 'Duplicate shape';
+    duplicateText.name = 'Duplicate text';
+
+    expect(shape.name).toBe('Shape & <edited>');
+    expect(text.name).toBe('');
+    expect({
+      shape: {
+        transform: shape.transform,
+        presetType: shape.presetType,
+        adjustments: shape.adjustments,
+      },
+      text: {
+        transform: text.transform,
+        text: text.text,
+        presetType: text.presetType,
+        adjustments: text.adjustments,
+        isTextBox: text.isTextBox,
+      },
+      ids: [shape.id, text.id],
+      order: slide.shapes.map(({ id }) => id),
+      relationships: slide.relationships,
+    }).toEqual(stableState);
+
+    const sourceXml = new TextDecoder().decode(pkg.requirePart(slide.partUri).bytes);
+    expect(sourceXml).toContain('name="Shape &amp; &lt;edited&gt;"');
+    expect(sourceXml).toContain('name=""');
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedShape = reopened.slides[0]!.shapes[0] as ShapeModel;
+    const reopenedText = reopened.slides[0]!.shapes[1] as ShapeModel;
+    const reopenedDuplicateShape = reopened.slides[1]!.shapes[0] as ShapeModel;
+    const reopenedDuplicateText = reopened.slides[1]!.shapes[1] as ShapeModel;
+    expect([
+      reopenedShape.name,
+      reopenedText.name,
+      reopenedDuplicateShape.name,
+      reopenedDuplicateText.name,
+    ]).toEqual(['Shape & <edited>', '', 'Duplicate shape', 'Duplicate text']);
+    expect({
+      shape: {
+        transform: reopenedShape.transform,
+        presetType: reopenedShape.presetType,
+        adjustments: reopenedShape.adjustments,
+      },
+      text: {
+        transform: reopenedText.transform,
+        text: reopenedText.text,
+        presetType: reopenedText.presetType,
+        adjustments: reopenedText.adjustments,
+        isTextBox: reopenedText.isTextBox,
+      },
+      ids: [reopenedShape.id, reopenedText.id],
+      order: reopened.slides[0]!.shapes.map(({ id }) => id),
+      relationships: reopened.slides[0]!.relationships,
+    }).toEqual(stableState);
+  });
+
+  it('rejects unsafe ordinary shape identity owners without mutation', () => {
+    for (const kind of [
+      'duplicate-properties',
+      'missing-properties',
+      'duplicate-owner',
+      'wrong-namespace-owner',
+    ] as const) {
+      const { pkg, model } = emptyPresentationModel();
+      const slide = model.addSlide();
+      const shape = slide.addShape('rect', { name: 'Unsafe owner' });
+      const part = pkg.requirePart(slide.partUri);
+      const source = new TextDecoder().decode(part.bytes);
+      const properties = `<p:cNvPr id="${shape.id}" name="Unsafe owner"/>`;
+      const owner = `<p:nvSpPr>${properties}<p:cNvSpPr/><p:nvPr/></p:nvSpPr>`;
+      const replacement = kind === 'duplicate-properties'
+        ? owner.replace(properties, `${properties}${properties}`)
+        : kind === 'missing-properties'
+          ? owner.replace(properties, '')
+          : kind === 'duplicate-owner'
+            ? `${owner}${owner}`
+            : `<x:nvSpPr xmlns:x="urn:wrong"/>${owner}`;
+      pkg.setPart(slide.partUri, source.replace(owner, replacement), part.contentType);
+      const before = packageSnapshot(pkg);
+      const beforeOrder = slide.shapes.map(({ id }) => id);
+
+      expect(() => {
+        shape.name = 'Rejected';
+      }).toThrow(ModelParseError);
+      expect(packageSnapshot(pkg)).toEqual(before);
+      expect(slide.shapes.map(({ id }) => id)).toEqual(beforeOrder);
+    }
+  });
+
   it('creates stable live media shapes and reconciles semantic kind changes', async () => {
     const { pkg, model } = emptyPresentationModel();
     const slide = model.addSlide();

@@ -7295,6 +7295,186 @@ describe('importPptxGenJS', () => {
     }
   }, 20_000);
 
+  it('closes PptxGenJS shape and text transform identity through strict native state', async () => {
+    const classifications = [
+      ...['flipH', 'flipV', 'objectName', 'rectRadius', 'rotate'].map((property) => ({
+        id: `interface:ShapeProps@property:${property}`,
+        status: 'deliberate-difference',
+      })),
+      {
+        id: 'interface:ShapeProps@property:shapeName',
+        status: 'defect-excluded',
+      },
+      ...['flipH', 'flipV', 'objectName', 'rectRadius', 'rotate'].map((property) => ({
+        id: `interface:TextPropsOptions@property:${property}`,
+        status: 'deliberate-difference',
+      })),
+      ...['isTextBox', 'shape'].map((property) => ({
+        id: `interface:TextPropsOptions@property:${property}`,
+        status: 'supported',
+      })),
+    ].sort((left, right) => left.id.localeCompare(right.id));
+    expect(classifications).toHaveLength(13);
+    expect(new Set(classifications.map(({ id }) => id)).size).toBe(13);
+    expect({
+      supported: classifications.filter(({ status }) => status === 'supported').length,
+      deliberate: classifications.filter(
+        ({ status }) => status === 'deliberate-difference',
+      ).length,
+      defects: classifications.filter(({ status }) => status === 'defect-excluded').length,
+    }).toEqual({ supported: 2, deliberate: 10, defects: 1 });
+
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    generatedSlide.addShape(generated.ShapeType.roundRect!, {
+      x: 0.5,
+      y: 4.5,
+      w: 3,
+      h: 1.5,
+      rotate: 45,
+      flipH: true,
+      flipV: true,
+      objectName: 'Canonical & object',
+      rectRadius: 0.5,
+      shapeName: 'Legacy & ignored',
+    });
+    generatedSlide.addShape(generated.ShapeType.rect!, {
+      x: 8,
+      y: 4.5,
+      w: 1,
+      h: 1,
+      shapeName: 'Legacy only ignored',
+    });
+    generatedSlide.addText('Plain string overload', {
+      x: 1,
+      y: 1,
+      w: 4,
+      h: 2,
+      rotate: 30,
+      flipH: true,
+      flipV: true,
+      objectName: 'plain-wrapper',
+      shape: 'roundRect',
+      rectRadius: 0.25,
+      isTextBox: true,
+    });
+    generatedSlide.addText([
+      { text: 'Rich red', options: { bold: true, color: 'FF0000' } },
+      { text: ' blue', options: { italic: true, color: '0000FF' } },
+    ], {
+      x: 1,
+      y: 1,
+      w: 5,
+      h: 2,
+      rotate: -15,
+      flipV: true,
+      objectName: 'rich-wrapper',
+      shape: 'ellipse',
+      isTextBox: false,
+    });
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const [importedShape, ignoredShape, importedPlain, importedRich] =
+      imported.slides[0]!.shapes as readonly ShapeModel[];
+    expect(importedShape).toBeInstanceOf(ShapeModel);
+    expect({
+      name: importedShape!.name,
+      transform: importedShape!.transform,
+      presetType: importedShape!.presetType,
+      adjustments: importedShape!.adjustments,
+    }).toEqual({
+      name: 'Canonical & object',
+      transform: {
+        x: inches(0.5),
+        y: inches(4.5),
+        width: inches(3),
+        height: inches(1.5),
+        rotation: degrees(45),
+        flipHorizontal: true,
+        flipVertical: true,
+      },
+      presetType: 'roundRect',
+      adjustments: [{ name: 'adj', value: 33_333 }],
+    });
+    expect(ignoredShape!.name).toBe('Shape 1');
+    expect(shapeXml(imported, 0, ignoredShape!.id)).not.toContain('Legacy only ignored');
+    expect({
+      name: importedPlain!.name,
+      text: importedPlain!.text,
+      transform: importedPlain!.transform,
+      presetType: importedPlain!.presetType,
+      adjustments: importedPlain!.adjustments,
+      isTextBox: importedPlain!.isTextBox,
+    }).toEqual({
+      name: 'plain-wrapper',
+      text: 'Plain string overload',
+      transform: {
+        x: inches(1),
+        y: inches(1),
+        width: inches(4),
+        height: inches(2),
+        rotation: degrees(30),
+        flipHorizontal: true,
+        flipVertical: true,
+      },
+      presetType: 'roundRect',
+      adjustments: [{ name: 'adj', value: 12_500 }],
+      isTextBox: true,
+    });
+    expect({
+      name: importedRich!.name,
+      text: importedRich!.text,
+      rotation: importedRich!.transform.rotation,
+      flipVertical: importedRich!.transform.flipVertical,
+      presetType: importedRich!.presetType,
+      isTextBox: importedRich!.isTextBox,
+    }).toEqual({
+      name: 'rich-wrapper',
+      text: 'Rich red blue',
+      rotation: degrees(-15),
+      flipVertical: true,
+      presetType: 'ellipse',
+      isTextBox: false,
+    });
+
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    const nativeShape = nativeSlide.addShape('roundRect', {
+      name: 'Canonical & object',
+      x: inches(0.5),
+      y: inches(4.5),
+      width: inches(3),
+      height: inches(1.5),
+      rotation: degrees(45),
+      flipHorizontal: true,
+      flipVertical: true,
+      adjustments: [{ name: 'adj', value: 33_333 }],
+    });
+    const nativePlain = nativeSlide.addText('Plain string overload', {
+      name: 'plain-wrapper',
+      x: inches(1),
+      y: inches(1),
+      width: inches(4),
+      height: inches(2),
+      rotation: degrees(30),
+      flipHorizontal: true,
+      flipVertical: true,
+      shape: 'roundRect',
+      rectRadius: inches(0.25),
+      isTextBox: true,
+    });
+    expect(nativeShape.transform).toEqual(importedShape!.transform);
+    expect(nativeShape.adjustments).toEqual(importedShape!.adjustments);
+    expect(nativePlain.transform).toEqual(importedPlain!.transform);
+    expect(nativePlain.adjustments).toEqual(importedPlain!.adjustments);
+    nativeShape.name = 'Strict shape edited';
+    nativePlain.name = '';
+    const reopenedNative = await PptxDocument.open(await native.write());
+    expect(reopenedNative.slides[0]!.shapes.map(({ name }) => name))
+      .toEqual(['Strict shape edited', '']);
+  }, 20_000);
+
   it('matches representative preset shape public output semantically', async () => {
     const generated = new PptxGenJS();
     expect(generated.version).toBe('4.0.1');

@@ -37,8 +37,8 @@ const BLIP_EFFECT_NAMES = new Set([
   'extLst',
 ]);
 
-export function normalizeImageName(value: unknown): string {
-  return normalizeXmlString(value, 'Image name', false)!;
+export function normalizeShapeName(value: unknown): string {
+  return normalizeXmlString(value, 'Shape name', false)!;
 }
 
 export function normalizeImageAltText(value: unknown): string | undefined {

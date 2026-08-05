@@ -400,7 +400,7 @@ PptxGenJS 的 `masterName` 拼写在这里保持兼容，但它严格选择的�
 
 2 页 native gallery 含 32 parts / 29 relationships / 2 layouts / 1 master，PowerPoint 2010 profile 为 0 errors / 0 warnings；2 页 PptxGenJS control 为 36 parts / 34 relationships。原件与 LibreOffice 回存件共 8 页均以 2400×1350、180 DPI 渲染并逐页检查；全幅背景使 minimum non-white margin 按预期为 0px。Fixture 的 background 和 image 是 1×1 黑色 PNG，native 第二页按测试意图重定向空白 default layout，黑/空白输出不代表丢失继承。LibreOffice 26.8 保留两页、两个 layouts 和一个 master，但会改写 placeholder identity/slide-number cache，并移除 audio 与内嵌 chart workbooks；这是降级记录，不声明完整 round-trip。PowerPoint 16.112 对 native 与 control 均返回 `-9074` 且没有产生 PPTX/PDF，因此不声明 PowerPoint 往返通过。
 
-尚未实现完整 theme text cascade、percentage coordinates、高级 text/table/media/chart 样式和更广泛客户端认证。Advanced text 已完成文本框 direct fill、simple line、begin/end arrows、simple shadow、outer hyperlink、per-run rich-text hyperlink、preset geometry、`roundRect` 绝对圆角半径、direct `isTextBox` 状态与 rich-text `breakLine` 段落拆分。
+尚未实现完整 theme text cascade、高级 text/table/media/chart 样式和更广泛客户端认证。Ordinary shape/text 的 percentage coordinates、shared editable `name`、rotation 与 horizontal/vertical flip 已闭合；advanced text 已完成文本框 direct fill、simple line、begin/end arrows、simple shadow、outer hyperlink、per-run rich-text hyperlink、preset geometry、`roundRect` 绝对圆角半径、direct `isTextBox` 状态与 rich-text `breakLine` 段落拆分。
 
 ## 创建和编辑文本框填充
 
@@ -625,12 +625,14 @@ Geometry 与 fill、line、arrows、shadow、whole-shape/run hyperlink、transfo
 import { inches } from '@jiayunxie/pptx';
 
 const rounded = slide.addText('Rounded text', {
+  name: 'Rounded text owner',
   shape: 'roundRect',
   rectRadius: inches(0.5),
   width: inches(4),
   height: inches(2),
 });
 
+rounded.name = '';
 console.log(rounded.adjustments); // [{ name: 'adj', value: 25000 }]
 rounded.adjustments = [{ name: 'adj', value: 12500 }];
 ```
@@ -1370,6 +1372,7 @@ import { PptxDocument } from '@jiayunxie/pptx';
 const document = PptxDocument.create();
 const slide = document.addSlide();
 const shape = slide.addShape('roundRect', {
+  name: 'Feature card',
   fill: {
     kind: 'solid',
     color: { kind: 'scheme', value: 'accent1' },
@@ -1397,6 +1400,7 @@ const shape = slide.addShape('roundRect', {
   },
 });
 
+shape.name = 'Feature card updated';
 shape.fill = { kind: 'solid', color: { kind: 'srgb', value: 'FF0000' } };
 shape.fill = { kind: 'none' };
 shape.fill = undefined;
@@ -1429,7 +1433,7 @@ shape.hyperlink = undefined;
 
 `AddShapeOptions.shadow`、`AddTextOptions.shadow` 与 `ShapeModel.shadow` 支持 preset/text shape direct outer/inner shadow 的创建、读取、whole replacement 与清除，包括 sRGB/theme color、`0..1` opacity、`0..100pt` blur、`0..<360°` angle、`0..200pt` distance，以及 outer-only `rotateWithShape`。默认值为 black、0.75、8pt、270°、4pt 和 outer rotate false；显式 zero 会保留。输入在 mutation 前深度脱离，getter 的嵌套快照会 deep-freeze；同值赋值是 exact no-op，`undefined` 只移除 direct shadow 并保留 `effectLst` 与 glow/reflection 等 sibling effects。Image 使用同一个 strict shadow contract；generic/advanced effects、custom shadow transforms，以及 table/chart/media 等其他 owner 的 shadow API 仍待后续小项。
 
-`AddShapeOptions.hyperlink`、`AddTextOptions.hyperlink` 与 `ShapeModel.hyperlink` 支持整个 preset/text shape 的 click URL 或内部页链接。输入必须恰好包含一个非空 `url` 或一个当前文稿内的一基 `slide`；`tooltip` 可省略，也可显式为空。Getter 返回 detached frozen snapshot，setter 采用 whole replacement，同值赋值为 exact no-op，`undefined` 清除 click link。内部关系按目标页 identity 保存，移动或在目标前插删页面只更新 getter ordinal；复制 self-link 会指向副本自身，删除目标页会清理相关 click/hover，shared relationship 则按引用 clone-on-write 与回收。Text outer 与 `RichTextRunStyle.hyperlink` 分别管理 whole-shape/default run 和显式 run-local 链接，ownership 相互独立；run hyperlink 可与 `RichTextRun.breakLine` 组合并按规范段落重新索引。外部链接产生 validator 的预期可移植性 warning。Plain single-run table-cell scalar hyperlink API 与 rich/multi-paragraph cell default/local run links 均已支持；hover、table graphic-frame/image/chart/media 链接、action navigation、advanced line fill/custom dash 和 percentage positions 仍待后续小项；`isTextBox` 与 rich-text `breakLine` 已完成。
+`AddShapeOptions.hyperlink`、`AddTextOptions.hyperlink` 与 `ShapeModel.hyperlink` 支持整个 preset/text shape 的 click URL 或内部页链接。输入必须恰好包含一个非空 `url` 或一个当前文稿内的一基 `slide`；`tooltip` 可省略，也可显式为空。Getter 返回 detached frozen snapshot，setter 采用 whole replacement，同值赋值为 exact no-op，`undefined` 清除 click link。内部关系按目标页 identity 保存，移动或在目标前插删页面只更新 getter ordinal；复制 self-link 会指向副本自身，删除目标页会清理相关 click/hover，shared relationship 则按引用 clone-on-write 与回收。Text outer 与 `RichTextRunStyle.hyperlink` 分别管理 whole-shape/default run 和显式 run-local 链接，ownership 相互独立；run hyperlink 可与 `RichTextRun.breakLine` 组合并按规范段落重新索引。外部链接产生 validator 的预期可移植性 warning。Plain single-run table-cell scalar hyperlink API 与 rich/multi-paragraph cell default/local run links 均已支持；ordinary shape/text percentage positions 与 transform identity 已闭合，hover、table graphic-frame/image/chart/media 链接、action navigation、advanced line fill/custom dash 仍待后续小项；`isTextBox` 与 rich-text `breakLine` 已完成。
 
 ### 创建和编辑自定义几何路径
 
@@ -1574,6 +1578,12 @@ HTML `tableToSlides` 专项最终 10/10 完成。Focused gate 为 4 个文件 / 
 Node evidence deck 为 93,142 bytes、29 parts / 41 relationships、5 slides / 4 generated pages，SHA-256 为 `923b84490d4e588d32d4a91cb55f2df37478d9b3e2b2ce5113285a2992b9f1e2`；Chrome evidence deck 为 126,095 bytes、33 parts / 53 relationships、7 slides / 6 generated pages，SHA-256 为 `c60b0665cee91dfe114f7aebb537f2a13b933e7e0577d23c81486ac2eef6495a`。两者均验证为 0 errors，仅分别包含 8/12 条预期 external-link warnings；每个 generated page 的两张表、`[1600200, 2286000, 1600200]` grid、重复两层表头、fragment/merge/footer、image/shape/table/text additions、内部/外部关系及编辑生命周期均已精确复核。全部 12 页以 2400×1350 渲染并逐页检查，overflow 为 0；LibreOffice 26.8 可打开、保存和重开两份文件，回存件仍为 0 errors。本机 PowerPoint 16.112 的自动化仍返回统一 `-9074` 且未产生回存件，因此不把该环境记为 PowerPoint round-trip 通过。
 
 实现与证明 commit chain 为 `b22a065`、`8b7cca2`、`434129c`、`ab57e13`、`0dfe5c3`、`63fb2f2`、`63ecd98`、`00ca3c7`、`4df0839`、`0242491`、`efec32b`；完整证据位于 `/tmp/pptx-table-to-slides-artifacts.2sH8Fw`。至此锁定的 PptxGenJS 4.0.1 公开能力项覆盖达到 100%，actual-package/browser/PowerPoint-2010-validator/LibreOffice 证明已完成。最终“全功能对等已认证”仍保留给独立 peer/client audit，包括 Windows PowerPoint、macOS Keynote 与受控 Google Slides 导入；当前公开表面没有已知未实现项，但不提前把这些外部客户端认证写成已通过。
+
+## 当前 PptxGenJS 4.0.1 表面审计
+
+逐声明原子矩阵当前闭合 1,720/1,774（96.96%），剩余 54 项；supported 747、deliberate-difference 508、deprecated-alias 94、defect-excluded 371，unsupported/stale 与 diagnostics 均为 0。最新 Shape/Text Transform & Identity 能力族一次关闭 13 项：ordinary shape/text 的 shared editable `name`、rotation、horizontal/vertical flip、preset geometry、`rectRadius` 与 `isTextBox` 已由 PptxGenJS 4.0.1 runtime control、native lifecycle、actual npm tarball、持久 Chrome 150 和 exact OOXML 共同验证；声明但运行时无效的 `ShapeProps.shapeName` 不伪装为支持。
+
+Node/browser evidence deck 都包含 20 parts、2 slides 和每页精确 2 个 relationships，20/20 解压部件 byte-identical；PowerPoint 2010 profile 均为 0 errors，仅有两页各一个外链产生的 2 条预期 `OPC_EXTERNAL_RELATIONSHIP` warnings。完整逐项状态见 [PptxGenJS public-surface audit](./docs/compatibility/pptxgenjs-surface-audit.md)。
 
 ## 开发
 

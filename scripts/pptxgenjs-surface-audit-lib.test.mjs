@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1707);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1720);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
-      ...Array(370).fill('defect-excluded'),
-      ...Array(745).fill('supported'),
-      ...Array(498).fill('deliberate-difference'),
+      ...Array(371).fill('defect-excluded'),
+      ...Array(747).fill('supported'),
+      ...Array(508).fill('deliberate-difference'),
       ...Array(94).fill('deprecated-alias'),
     ].sort(),
   );
@@ -1695,6 +1695,89 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
       ({ id }) => id === addTablePropertyId('ImageProps', 'hyperlink'),
     ),
     false,
+  );
+  const shapeTextTransformIdentityExpected = [
+    ...['flipH', 'flipV', 'objectName', 'rectRadius', 'rotate'].map((property) => ({
+      id: addTablePropertyId('ShapeProps', property),
+      status: 'deliberate-difference',
+    })),
+    {
+      id: addTablePropertyId('ShapeProps', 'shapeName'),
+      status: 'defect-excluded',
+    },
+    ...['flipH', 'flipV', 'objectName', 'rectRadius', 'rotate'].map((property) => ({
+      id: addTablePropertyId('TextPropsOptions', property),
+      status: 'deliberate-difference',
+    })),
+    ...['isTextBox', 'shape'].map((property) => ({
+      id: addTablePropertyId('TextPropsOptions', property),
+      status: 'supported',
+    })),
+  ].sort((left, right) => left.id.localeCompare(right.id));
+  const shapeTextTransformIdentityIds = new Set(
+    shapeTextTransformIdentityExpected.map(({ id }) => id),
+  );
+  assert.equal(shapeTextTransformIdentityIds.size, 13);
+  const shapeTextTransformIdentityEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => shapeTextTransformIdentityIds.has(id))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  assert.deepEqual(
+    shapeTextTransformIdentityEntries.map(({ id, status }) => ({ id, status })),
+    shapeTextTransformIdentityExpected,
+  );
+  const shapeTextTransformIdentityImplemented = shapeTextTransformIdentityEntries
+    .filter(({ status }) => status !== 'defect-excluded');
+  assert.equal(
+    shapeTextTransformIdentityImplemented.every(({
+      native,
+      evidence,
+      control,
+      serialization,
+      client,
+    }) => native.length >= 2
+      && evidence.code.length >= 2
+      && evidence.tests.length >= 3
+      && evidence.package.some(
+        ({ pattern }) => pattern === 'const shapeTextTransformIdentity13Probe =',
+      )
+      && evidence.ooxml.some(({ pattern }) => pattern === 'const exactOoxml = {')
+      && evidence.clients.some(
+        ({ pattern }) => pattern === 'const shapeTextTransformIdentity13State = {',
+      )
+      && control.pattern ===
+        'closes PptxGenJS shape and text transform identity through strict native state'
+      && serialization === true
+      && client === true),
+    true,
+  );
+  const shapeNameDefect = shapeTextTransformIdentityEntries.find(
+    ({ id }) => id === addTablePropertyId('ShapeProps', 'shapeName'),
+  );
+  assert.deepEqual({
+    native: shapeNameDefect?.native,
+    code: shapeNameDefect?.evidence.code,
+    package: shapeNameDefect?.evidence.package,
+    ooxml: shapeNameDefect?.evidence.ooxml,
+    clients: shapeNameDefect?.evidence.clients,
+    control: shapeNameDefect?.control.pattern,
+  }, {
+    native: [],
+    code: [],
+    package: [],
+    ooxml: [],
+    clients: [],
+    control: 'closes PptxGenJS shape and text transform identity through strict native state',
+  });
+  assert.deepEqual(
+    Object.fromEntries([
+      'supported',
+      'deliberate-difference',
+      'defect-excluded',
+    ].map((status) => [
+      status,
+      shapeTextTransformIdentityEntries.filter((entry) => entry.status === status).length,
+    ])),
+    { supported: 2, 'deliberate-difference': 10, 'defect-excluded': 1 },
   );
   const mediaCoreExpected = [
     ...['cover', 'data', 'extn', 'h', 'link', 'objectName', 'path', 'type', 'w', 'x', 'y']

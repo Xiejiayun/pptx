@@ -16,12 +16,18 @@ async (page) => {
     `${chartPresentationWorkspace}/scripts/image-identity-effects-5-lifecycle-probe.mjs`,
     'utf8',
   );
+  const shapeTextTransformIdentity13ProbeSource = await readFile(
+    `${chartPresentationWorkspace}/scripts/shape-text-transform-identity-13-lifecycle-probe.mjs`,
+    'utf8',
+  );
   const chartPresentationFixtureBase64 = Buffer
     .from(chartPresentationFixtureBytes).toString('base64');
   const chartPresentationProbeBase64 = Buffer
     .from(chartPresentationProbeSource).toString('base64');
   const imageIdentityEffects5ProbeBase64 = Buffer
     .from(imageIdentityEffects5ProbeSource).toString('base64');
+  const shapeTextTransformIdentity13ProbeBase64 = Buffer
+    .from(shapeTextTransformIdentity13ProbeSource).toString('base64');
   const consoleErrors = [];
   const pageErrors = [];
   const networkErrors = [];
@@ -44,6 +50,7 @@ async (page) => {
       chartPresentationFixtureBase64: presentationFixtureBase64,
       chartPresentationProbeBase64: presentationProbeBase64,
       imageIdentityEffects5ProbeBase64: imageEffectsProbeBase64,
+      shapeTextTransformIdentity13ProbeBase64: shapeTextIdentityProbeBase64,
     }) => {
       const binary = atob(base64);
       const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
@@ -73,6 +80,34 @@ async (page) => {
       globalThis.__pptxImageIdentityEffects5EvidenceBlob = new Blob(
         [imageIdentityEffects5Probe.explicitOutputBytes],
         { type: imageIdentityEffects5Probe.mime },
+      );
+      const shapeTextTransformIdentity13ProbeModule = await import(
+        `data:text/javascript;base64,${shapeTextIdentityProbeBase64}`
+      );
+      const shapeTextTransformIdentity13Probe =
+        await shapeTextTransformIdentity13ProbeModule
+          .runShapeTextTransformIdentity13LifecycleProbe(api);
+      const shapeTextTransformIdentity13 = shapeTextTransformIdentity13Probe.ok;
+      const shapeTextTransformIdentity13State = {
+        noOp: shapeTextTransformIdentity13Probe.state.noOp,
+        invalidIsolation: shapeTextTransformIdentity13Probe.state.invalidIsolation,
+        rollback: shapeTextTransformIdentity13Probe.state.rollback,
+        sourceStable: shapeTextTransformIdentity13Probe.state.sourceStable,
+        sourceIsolation: shapeTextTransformIdentity13Probe.state.sourceIsolation,
+        duplicateStable: shapeTextTransformIdentity13Probe.state.duplicateStable,
+        reopenedStable: shapeTextTransformIdentity13Probe.state.reopenedStable,
+        reopenedDuplicateStable:
+          shapeTextTransformIdentity13Probe.state.reopenedDuplicateStable,
+        relationshipStability:
+          shapeTextTransformIdentity13Probe.state.relationshipStability,
+        exactOoxml: Object.values(shapeTextTransformIdentity13Probe.state.exactOoxml)
+          .every(Boolean),
+        diagnostics: Object.values(shapeTextTransformIdentity13Probe.state.diagnostics)
+          .every((count) => count === 0),
+      };
+      globalThis.__pptxShapeTextTransformIdentity13EvidenceBlob = new Blob(
+        [shapeTextTransformIdentity13Probe.explicitOutputBytes],
+        { type: shapeTextTransformIdentity13Probe.mime },
       );
       const chartPresentationProbeModule = await import(
         `data:text/javascript;base64,${presentationProbeBase64}`
@@ -7969,6 +8004,8 @@ async (page) => {
         nativeCharts,
         imageIdentityEffects5,
         imageIdentityEffects5State,
+        shapeTextTransformIdentity13,
+        shapeTextTransformIdentity13State,
         chartPresentation91,
         chartPresentation91State,
         chartPresentation: chartPresentation91,
@@ -7986,6 +8023,7 @@ async (page) => {
       chartPresentationFixtureBase64,
       chartPresentationProbeBase64,
       imageIdentityEffects5ProbeBase64,
+      shapeTextTransformIdentity13ProbeBase64,
       base64: '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',
     },
   );
@@ -8006,6 +8044,25 @@ async (page) => {
     await writeFile(
       imageIdentityEffects5EvidenceOutput,
       Uint8Array.from(imageIdentityEffects5EvidenceBytes),
+    );
+  }
+  result.shapeTextTransformIdentity13EvidenceFileName =
+    'browser-shape-text-transform-identity-13.pptx';
+  const shapeTextTransformIdentity13EvidenceOutput = typeof process !== 'undefined'
+    ? process.env.PPTX_BROWSER_SHAPE_TEXT_TRANSFORM_IDENTITY_OUT
+      ?? globalThis.__pptxBrowserShapeTextTransformIdentity13Output
+    : globalThis.__pptxBrowserShapeTextTransformIdentity13Output;
+  if (typeof shapeTextTransformIdentity13EvidenceOutput === 'string') {
+    const shapeTextTransformIdentity13EvidenceBytes = await page.evaluate(async () => {
+      const blob = globalThis.__pptxShapeTextTransformIdentity13EvidenceBlob;
+      if (!(blob instanceof Blob)) {
+        throw new Error('Missing shape/text transform identity evidence Blob');
+      }
+      return Array.from(new Uint8Array(await blob.arrayBuffer()));
+    });
+    await writeFile(
+      shapeTextTransformIdentity13EvidenceOutput,
+      Uint8Array.from(shapeTextTransformIdentity13EvidenceBytes),
     );
   }
   result.chartPresentation91EvidenceFileName = 'browser-chart-presentation-91.pptx';
@@ -9758,6 +9815,20 @@ async (page) => {
       exactOoxml: true,
       diagnostics: true,
     },
+    shapeTextTransformIdentity13: true,
+    shapeTextTransformIdentity13State: {
+      noOp: true,
+      invalidIsolation: true,
+      rollback: true,
+      sourceStable: true,
+      sourceIsolation: true,
+      duplicateStable: true,
+      reopenedStable: true,
+      reopenedDuplicateStable: true,
+      relationshipStability: true,
+      exactOoxml: true,
+      diagnostics: true,
+    },
     chartPresentation91: true,
     chartPresentation91State: {
       fixtureShape: true,
@@ -9786,6 +9857,8 @@ async (page) => {
     mediaOrphanCount: 0,
     imageIdentityEffects5EvidenceFileName:
       'browser-image-identity-effects-5.pptx',
+    shapeTextTransformIdentity13EvidenceFileName:
+      'browser-shape-text-transform-identity-13.pptx',
     chartPresentation91EvidenceFileName: 'browser-chart-presentation-91.pptx',
     chartPresentationEvidenceFileName: 'browser-chart-presentation-91.pptx',
     textBoxFitEvidenceFileName: 'browser-text-box-fit.pptx',

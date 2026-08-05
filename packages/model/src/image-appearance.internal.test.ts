@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { LosslessXmlDocument, type XmlElement } from '@pptx/lossless-xml';
 import {
   normalizeImageAltText,
-  normalizeImageName,
   normalizeImageRounding,
   normalizeImageTransparency,
+  normalizeShapeName,
   readImageAltText,
   readImageRounding,
   readImageTransparency,
@@ -43,8 +43,8 @@ function parse(source: string): { xml: LosslessXmlDocument; picture: XmlElement 
 
 describe('image appearance normalization', () => {
   it('accepts strict legal values and canonicalizes fractional transparency', () => {
-    expect(normalizeImageName('')).toBe('');
-    expect(normalizeImageName('Image & <name>')).toBe('Image & <name>');
+    expect(normalizeShapeName('')).toBe('');
+    expect(normalizeShapeName('Shape & <name>')).toBe('Shape & <name>');
     expect(normalizeImageAltText(undefined)).toBeUndefined();
     expect(normalizeImageAltText('')).toBe('');
     expect(normalizeImageRounding(true)).toBe(true);
@@ -55,7 +55,7 @@ describe('image appearance normalization', () => {
 
   it('rejects invalid strings, booleans, and percentages', () => {
     for (const value of [undefined, null, 1, 'bad\u0000name']) {
-      expect(() => normalizeImageName(value)).toThrow(TypeError);
+      expect(() => normalizeShapeName(value)).toThrow('Shape name');
     }
     for (const value of [null, 1, 'bad\u000Btext']) {
       expect(() => normalizeImageAltText(value)).toThrow(TypeError);

@@ -35,6 +35,13 @@ try {
       'utf8',
     ),
   );
+  await writeFile(
+    join(directory, 'shape-text-transform-identity-13-lifecycle-probe.mjs'),
+    await readFile(
+      join(repositoryRoot, 'scripts/shape-text-transform-identity-13-lifecycle-probe.mjs'),
+      'utf8',
+    ),
+  );
   run('npm', [
     'install',
     '--ignore-scripts',
@@ -455,9 +462,10 @@ try {
     join(directory, 'smoke.mjs'),
     `import { readFile } from 'node:fs/promises';
 import { Readable, Writable } from 'node:stream';
-import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, OUTPUT_TYPES, PLACEHOLDER_TYPES, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, SCHEME_COLORS, ShapeModel, SlideLayoutModel, SlideMasterModel, TableModel, TEXT_ALIGNMENTS, TEXT_VERTICAL_ALIGNMENTS, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
+import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, degrees, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, OUTPUT_TYPES, PLACEHOLDER_TYPES, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, SCHEME_COLORS, ShapeModel, SlideLayoutModel, SlideMasterModel, TableModel, TEXT_ALIGNMENTS, TEXT_VERTICAL_ALIGNMENTS, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 import { runChartPresentation91LifecycleProbe } from './chart-presentation-91-lifecycle-probe.mjs';
 import { runImageIdentityEffects5LifecycleProbe } from './image-identity-effects-5-lifecycle-probe.mjs';
+import { runShapeTextTransformIdentity13LifecycleProbe } from './shape-text-transform-identity-13-lifecycle-probe.mjs';
 const installedManifestVersion = ${JSON.stringify(manifest.version)};
 const chartPresentation91Probe = await runChartPresentation91LifecycleProbe(
   { ChartModel, PptxDocument, chartWorkbookMatches },
@@ -487,6 +495,27 @@ const imageIdentityEffects5State = {
 };
 await (await PptxDocument.open(imageIdentityEffects5Probe.explicitOutputBytes))
   .writeFile('image-identity-effects-5-smoke.pptx');
+const shapeTextTransformIdentity13Probe =
+  await runShapeTextTransformIdentity13LifecycleProbe({ PptxDocument, inches, degrees });
+const shapeTextTransformIdentity13 = shapeTextTransformIdentity13Probe.ok;
+const shapeTextTransformIdentity13State = {
+  noOp: shapeTextTransformIdentity13Probe.state.noOp,
+  invalidIsolation: shapeTextTransformIdentity13Probe.state.invalidIsolation,
+  rollback: shapeTextTransformIdentity13Probe.state.rollback,
+  sourceStable: shapeTextTransformIdentity13Probe.state.sourceStable,
+  sourceIsolation: shapeTextTransformIdentity13Probe.state.sourceIsolation,
+  duplicateStable: shapeTextTransformIdentity13Probe.state.duplicateStable,
+  reopenedStable: shapeTextTransformIdentity13Probe.state.reopenedStable,
+  reopenedDuplicateStable:
+    shapeTextTransformIdentity13Probe.state.reopenedDuplicateStable,
+  relationshipStability: shapeTextTransformIdentity13Probe.state.relationshipStability,
+  exactOoxml: Object.values(shapeTextTransformIdentity13Probe.state.exactOoxml)
+    .every(Boolean),
+  diagnostics: Object.values(shapeTextTransformIdentity13Probe.state.diagnostics)
+    .every((count) => count === 0),
+};
+await (await PptxDocument.open(shapeTextTransformIdentity13Probe.explicitOutputBytes))
+  .writeFile('shape-text-transform-identity-13-smoke.pptx');
 const created = PptxDocument.create({ rtlMode: true });
 const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });
 const packedNumberSource = slideNumberDeck.addSlide();
@@ -10966,6 +10995,8 @@ const checks = {
   nativeCharts,
   imageIdentityEffects5,
   imageIdentityEffects5State,
+  shapeTextTransformIdentity13,
+  shapeTextTransformIdentity13State,
   chartPresentation91,
   chartPresentation91State,
   chartAxisAdvanced,
@@ -18209,6 +18240,219 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
       !imageIdentityEffects5DuplicateXml.includes('<a:innerShdw')) {
     throw new Error('CLI image identity/effects OOXML inspection failed');
   }
+  const shapeTextTransformIdentity13DeckPath = join(
+    directory,
+    'shape-text-transform-identity-13-smoke.pptx',
+  );
+  const shapeTextTransformIdentity13InspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', shapeTextTransformIdentity13DeckPath],
+    directory,
+  );
+  const shapeTextTransformIdentity13Inspected = JSON.parse(
+    shapeTextTransformIdentity13InspectResult.stdout,
+  );
+  if (!shapeTextTransformIdentity13Inspected.ok ||
+      shapeTextTransformIdentity13Inspected.data?.partCount !== 20 ||
+      shapeTextTransformIdentity13Inspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 2 ||
+      Object.keys(shapeTextTransformIdentity13Inspected.data?.contentTypes ?? {})
+        .some((contentType) => contentType.startsWith('image/'))) {
+    throw new Error(
+      'CLI shape/text transform identity inspect failed: ' +
+      shapeTextTransformIdentity13InspectResult.stdout,
+    );
+  }
+  const shapeTextTransformIdentity13ValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', shapeTextTransformIdentity13DeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const shapeTextTransformIdentity13Validated = JSON.parse(
+    shapeTextTransformIdentity13ValidateResult.stdout,
+  );
+  const shapeTextTransformIdentity13PortabilityWarnings =
+    shapeTextTransformIdentity13Validated.data?.diagnostics?.filter(
+      ({ severity }) => severity === 'warning',
+    ) ?? [];
+  if (!shapeTextTransformIdentity13Validated.ok ||
+      !shapeTextTransformIdentity13Validated.data?.valid ||
+      shapeTextTransformIdentity13Validated.data.errorCount !== 0 ||
+      shapeTextTransformIdentity13Validated.data.warningCount !== 2 ||
+      shapeTextTransformIdentity13PortabilityWarnings.length !== 2 ||
+      shapeTextTransformIdentity13PortabilityWarnings.some(
+        ({ code }) => code !== 'OPC_EXTERNAL_RELATIONSHIP',
+      )) {
+    throw new Error(
+      'CLI shape/text transform identity validation failed: ' +
+      shapeTextTransformIdentity13ValidateResult.stdout,
+    );
+  }
+  const shapeTextTransformIdentity13SlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', shapeTextTransformIdentity13DeckPath],
+    directory,
+  );
+  const shapeTextTransformIdentity13Slides = JSON.parse(
+    shapeTextTransformIdentity13SlidesResult.stdout,
+  );
+  if (!shapeTextTransformIdentity13Slides.ok ||
+      shapeTextTransformIdentity13Slides.data?.length !== 2 ||
+      shapeTextTransformIdentity13Slides.data.some(({ shapeCount }) => shapeCount !== 2)) {
+    throw new Error(
+      'CLI shape/text transform identity slides failed: ' +
+      shapeTextTransformIdentity13SlidesResult.stdout,
+    );
+  }
+  const shapeTextTransformIdentity13SourcePartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', shapeTextTransformIdentity13DeckPath,
+      '/ppt/slides/slide1.xml',
+    ],
+    directory,
+  );
+  const shapeTextTransformIdentity13DuplicatePartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', shapeTextTransformIdentity13DeckPath,
+      '/ppt/slides/slide2.xml',
+    ],
+    directory,
+  );
+  const shapeTextTransformIdentity13RelationshipsPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', shapeTextTransformIdentity13DeckPath,
+      '/ppt/slides/_rels/slide1.xml.rels',
+    ],
+    directory,
+  );
+  const shapeTextTransformIdentity13DuplicateRelationshipsPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', shapeTextTransformIdentity13DeckPath,
+      '/ppt/slides/_rels/slide2.xml.rels',
+    ],
+    directory,
+  );
+  const shapeTextTransformIdentity13SourcePart = JSON.parse(
+    shapeTextTransformIdentity13SourcePartResult.stdout,
+  );
+  const shapeTextTransformIdentity13DuplicatePart = JSON.parse(
+    shapeTextTransformIdentity13DuplicatePartResult.stdout,
+  );
+  const shapeTextTransformIdentity13RelationshipsPart = JSON.parse(
+    shapeTextTransformIdentity13RelationshipsPartResult.stdout,
+  );
+  const shapeTextTransformIdentity13DuplicateRelationshipsPart = JSON.parse(
+    shapeTextTransformIdentity13DuplicateRelationshipsPartResult.stdout,
+  );
+  const shapeTextTransformIdentity13SourceXml =
+    shapeTextTransformIdentity13SourcePart.data?.content ?? '';
+  const shapeTextTransformIdentity13DuplicateXml =
+    shapeTextTransformIdentity13DuplicatePart.data?.content ?? '';
+  const shapeTextTransformIdentity13RelationshipsXml =
+    shapeTextTransformIdentity13RelationshipsPart.data?.content ?? '';
+  const shapeTextTransformIdentity13DuplicateRelationshipsXml =
+    shapeTextTransformIdentity13DuplicateRelationshipsPart.data?.content ?? '';
+  const shapeTextTransformIdentity13OwnerXml = (xml, id) => {
+    const identityIndex = xml.indexOf(`<p:cNvPr id="${id}"`);
+    const start = xml.lastIndexOf('<p:sp', identityIndex);
+    const end = xml.indexOf('</p:sp>', identityIndex);
+    return identityIndex < 0 || start < 0 || end < 0
+      ? ''
+      : xml.slice(start, end + '</p:sp>'.length);
+  };
+  const shapeTextTransformIdentity13SourceShapeXml =
+    shapeTextTransformIdentity13OwnerXml(shapeTextTransformIdentity13SourceXml, 2);
+  const shapeTextTransformIdentity13SourceTextXml =
+    shapeTextTransformIdentity13OwnerXml(shapeTextTransformIdentity13SourceXml, 3);
+  const shapeTextTransformIdentity13DuplicateShapeXml =
+    shapeTextTransformIdentity13OwnerXml(shapeTextTransformIdentity13DuplicateXml, 2);
+  const shapeTextTransformIdentity13DuplicateTextXml =
+    shapeTextTransformIdentity13OwnerXml(shapeTextTransformIdentity13DuplicateXml, 3);
+  const shapeTextTransformIdentity13RelationshipsOk = (xml) =>
+    (xml.match(/<Relationship\b/gu) ?? []).length === 2
+    && xml.includes('/relationships/slideLayout"')
+    && xml.includes('Target="../slideLayouts/slideLayout1.xml"')
+    && xml.includes('/relationships/hyperlink"')
+    && xml.includes('Target="https://example.com/shape-text-identity"')
+    && xml.includes('TargetMode="External"');
+  if (!shapeTextTransformIdentity13SourcePart.ok ||
+      !shapeTextTransformIdentity13DuplicatePart.ok ||
+      !shapeTextTransformIdentity13RelationshipsPart.ok ||
+      !shapeTextTransformIdentity13DuplicateRelationshipsPart.ok ||
+      !shapeTextTransformIdentity13SourceShapeXml.includes(
+        '<p:cNvPr id="2" name="Shape &amp; &lt;edited&gt;"/>',
+      ) ||
+      !shapeTextTransformIdentity13SourceShapeXml.includes(
+        'rot="1800000" flipH="1" flipV="1"',
+      ) ||
+      !shapeTextTransformIdentity13SourceShapeXml.includes(
+        '<a:off x="914400" y="1371600"/><a:ext cx="2743200" cy="1371600"/>',
+      ) ||
+      !shapeTextTransformIdentity13SourceShapeXml.includes(
+        '<a:gd name="adj" fmla="val 33333"/>',
+      ) ||
+      !shapeTextTransformIdentity13SourceTextXml.includes(
+        '<p:cNvPr id="3" name=""><a:hlinkClick r:id="rId2" tooltip="Identity"/>',
+      ) ||
+      !shapeTextTransformIdentity13SourceTextXml.includes(
+        'rot="-900000" flipH="1" flipV="1"',
+      ) ||
+      !shapeTextTransformIdentity13SourceTextXml.includes(
+        '<a:off x="4114800" y="914400"/><a:ext cx="3657600" cy="1828800"/>',
+      ) ||
+      !shapeTextTransformIdentity13SourceTextXml.includes(
+        '<a:gd name="adj" fmla="val 12500"/>',
+      ) ||
+      !shapeTextTransformIdentity13SourceTextXml.includes('<p:cNvSpPr txBox="1"/>') ||
+      !shapeTextTransformIdentity13SourceTextXml.includes(
+        '<a:t xml:space="preserve">Identity text</a:t>',
+      ) ||
+      !shapeTextTransformIdentity13DuplicateShapeXml.includes(
+        '<p:cNvPr id="2" name="Duplicate shape"/>',
+      ) ||
+      !shapeTextTransformIdentity13DuplicateShapeXml.includes(
+        'rot="1800000" flipH="1" flipV="1"',
+      ) ||
+      !shapeTextTransformIdentity13DuplicateShapeXml.includes(
+        '<a:off x="914400" y="1371600"/><a:ext cx="2743200" cy="1371600"/>',
+      ) ||
+      !shapeTextTransformIdentity13DuplicateShapeXml.includes(
+        '<a:gd name="adj" fmla="val 33333"/>',
+      ) ||
+      !shapeTextTransformIdentity13DuplicateTextXml.includes(
+        '<p:cNvPr id="3" name="Duplicate text"><a:hlinkClick r:id="rId2" tooltip="Identity"/>',
+      ) ||
+      !shapeTextTransformIdentity13DuplicateTextXml.includes(
+        'rot="-900000" flipH="1" flipV="1"',
+      ) ||
+      !shapeTextTransformIdentity13DuplicateTextXml.includes(
+        '<a:off x="4114800" y="914400"/><a:ext cx="3657600" cy="1828800"/>',
+      ) ||
+      !shapeTextTransformIdentity13DuplicateTextXml.includes(
+        '<a:gd name="adj" fmla="val 12500"/>',
+      ) ||
+      !shapeTextTransformIdentity13DuplicateTextXml.includes(
+        '<p:cNvSpPr txBox="1"/>',
+      ) ||
+      !shapeTextTransformIdentity13DuplicateTextXml.includes(
+        '<a:t xml:space="preserve">Identity text</a:t>',
+      ) ||
+      !shapeTextTransformIdentity13RelationshipsOk(
+        shapeTextTransformIdentity13RelationshipsXml,
+      ) ||
+      !shapeTextTransformIdentity13RelationshipsOk(
+        shapeTextTransformIdentity13DuplicateRelationshipsXml,
+      )) {
+    throw new Error('CLI shape/text transform identity OOXML inspection failed');
+  }
   const chartPresentation91DeckPath = join(directory, 'chart-presentation-91-smoke.pptx');
   const chartPresentation91InspectResult = run(
     bin,
@@ -19375,6 +19619,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
       JSON.stringify(richTextBreakLinePartChecks),
     );
   }
+  if (process.env.PPTX_SHAPE_TEXT_TRANSFORM_IDENTITY_OUT) {
+    const output = resolve(process.env.PPTX_SHAPE_TEXT_TRANSFORM_IDENTITY_OUT);
+    await mkdir(dirname(output), { recursive: true });
+    await writeFile(output, await readFile(shapeTextTransformIdentity13DeckPath));
+  }
   if (process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -19466,6 +19715,13 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
     summary.imageIdentityEffects5State = apiChecks.imageIdentityEffects5State;
     summary.imageIdentityEffects5Inspect = true;
     summary.imageIdentityEffects5Validate = true;
+    summary.shapeTextTransformIdentity13 = apiChecks.shapeTextTransformIdentity13;
+    summary.shapeTextTransformIdentity13State = apiChecks.shapeTextTransformIdentity13State;
+    summary.shapeTextTransformIdentity13Inspect = true;
+    summary.shapeTextTransformIdentity13Validate = true;
+    summary.shapeTextTransformIdentity13Slides = true;
+    summary.shapeTextTransformIdentity13PartRead = true;
+    summary.shapeTextTransformIdentity13Relationships = true;
     summary.tableMargins = apiChecks.tableMargins;
     summary.tableMarginsState = apiChecks.tableMarginsState;
     summary.tableMarginsInspect = true;

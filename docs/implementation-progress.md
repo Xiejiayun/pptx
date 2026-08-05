@@ -1248,3 +1248,14 @@ $ pptx-inspect --json package inspect output.pptx
 - Owner-aware codec 只编辑唯一 namespace-correct `cNvPr`、rect/ellipse geometry、`alphaModFix` 和 direct inner/outer shadow。Malformed、ambiguous、wrong-namespace 或 unsafe ordering 在 mutation 前拒绝；关系、media part 与 payload bytes 保持。
 - PptxGenJS 4.0.1 control、native model/SDK、统一 npm/Chrome lifecycle probe、PowerPoint 2010 write/validate 与 exact OOXML 共用一次能力族门禁。
 - 权威矩阵更新为 1,707/1,774（96.22%）：supported 745、deliberate-difference 498、deprecated-alias 94、defect-excluded 370、unverified 67、unsupported/stale 0，diagnostics 0。
+
+## PptxGenJS 全表面：Shape/Text Transform & Identity
+
+状态：能力族 13/13 完成
+
+- `TextPropsOptions.isTextBox` 与 `TextPropsOptions.shape` 归为 supported；shape/text 的 `flipH`、`flipV`、`objectName`、`rectRadius`、`rotate` 共 10 项归为 deliberate-difference；PptxGenJS 4.0.1 声明但运行时忽略的 `ShapeProps.shapeName` 归为 defect-excluded。
+- Ordinary preset shape 与 text shape 共用 `BaseShapeModel.name` 和唯一的 namespace-safe `cNvPr@name` editor。永久 lifecycle gate 覆盖 exact no-op、非法输入隔离、rollback、XML escaping、显式空名称、duplicate isolation、write/reopen，以及 malformed、missing、duplicate、wrong-namespace owner 的零 mutation 拒绝；transform、geometry、adjustments、text、`isTextBox`、IDs、order 与 relationships 保持不变。
+- Focused gate 为 3 个文件、5 passed / 408 skipped；full Vitest 为 93 passed / 1 skipped files、1,836 passed / 1 skipped tests。TypeScript project references、PptxGenJS runtime/control 29/29、surface-audit-lib 8/8、三个脚本语法检查与 `git diff --check` 全部通过。
+- Fresh actual tarball 为 724,818 bytes，SHA-256 `e2cf46a7bfdc9d5aaeac24568d94d710a2c0bfc780b2eb210597ba11c04548e8`。Installed Node 与 Google Chrome 150.0.7871.188 的统一 probe 均报告 no-op、invalid isolation、rollback、source/duplicate/reopen stability、relationship stability、exact OOXML 与 diagnostics 全部通过；Chrome callback/driver 的 console/page/network errors 均为 0。
+- Node/browser evidence deck 均为 21,044 bytes、20 parts、2 slides，每页 2 shapes、1 个 layout relationship 与 1 个 external hyperlink relationship。两份 deck 的 SHA-256 分别为 `feb8c7e0093a232decf6004f4ffb7173604253d5765affe3799ac7058751ab87` 与 `1a538f0a699f794fc57e62b7a61b9cc8705e0cdb53d09695bab15cd92860d0e0`；20/20 解压部件 byte-identical。两者 PowerPoint 2010 validation 均为 0 errors / 2 个预期 `OPC_EXTERNAL_RELATIONSHIP` warnings，source/duplicate 的 name、rotation、双 flip、off/ext、roundRect adjustments、`txBox`、text 与 hyperlink 均由 exact part reads 锁定。完整证据位于 `/tmp/pptx-shape-text-transform-identity-13-fresh.BGVVpk`。
+- 权威矩阵更新为 1,720/1,774（96.96%）：supported 747、deliberate-difference 508、deprecated-alias 94、defect-excluded 371、unverified 54、unsupported/stale 0，diagnostics 0。剩余 54 项已压缩为 4 个能力族，下一族为 Core Content & Primitive Inputs（14 项）。

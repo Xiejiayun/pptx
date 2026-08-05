@@ -51,9 +51,9 @@ import {
 } from './image-create.internal.js';
 import {
   normalizeImageAltText,
-  normalizeImageName,
   normalizeImageRounding,
   normalizeImageTransparency,
+  normalizeShapeName,
   readImageAltText,
   readImageRounding,
   readImageTransparency,
@@ -732,7 +732,7 @@ export class SlideModel {
   }
 
   setShapeName(id: number, value: string): void {
-    const name = normalizeImageName(value);
+    const name = normalizeShapeName(value);
     this.presentation.opcPackage.transaction(() => {
       const { xml, element } = this.resolveShape(id);
       if (replaceShapeName(xml, element, name, this.partUri)) {

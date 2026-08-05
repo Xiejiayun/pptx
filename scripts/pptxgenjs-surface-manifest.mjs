@@ -4937,6 +4937,260 @@ const IMAGE_IDENTITY_EFFECTS_FAMILY_ENTRIES = Object.freeze(
   IMAGE_IDENTITY_EFFECTS_IDS.map((id) => imageIdentityEffectsEntry(id)),
 );
 
+const SHAPE_TEXT_TRANSFORM_IDENTITY_CONTROL_TITLE =
+  'closes PptxGenJS shape and text transform identity through strict native state';
+const SHAPE_TEXT_TRANSFORM_IDENTITY_IDS = Object.freeze([
+  ...['flipH', 'flipV', 'objectName', 'rectRadius', 'rotate', 'shapeName']
+    .map((property) => linePropertyId('ShapeProps', property)),
+  ...['flipH', 'flipV', 'isTextBox', 'objectName', 'rectRadius', 'rotate', 'shape']
+    .map((property) => linePropertyId('TextPropsOptions', property)),
+]);
+
+function shapeTextTransformIdentityProperty(id) {
+  return id.slice(id.lastIndexOf(':') + 1);
+}
+
+function shapeTextTransformIdentityNative(id) {
+  const property = shapeTextTransformIdentityProperty(id);
+  const text = id.includes('TextPropsOptions');
+  if (property === 'flipH') {
+    return [
+      text ? 'AddTextOptions.flipHorizontal' : 'AddShapeOptions.flipHorizontal',
+      'Transform.flipHorizontal',
+      'BaseShapeModel.transform',
+      'BaseShapeModel.setTransform',
+    ];
+  }
+  if (property === 'flipV') {
+    return [
+      text ? 'AddTextOptions.flipVertical' : 'AddShapeOptions.flipVertical',
+      'Transform.flipVertical',
+      'BaseShapeModel.transform',
+      'BaseShapeModel.setTransform',
+    ];
+  }
+  if (property === 'rotate') {
+    return [
+      text ? 'AddTextOptions.rotation' : 'AddShapeOptions.rotation',
+      'Transform.rotation',
+      'BaseShapeModel.transform',
+      'BaseShapeModel.setTransform',
+      'degrees',
+    ];
+  }
+  if (property === 'objectName') {
+    return [
+      text ? 'AddTextOptions.name' : 'AddShapeOptions.name',
+      'BaseShapeModel.name',
+      'SlideModel.setShapeName',
+    ];
+  }
+  if (property === 'rectRadius') {
+    return text
+      ? ['AddTextOptions.rectRadius', 'ShapeAdjustment', 'ShapeModel.adjustments']
+      : ['AddShapeOptions.adjustments', 'ShapeAdjustment', 'ShapeModel.adjustments'];
+  }
+  if (property === 'isTextBox') {
+    return ['AddTextOptions.isTextBox', 'ShapeModel.isTextBox'];
+  }
+  if (property === 'shape') {
+    return ['AddTextOptions.shape', 'ShapeModel.presetType', 'PRESET_SHAPE_TYPES'];
+  }
+  return [];
+}
+
+function shapeTextTransformIdentityCode(id) {
+  const property = shapeTextTransformIdentityProperty(id);
+  const text = id.includes('TextPropsOptions');
+  if (property === 'objectName') {
+    return [{
+      path: text ? 'packages/model/src/slide.ts' : 'packages/model/src/preset-shape.ts',
+      pattern: 'readonly name?: string;',
+    }, {
+      path: 'packages/model/src/shapes.ts',
+      pattern: 'set name(value: string) {',
+    }, {
+      path: 'packages/model/src/image-appearance.internal.ts',
+      pattern: 'export function normalizeShapeName(value: unknown): string {',
+    }, {
+      path: 'packages/model/src/image-appearance.internal.ts',
+      pattern: 'export function replaceShapeName(',
+    }];
+  }
+  if (property === 'rectRadius') {
+    return text
+      ? [{
+          path: 'packages/model/src/slide.ts',
+          pattern: 'readonly rectRadius?: Emu;',
+        }, {
+          path: 'packages/model/src/slide.ts',
+          pattern: 'const adjustments = rectRadius === undefined',
+        }]
+      : [{
+          path: 'packages/model/src/preset-shape.ts',
+          pattern: 'readonly adjustments?: readonly ShapeAdjustment[];',
+        }, {
+          path: 'packages/model/src/shape-adjustments.internal.ts',
+          pattern: 'export function replaceShapeAdjustments(',
+        }];
+  }
+  if (property === 'isTextBox') {
+    return [{
+      path: 'packages/model/src/slide.ts',
+      pattern: 'readonly isTextBox?: boolean;',
+    }, {
+      path: 'packages/model/src/shapes.ts',
+      pattern: 'get isTextBox(): boolean | undefined {',
+    }];
+  }
+  if (property === 'shape') {
+    return [{
+      path: 'packages/model/src/slide.ts',
+      pattern: 'readonly shape?: PresetShapeType;',
+    }, {
+      path: 'packages/model/src/shapes.ts',
+      pattern: 'get presetType(): PresetShapeType | undefined {',
+    }];
+  }
+  return [{
+    path: text ? 'packages/model/src/slide.ts' : 'packages/model/src/preset-shape.ts',
+    pattern: text
+      ? 'export interface AddTextOptions extends Partial<TransformInput> {'
+      : 'export interface AddShapeOptions extends Partial<TransformInput> {',
+  }, {
+    path: 'packages/model/src/units.ts',
+    pattern: property === 'rotate'
+      ? 'readonly rotation: OoxmlAngle;'
+      : property === 'flipH'
+        ? 'readonly flipHorizontal: boolean;'
+        : 'readonly flipVertical: boolean;',
+  }, {
+    path: 'packages/model/src/shapes.ts',
+    pattern: 'setTransform(changes: Partial<Transform>): void {',
+  }];
+}
+
+function shapeTextTransformIdentityTests(id) {
+  const property = shapeTextTransformIdentityProperty(id);
+  const text = id.includes('TextPropsOptions');
+  const lifecycleTitles = property === 'objectName'
+    ? [
+        'edits ordinary shape and text identity without changing transform geometry or content',
+        'rejects unsafe ordinary shape identity owners without mutation',
+      ]
+    : ['edits ordinary shape and text identity without changing transform geometry or content'];
+  const specialistTitle = property === 'isTextBox'
+    ? 'preserves text box state across public owners and placeholder lifecycle'
+    : property === 'shape'
+      ? 'reads and replaces preset types without changing unrelated shape content or identity'
+      : property === 'rectRadius' && text
+        ? 'creates text shape rectangle radius across public owners and lifecycle'
+        : property === 'rectRadius'
+          ? 'edits preset shape adjustments across duplicate, rollback, type reset, reopen, and all formats'
+          : text
+            ? 'creates, edits, and round-trips a basic text shape with stable identity'
+            : 'creates preset shapes with deterministic defaults, transforms, order, and identity';
+  return [{
+    path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+    title: SHAPE_TEXT_TRANSFORM_IDENTITY_CONTROL_TITLE,
+  }, ...lifecycleTitles.map((title) => ({
+    path: 'packages/model/src/model.test.ts',
+    title,
+  })), {
+    path: 'packages/sdk/src/index.test.ts',
+    title: specialistTitle,
+  }];
+}
+
+function shapeTextTransformIdentityNote(id) {
+  const property = shapeTextTransformIdentityProperty(id);
+  const text = id.includes('TextPropsOptions');
+  if (property === 'shapeName') {
+    return 'PptxGenJS 4.0.1 declares deprecated shapeName but ignores it at runtime even when objectName is absent; native excludes inert declaration noise.';
+  }
+  if (property === 'objectName') {
+    return 'Native consistently exposes strict XML-safe create/read/edit identity through name, including explicit empty values, instead of PptxGenJS objectName truthiness and fallback behavior.';
+  }
+  if (property === 'rectRadius') {
+    return text
+      ? 'Native exposes a strict explicit-unit rectRadius input and editable preset adjustments instead of PptxGenJS implicit-inch ratio coercion.'
+      : 'Native exposes exact strict preset-geometry adjustments instead of PptxGenJS extent-dependent rectRadius coercion.';
+  }
+  if (property === 'isTextBox') {
+    return 'Native supports strict create/read/edit/reopen of direct cNvSpPr txBox state across text owners.';
+  }
+  if (property === 'shape') {
+    return 'Native supports the same text preset geometry through the typed shape input and editable presetType state.';
+  }
+  if (property === 'rotate') {
+    return 'Native uses explicit OOXML-angle units and degrees() instead of PptxGenJS implicit degree numbers and truthy fallback.';
+  }
+  return `Native ${text ? 'text shapes' : 'preset shapes'} use strict explicit ${
+    property === 'flipH' ? 'flipHorizontal' : 'flipVertical'
+  } boolean transform state instead of PptxGenJS truthiness coercion.`;
+}
+
+function shapeTextTransformIdentityEntry(id) {
+  const property = shapeTextTransformIdentityProperty(id);
+  if (property === 'shapeName') {
+    return {
+      id,
+      status: 'defect-excluded',
+      native: [],
+      evidence: {
+        code: [],
+        tests: [{
+          path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+          title: SHAPE_TEXT_TRANSFORM_IDENTITY_CONTROL_TITLE,
+        }],
+        package: [],
+        ooxml: [],
+        clients: [],
+      },
+      control: {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        pattern: SHAPE_TEXT_TRANSFORM_IDENTITY_CONTROL_TITLE,
+      },
+      serialization: false,
+      client: false,
+      note: shapeTextTransformIdentityNote(id),
+    };
+  }
+  const supported = property === 'isTextBox' || property === 'shape';
+  return {
+    id,
+    status: supported ? 'supported' : 'deliberate-difference',
+    native: shapeTextTransformIdentityNative(id),
+    evidence: {
+      code: shapeTextTransformIdentityCode(id),
+      tests: shapeTextTransformIdentityTests(id),
+      package: [{
+        path: 'scripts/smoke-npm-package.mjs',
+        pattern: 'const shapeTextTransformIdentity13Probe =',
+      }],
+      ooxml: [{
+        path: 'scripts/shape-text-transform-identity-13-lifecycle-probe.mjs',
+        pattern: 'const exactOoxml = {',
+      }],
+      clients: [{
+        path: 'scripts/playwright-browser-smoke.js',
+        pattern: 'const shapeTextTransformIdentity13State = {',
+      }],
+    },
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: SHAPE_TEXT_TRANSFORM_IDENTITY_CONTROL_TITLE,
+    },
+    serialization: true,
+    client: true,
+    note: shapeTextTransformIdentityNote(id),
+  };
+}
+
+const SHAPE_TEXT_TRANSFORM_IDENTITY_FAMILY_ENTRIES = Object.freeze(
+  SHAPE_TEXT_TRANSFORM_IDENTITY_IDS.map((id) => shapeTextTransformIdentityEntry(id)),
+);
+
 const MEDIA_CORE_CONTROL_TITLE =
   'locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1';
 const MEDIA_VALID_CONTROL_TITLE =
@@ -5702,6 +5956,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...SHAPE_TEXT_SHADOW_FAMILY_ENTRIES,
     ...IMAGE_SOURCE_SIZING_TRANSFORM_FAMILY_ENTRIES,
     ...IMAGE_IDENTITY_EFFECTS_FAMILY_ENTRIES,
+    ...SHAPE_TEXT_TRANSFORM_IDENTITY_FAMILY_ENTRIES,
     ...MEDIA_CORE_FAMILY_ENTRIES,
     ...PLACEHOLDER_CORE_FAMILY_ENTRIES,
     ...SHAPE_CUSTOM_PATH_FAMILY_ENTRIES,
