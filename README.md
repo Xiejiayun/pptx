@@ -1587,6 +1587,8 @@ Fresh 66-entry actual tarball 为 726,424 bytes，SHA-256 `cf8ff70e932f11b2fe830
 
 Data/Path Inheritance 能力族一次关闭 4 项，矩阵现为 1,744/1,774（98.31%），剩余 30：supported 757、deliberate-difference 520、deprecated-alias 94、defect-excluded 373，unsupported/stale 与 diagnostics 均为 0。PptxGenJS 的真实 image/media owner 支持合法 `data` 或 `path`，同时给出时以 `data` 为准；Native 有意保持单一 typed `ImageSource` / `MediaSource`。`TextPropsOptions.data/path` 在 PptxGenJS plain/rich writer 中完全无效，Native 不增加 inert aliases。本族无产品实现改动，复用上一批 actual npm、persistent browser 与 OOXML source-owner 证据。
 
+Placeholder Text Style 能力族批量关闭 4 项：`align`、`transparency`、`valign` 为 supported，`margin` 因 PptxGenJS 非对称 tuple 顺序与 Native 文档化 TRBL 顺序不同归为 deliberate-difference。共享 lifecycle probe 覆盖 layout/master/direct/populated/duplicate owner、strict invalid isolation、rollback、relationship stability、精确 OOXML 5/5、六格式和 reopen；actual npm 与持久 Chrome 均通过。矩阵现为 1,748/1,774（98.53%），剩余 26：supported 760、deliberate-difference 521、deprecated-alias 94、defect-excluded 373，unsupported/stale 与 diagnostics 均为 0。
+
 ## 开发
 
 ```sh

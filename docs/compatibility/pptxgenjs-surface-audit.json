@@ -29217,28 +29217,115 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes placeholder text style fields through canonical text owners"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const placeholderTextStyle4State = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserUnderlinePlaceholder = underlineFamilyLayout.addPlaceholder("
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textParagraphLayoutFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/placeholder.ts",
+            "pattern": "export interface AddPlaceholderOptions extends Omit<AddTextOptions, 'name' | 'placeholder'> {"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTextOptions extends Partial<TransformInput> {\n  readonly name?: string;\n  readonly placeholder?: PlaceholderSelector;\n  readonly align?: TextAlignment;"
+          },
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeTextAlignment("
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/placeholder-text-style-4-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens underline owners in all six formats"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, replaces, rolls back, and round-trips paragraph alignment"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const placeholderTextStyle4Probe ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutChecks = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedUnderlinePlaceholder = underlineFamilyLayout.addPlaceholder("
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const createdText = created.addSlide().addText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes placeholder text style fields through canonical text owners"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares public placeholder population payloads with strict native owners"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, replaces, rolls back, and round-trips paragraph alignment"
+          }
+        ]
       },
       "id": "interface:PlaceholderProps@property:align",
       "kind": "property",
       "name": "align",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddPlaceholderOptions.align",
+        "AddTextOptions.align",
+        "RichTextParagraph.align",
+        "ShapeModel.richText",
+        "TextAlignment"
+      ],
+      "note": "Native exposes the same four legal horizontal-alignment tokens through inherited AddTextOptions.align and preserves the same paragraph OOXML on the layout prompt and populated placeholder with strict validation before mutation.",
       "optional": true,
       "owner": "PlaceholderProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "HAlign"
     },
     {
@@ -29889,28 +29976,118 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes placeholder text style fields through canonical text owners"
+      },
       "declaredIn": "PlaceholderProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const placeholderTextStyle4State = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserUnderlinePlaceholder = underlineFamilyLayout.addPlaceholder("
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textParagraphLayoutFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/placeholder.ts",
+            "pattern": "export interface AddPlaceholderOptions extends Omit<AddTextOptions, 'name' | 'placeholder'> {"
+          },
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "export type TextBoxMarginInput ="
+          },
+          {
+            "path": "packages/model/src/text-box-margins.internal.ts",
+            "pattern": "export function normalizeTextBoxMargins("
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "set textMargins(value: TextBoxMarginInput | undefined) {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/placeholder-text-style-4-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens underline owners in all six formats"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens text-box margins"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const placeholderTextStyle4Probe ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutChecks = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedUnderlinePlaceholder = underlineFamilyLayout.addPlaceholder("
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const createdText = created.addSlide().addText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes placeholder text style fields through canonical text owners"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares public placeholder population payloads with strict native owners"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens text-box margins"
+          }
+        ]
       },
       "id": "interface:PlaceholderProps@property:margin",
       "kind": "property",
       "name": "margin",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddPlaceholderOptions.margin",
+        "AddTextOptions.margin",
+        "ShapeModel.textMargins",
+        "TextBoxMarginInput"
+      ],
+      "note": "PptxGenJS retains placeholder margin outside the layout prompt and applies it only after population; its tuple [1,2,3,4] becomes semantic top/right/bottom/left 4/2/3/1, while native intentionally preserves strict point-based scalar, documented TRBL tuple, and partial-side TextBoxMarginInput state through editable ShapeModel.textMargins.",
       "optional": true,
       "owner": "PlaceholderProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "Margin"
     },
     {
@@ -30118,28 +30295,118 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes placeholder text style fields through canonical text owners"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const placeholderTextStyle4State = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserUnderlinePlaceholder = underlineFamilyLayout.addPlaceholder("
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const richTextEffectsFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "value: string | readonly RichTextParagraph[],"
+          },
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "export interface RichTextRunStyle {"
+          },
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "readonly transparency?: number;"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "set richText(value: readonly RichTextParagraph[]) {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/placeholder-text-style-4-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens underline owners in all six formats"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, clears, duplicates, rolls back, and reopens rich text transparency"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const placeholderTextStyle4Probe ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutChecks = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedUnderlinePlaceholder = underlineFamilyLayout.addPlaceholder("
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const transparencyText = created.slides[0].addRichText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes placeholder text style fields through canonical text owners"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and reopens PptxGenJS rich text transparency from real output"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, clears, duplicates, rolls back, and reopens rich text transparency"
+          }
+        ]
       },
       "id": "interface:PlaceholderProps@property:transparency",
       "kind": "property",
       "name": "transparency",
-      "native": [],
-      "note": "",
+      "native": [
+        "RichTextParagraph",
+        "RichTextRunStyle.transparency",
+        "ShapeModel.richText",
+        "SlideModel.addPlaceholder"
+      ],
+      "note": "Native preserves the same legal placeholder text-alpha final state through explicit RichTextRunStyle.transparency on placeholder runs, including omitted, zero, fractional, and fully transparent values across prompt, population, editing, and reopen; this follows the same supported projection already used for TextPropsOptions.transparency and TableCellProps.transparency.",
       "optional": true,
       "owner": "PlaceholderProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
@@ -30278,28 +30545,118 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes placeholder text style fields through canonical text owners"
+      },
       "declaredIn": "TextBaseProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const placeholderTextStyle4State = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const masterLayoutState = {"
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const browserUnderlinePlaceholder = underlineFamilyLayout.addPlaceholder("
+          },
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const textParagraphLayoutFamilyState = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/placeholder.ts",
+            "pattern": "export interface AddPlaceholderOptions extends Omit<AddTextOptions, 'name' | 'placeholder'> {"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "readonly tabStops?: readonly ParagraphTabStop[];\n  readonly valign?: TextBoxVerticalAlignment;\n  readonly vert?: TextBoxTextDirection;"
+          },
+          {
+            "path": "packages/model/src/text-box-vertical-alignment.internal.ts",
+            "pattern": "export function normalizeTextBoxVerticalAlignment("
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "set verticalAlignment(value: TextBoxVerticalAlignment | undefined) {\n    this.slide.setShapeTextVerticalAlignment(this.id, value);\n  }"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/placeholder-text-style-4-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "round-trips empty layout placeholders in all six presentation formats"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates edits clears and reopens underline owners in all six formats"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "creates, edits, duplicates, and reopens text-box vertical alignment"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const placeholderTextStyle4Probe ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const masterLayoutChecks = {"
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const packedUnderlinePlaceholder = underlineFamilyLayout.addPlaceholder("
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const createdText = created.addSlide().addText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes placeholder text style fields through canonical text owners"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "compares public placeholder population payloads with strict native owners"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens text-box vertical alignment"
+          }
+        ]
       },
       "id": "interface:PlaceholderProps@property:valign",
       "kind": "property",
       "name": "valign",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddPlaceholderOptions.valign",
+        "AddTextOptions.valign",
+        "ShapeModel.verticalAlignment",
+        "TextBoxVerticalAlignment"
+      ],
+      "note": "PptxGenJS retains top/middle/bottom outside the layout prompt and applies t/ctr/b when the placeholder is populated; native exposes the same three public tokens through inherited AddTextOptions.valign and preserves the same editable text-body anchor with strict validation before mutation.",
       "optional": true,
       "owner": "PlaceholderProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "VAlign"
     },
     {
@@ -101663,12 +102020,12 @@
   "complete": false,
   "counts": {
     "defect-excluded": 373,
-    "deliberate-difference": 520,
+    "deliberate-difference": 521,
     "deprecated-alias": 94,
     "stale": 0,
-    "supported": 757,
+    "supported": 760,
     "unsupported": 0,
-    "unverified": 30
+    "unverified": 26
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -101690,10 +102047,6 @@
     "interface:IChartOpts@property:shadow",
     "interface:IChartOpts@property:titleAlign",
     "interface:OptsChartGridLine@property:cap",
-    "interface:PlaceholderProps@property:align",
-    "interface:PlaceholderProps@property:margin",
-    "interface:PlaceholderProps@property:transparency",
-    "interface:PlaceholderProps@property:valign",
     "interface:ShapeProps@property:align",
     "interface:ShapeProps@property:angleRange",
     "interface:ShapeProps@property:arcThicknessRatio",

@@ -1288,3 +1288,13 @@ $ pptx-inspect --json package inspect output.pptx
 - `TextPropsOptions.data/path` 归为 defect-excluded：PptxGenJS plain/rich text writer 都忽略字段，normalized slide XML byte-identical，sentinel 不进入任何 package part；Native 不新增 inert aliases。
 - Aggregate adapter control 为 1/1，fresh runtime probe 为 14/14，native write/reopen 为 7/7，PowerPoint 2010 为 0 errors / 0 warnings。该族无产品实现变化，复用上一批 npm tarball、persistent Chrome、SDK 与 OOXML source-owner 证据。
 - 权威矩阵更新为 1,744/1,774（98.31%）：supported 757、deliberate-difference 520、deprecated-alias 94、defect-excluded 373、unverified 30、unsupported/stale 0，diagnostics 0。下一族为 Placeholder Text Style（4 项）。
+
+## PptxGenJS 全表面：Placeholder Text Style
+
+状态：能力族 4/4 完成
+
+- `PlaceholderProps.align`、`transparency`、`valign` 归为 supported；`margin` 归为 deliberate-difference，因为 Native 保持文档化 top/right/bottom/left 顺序，不复制 PptxGenJS 4.0.1 非对称 tuple mapping。
+- 共享 lifecycle probe 一次覆盖 layout/master/direct/populated/duplicate owner、caller detachment、exact no-op、strict invalid isolation、rollback、relationship stability、write/reopen、精确 OOXML 5/5 与 pptx/pptm/ppsx/ppsm/potx/potm 六格式。
+- Focused gates 为 7/7，PptxGenJS runtime aggregate 为 17/17，surface/runtime audit 为 29/29，TypeScript 通过；最终 single-worker full Vitest 为 93 passed / 1 skipped files、1,843 passed / 1 skipped tests（245.19s）。Actual npm tarball 为 726,640 bytes、66 entries，SHA-256 `6d3cd89e2e1fcc25ffcd47c7fc95462bdc8dbda8cd4f7c40e61224339347bc58`；installed npm 与持久 Chrome shared probe 均为 10/10 lifecycle true、0 diagnostics，Chrome error log 为 0。
+- Node/browser evidence deck 均为 24,251 bytes、20 parts、2 slides，SHA-256 分别为 `595d39bdc3c727620bf689d1a2cefc5837cfafd61ae4cbc0f7737b99325afdf3` 与 `18c4d601e5026e95bb3bf50bdb596fab06c23503e1f6c50c2764a56ffc4f2393`。
+- 权威矩阵更新为 1,748/1,774（98.53%）：supported 760、deliberate-difference 521、deprecated-alias 94、defect-excluded 373、unverified 26、unsupported/stale 0，diagnostics 0。下一族为 Shape Geometry Residual（3 项）。

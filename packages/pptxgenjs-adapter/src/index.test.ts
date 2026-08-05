@@ -7783,6 +7783,312 @@ describe('importPptxGenJS', () => {
     }
   }, 20_000);
 
+  it('closes placeholder text style fields through canonical text owners', async () => {
+    const classifications = [
+      { id: 'interface:PlaceholderProps@property:align', status: 'supported' },
+      { id: 'interface:PlaceholderProps@property:margin', status: 'deliberate-difference' },
+      { id: 'interface:PlaceholderProps@property:transparency', status: 'supported' },
+      { id: 'interface:PlaceholderProps@property:valign', status: 'supported' },
+    ].sort((left, right) => left.id.localeCompare(right.id));
+    expect(classifications).toHaveLength(4);
+    expect(new Set(classifications.map(({ id }) => id)).size).toBe(4);
+    expect(classifications.map(({ status }) => status).sort()).toEqual([
+      'deliberate-difference',
+      'supported',
+      'supported',
+      'supported',
+    ]);
+
+    const alignMap = { left: 'l', center: 'ctr', right: 'r', justify: 'just' } as const;
+    const valignMap = { top: 't', middle: 'ctr', bottom: 'b' } as const;
+    const cases: readonly {
+      readonly family: 'align' | 'margin' | 'transparency' | 'valign';
+      readonly label: string;
+      readonly value?: unknown;
+      readonly omitted?: true;
+    }[] = [
+      ...Object.keys(alignMap).map((value) => ({ family: 'align' as const, label: value, value })),
+      ...Object.keys(valignMap).map((value) => ({ family: 'valign' as const, label: value, value })),
+      { family: 'margin', label: 'scalar-zero', value: 0 },
+      { family: 'margin', label: 'scalar-eight', value: 8 },
+      { family: 'margin', label: 'tuple-asymmetric', value: [1, 2, 3, 4] },
+      { family: 'transparency', label: 'omitted', omitted: true },
+      { family: 'transparency', label: 'zero', value: 0 },
+      { family: 'transparency', label: 'fractional', value: 12.5 },
+      { family: 'transparency', label: 'hundred', value: 100 },
+    ];
+    expect(cases).toHaveLength(14);
+
+    const decodeEntities = (value: string): string => value
+      .replaceAll('&amp;', '&')
+      .replaceAll('&quot;', '"')
+      .replaceAll('&apos;', "'")
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>');
+    const attributes = (value: string): Record<string, string> => Object.fromEntries(
+      [...value.matchAll(/([\w:]+)="([^"]*)"/g)]
+        .map(([, key, entry]) => [key!, decodeEntities(entry!)]),
+    );
+    const ownerMap = (xml: string): Map<string, string> => new Map(
+      [...xml.matchAll(/<p:sp(?:\s[^>]*)?>[\s\S]*?<\/p:sp>/g)].map(([owner]) => {
+        const name = attributes(owner!.match(/<p:cNvPr\b([^>]*)>/)?.[1] ?? '').name;
+        return [name ?? '', owner!];
+      }),
+    );
+    const ownerState = (owner: string) => {
+      const body = attributes(owner.match(/<a:bodyPr\b([^>]*)>/)?.[1] ?? '');
+      const paragraph = attributes(owner.match(/<a:pPr\b([^>]*)>/)?.[1] ?? '');
+      return {
+        align: paragraph.algn,
+        anchor: body.anchor,
+        margins: {
+          left: body.lIns === undefined ? undefined : Number(body.lIns),
+          top: body.tIns === undefined ? undefined : Number(body.tIns),
+          right: body.rIns === undefined ? undefined : Number(body.rIns),
+          bottom: body.bIns === undefined ? undefined : Number(body.bIns),
+        },
+        alphas: [...new Set([...owner.matchAll(/<a:alpha\s+val="([^"]+)"\s*\/>/g)]
+          .map(([, value]) => Number(value)))],
+      };
+    };
+    const caseId = ({ family, label }: (typeof cases)[number]): string =>
+      `${family}-${label}`;
+    const objectName = (entry: (typeof cases)[number]): string =>
+      `Placeholder style ${caseId(entry)}`;
+
+    const publicObjects: PptxGenJSMasterObject[] = cases.map((entry, index) => {
+      const options: PptxGenJSPlaceholderOptions = {
+        name: caseId(entry),
+        objectName: objectName(entry),
+        type: 'body',
+        x: 0.25 + (index % 4) * 3,
+        y: 0.25 + Math.floor(index / 4) * 1.6,
+        w: 2.75,
+        h: 1.2,
+        color: '336699',
+      };
+      if (!entry.omitted) options[entry.family] = entry.value;
+      return { placeholder: { text: `Prompt ${caseId(entry)}`, options } };
+    });
+    const masterInput = { title: 'PLACEHOLDER-TEXT-STYLE-4', objects: publicObjects };
+    const masterBefore = JSON.stringify(masterInput);
+    const source = new PptxGenJS();
+    expect(source.version).toBe('4.0.1');
+    source.layout = 'LAYOUT_WIDE';
+    source.defineSlideMaster(masterInput);
+    expect(JSON.stringify(masterInput)).toBe(masterBefore);
+    const publicSlide = source.addSlide({ masterName: masterInput.title });
+    const populationInputs = cases.map((entry) => ({ placeholder: caseId(entry) }));
+    cases.forEach((entry, index) => {
+      publicSlide.addText(`Populated ${caseId(entry)}`, populationInputs[index]!);
+    });
+    expect(populationInputs.every((options) =>
+      JSON.stringify(options) === JSON.stringify({
+        placeholder: options.placeholder,
+        bullet: false,
+      }))).toBe(true);
+
+    const imported = await openPptxGenJSPublicOutput(source);
+    const importedLayout = imported.layouts.find(({ name }) => name === masterInput.title)!;
+    const importedLayoutXml = new TextDecoder().decode(
+      imported.opcPackage.requirePart(importedLayout.partUri).bytes,
+    );
+    const publicLayoutOwners = ownerMap(importedLayoutXml);
+    const publicSlideOwners = ownerMap(slideXml(imported, 0));
+    const publicStates = new Map(cases.map((entry) => [caseId(entry), {
+      layout: ownerState(publicLayoutOwners.get(objectName(entry)) ?? ''),
+      populated: ownerState(publicSlideOwners.get(objectName(entry)) ?? ''),
+    }]));
+    expect(publicStates.size).toBe(14);
+    expect(cases.every((entry) => publicLayoutOwners.has(objectName(entry)))).toBe(true);
+    expect(cases.every((entry) => publicSlideOwners.has(objectName(entry)))).toBe(true);
+
+    for (const [token, expected] of Object.entries(alignMap)) {
+      const state = publicStates.get(`align-${token}`)!;
+      expect(state.layout.align, token).toBe(expected);
+      expect(state.populated.align, token).toBe(expected);
+    }
+    for (const [token, expected] of Object.entries(valignMap)) {
+      const state = publicStates.get(`valign-${token}`)!;
+      expect(state.layout.anchor, token).toBeUndefined();
+      expect(state.populated.anchor, token).toBe(expected);
+    }
+    const zeroMargin = publicStates.get('margin-scalar-zero')!;
+    const positiveMargin = publicStates.get('margin-scalar-eight')!;
+    const tupleMargin = publicStates.get('margin-tuple-asymmetric')!;
+    expect([zeroMargin, positiveMargin, tupleMargin].every(({ layout }) =>
+      Object.values(layout.margins).every((value) => value === undefined))).toBe(true);
+    expect(zeroMargin.populated.margins).toEqual({ left: 0, top: 0, right: 0, bottom: 0 });
+    expect(positiveMargin.populated.margins).toEqual({
+      left: 101_600,
+      top: 101_600,
+      right: 101_600,
+      bottom: 101_600,
+    });
+    expect(tupleMargin.populated.margins).toEqual({
+      left: 12_700,
+      top: 50_800,
+      right: 25_400,
+      bottom: 38_100,
+    });
+    expect(publicStates.get('transparency-omitted')).toMatchObject({
+      layout: { alphas: [] }, populated: { alphas: [] },
+    });
+    expect(publicStates.get('transparency-zero')).toMatchObject({
+      layout: { alphas: [] }, populated: { alphas: [] },
+    });
+    expect(publicStates.get('transparency-fractional')).toMatchObject({
+      layout: { alphas: [87_500] }, populated: { alphas: [87_500] },
+    });
+    expect(publicStates.get('transparency-hundred')).toMatchObject({
+      layout: { alphas: [0] }, populated: { alphas: [0] },
+    });
+
+    const packageSnapshot = (document: PptxDocument): string => JSON.stringify({
+      parts: document.opcPackage.parts.map(
+        ({ uri, contentType, bytes, relationships }) => ({
+          uri,
+          contentType,
+          bytes: [...bytes],
+          relationships,
+        }),
+      ),
+      mutations: [...document.opcPackage.mutations],
+    });
+    const native = PptxDocument.create({ slideSize: 'wide' });
+    const nativeLayout = native.layouts[0]!;
+    for (const [index, entry] of cases.entries()) {
+      const nativeOptions: Record<string, unknown> & {
+        name: string;
+        type: 'body';
+        index: number;
+      } = {
+        name: objectName(entry),
+        type: 'body',
+        index: 300 + index,
+      };
+      let value: string | readonly {
+        readonly runs: readonly {
+          readonly text: string;
+          readonly style?: { readonly color?: unknown; readonly transparency?: number };
+        }[];
+      }[] = `Prompt ${caseId(entry)}`;
+      if (entry.family === 'transparency') {
+        value = [{
+          runs: [{
+            text: `Prompt ${caseId(entry)}`,
+            style: {
+              color: { kind: 'srgb', value: '336699' },
+              ...(!entry.omitted ? { transparency: entry.value as number } : {}),
+            },
+          }],
+        }];
+      } else if (entry.family === 'margin') {
+        nativeOptions.margin = entry.label === 'tuple-asymmetric'
+          ? [4, 2, 3, 1]
+          : entry.value;
+      } else {
+        nativeOptions[entry.family] = entry.value;
+      }
+      nativeLayout.addPlaceholder(value as never, nativeOptions as never);
+    }
+
+    const detachedValue = [{
+      runs: [{ text: 'Detached', style: { transparency: 25 } }],
+    }];
+    const detachedOptions: {
+      name: string;
+      type: 'body';
+      index: number;
+      align: 'center' | 'right';
+      margin: [number, number, number, number];
+      valign: 'bottom' | 'top';
+    } = {
+      name: 'Detached placeholder text style',
+      type: 'body',
+      index: 399,
+      align: 'center',
+      margin: [1, 2, 3, 4],
+      valign: 'bottom',
+    };
+    const detached = nativeLayout.addPlaceholder(detachedValue, detachedOptions);
+    const detachedSnapshot = packageSnapshot(native);
+    detachedValue[0]!.runs[0]!.style.transparency = 75;
+    detachedOptions.align = 'right';
+    detachedOptions.margin[0] = 9;
+    detachedOptions.valign = 'top';
+    expect(packageSnapshot(native)).toBe(detachedSnapshot);
+    expect(detached.richText[0]!.runs[0]!.style?.transparency).toBe(25);
+    expect(detached.richText[0]!.align).toBe('center');
+    expect(detached.textMargins).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+    expect(detached.verticalAlignment).toBe('bottom');
+
+    const beforeInvalid = packageSnapshot(native);
+    for (const invoke of [
+      () => nativeLayout.addPlaceholder('Invalid align', {
+        name: 'Invalid align', type: 'body', align: 'centered' as never,
+      }),
+      () => nativeLayout.addPlaceholder('Invalid margin', {
+        name: 'Invalid margin', type: 'body', margin: [1, 2, 3] as never,
+      }),
+      () => nativeLayout.addPlaceholder('Invalid valign', {
+        name: 'Invalid valign', type: 'body', valign: 'center' as never,
+      }),
+      () => nativeLayout.addPlaceholder([{
+        runs: [{ text: 'Invalid transparency', style: { transparency: 101 } }],
+      }], { name: 'Invalid transparency', type: 'body' }),
+    ]) expect(invoke).toThrow();
+    expect(packageSnapshot(native)).toBe(beforeInvalid);
+
+    const nativeSlide = native.addSlide({ masterName: nativeLayout.name });
+    for (const entry of cases) {
+      const populationOptions: Record<string, unknown> = { placeholder: objectName(entry) };
+      if (entry.family === 'transparency') {
+        nativeSlide.addRichText([{
+          runs: [{
+            text: `Populated ${caseId(entry)}`,
+            style: {
+              color: { kind: 'srgb', value: '336699' },
+              ...(!entry.omitted ? { transparency: entry.value as number } : {}),
+            },
+          }],
+        }], populationOptions);
+      } else {
+        populationOptions[entry.family] = entry.family === 'margin'
+            && entry.label === 'tuple-asymmetric'
+          ? [4, 2, 3, 1]
+          : entry.value;
+        nativeSlide.addText(`Populated ${caseId(entry)}`, populationOptions);
+      }
+    }
+
+    const output = await native.write({ compatibility: 'powerpoint-2010' });
+    const reopened = await PptxDocument.open(output);
+    const nativeOwners = ownerMap(slideXml(reopened, 0));
+    const nativeStates = new Map(cases.map((entry) => [
+      caseId(entry),
+      ownerState(nativeOwners.get(objectName(entry)) ?? ''),
+    ]));
+    for (const [token, expected] of Object.entries(alignMap)) {
+      expect(nativeStates.get(`align-${token}`)?.align, token).toBe(expected);
+    }
+    for (const [token, expected] of Object.entries(valignMap)) {
+      expect(nativeStates.get(`valign-${token}`)?.anchor, token).toBe(expected);
+    }
+    expect(nativeStates.get('margin-scalar-zero')?.margins)
+      .toEqual(zeroMargin.populated.margins);
+    expect(nativeStates.get('margin-scalar-eight')?.margins)
+      .toEqual(positiveMargin.populated.margins);
+    expect(nativeStates.get('margin-tuple-asymmetric')?.margins)
+      .toEqual(tupleMargin.populated.margins);
+    expect(nativeStates.get('transparency-omitted')?.alphas).toEqual([]);
+    expect(nativeStates.get('transparency-zero')?.alphas).toEqual([100_000]);
+    expect(nativeStates.get('transparency-fractional')?.alphas).toEqual([87_500]);
+    expect(nativeStates.get('transparency-hundred')?.alphas).toEqual([0]);
+    expect(native.diagnostics).toEqual([]);
+    expect(reopened.diagnostics).toEqual([]);
+  }, 30_000);
+
   it('closes PptxGenJS shape and text transform identity through strict native state', async () => {
     const classifications = [
       ...['flipH', 'flipV', 'objectName', 'rectRadius', 'rotate'].map((property) => ({

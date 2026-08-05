@@ -56,6 +56,13 @@ try {
       'utf8',
     ),
   );
+  await writeFile(
+    join(directory, 'placeholder-text-style-4-lifecycle-probe.mjs'),
+    await readFile(
+      join(repositoryRoot, 'scripts/placeholder-text-style-4-lifecycle-probe.mjs'),
+      'utf8',
+    ),
+  );
   run('npm', [
     'install',
     '--ignore-scripts',
@@ -482,6 +489,7 @@ import { runImageIdentityEffects5LifecycleProbe } from './image-identity-effects
 import { runShapeTextTransformIdentity13LifecycleProbe } from './shape-text-transform-identity-13-lifecycle-probe.mjs';
 import { runCoreContentPrimitiveInputs14LifecycleProbe } from './core-content-primitive-inputs-14-lifecycle-probe.mjs';
 import { runHyperlinkOwners6LifecycleProbe } from './hyperlink-owners-6-lifecycle-probe.mjs';
+import { runPlaceholderTextStyle4LifecycleProbe } from './placeholder-text-style-4-lifecycle-probe.mjs';
 const installedManifestVersion = ${JSON.stringify(manifest.version)};
 const chartPresentation91Probe = await runChartPresentation91LifecycleProbe(
   { ChartModel, PptxDocument, chartWorkbookMatches },
@@ -560,6 +568,27 @@ const coreContentPrimitiveInputs14State = {
 await writeFile(
   'core-content-primitive-inputs-14-smoke.pptx',
   coreContentPrimitiveInputs14Probe.explicitOutputBytes,
+);
+const placeholderTextStyle4Probe =
+  await runPlaceholderTextStyle4LifecycleProbe({ PptxDocument, inches });
+const placeholderTextStyle4 = placeholderTextStyle4Probe.ok;
+const placeholderTextStyle4State = {
+  ownerReuse: placeholderTextStyle4Probe.state.ownerReuse,
+  noOp: placeholderTextStyle4Probe.state.noOp,
+  invalidIsolation: placeholderTextStyle4Probe.state.invalidIsolation,
+  rollback: placeholderTextStyle4Probe.state.rollback,
+  duplicateIsolation: placeholderTextStyle4Probe.state.duplicateIsolation,
+  reopened: JSON.stringify(placeholderTextStyle4Probe.state.reopened.populated) ===
+    JSON.stringify(placeholderTextStyle4Probe.state.edited),
+  relationshipStability: placeholderTextStyle4Probe.state.relationshipStability,
+  exactOoxml: Object.values(placeholderTextStyle4Probe.state.exactOoxml).every(Boolean),
+  formats: placeholderTextStyle4Probe.state.allFormats,
+  diagnostics: Object.values(placeholderTextStyle4Probe.state.diagnostics)
+    .every((count) => count === 0),
+};
+await writeFile(
+  'placeholder-text-style-4-smoke.pptx',
+  placeholderTextStyle4Probe.explicitOutputBytes,
 );
 const hyperlinkOwners6Probe = await runHyperlinkOwners6LifecycleProbe({ PptxDocument });
 const hyperlinkOwners6 = hyperlinkOwners6Probe.ok;
@@ -11064,6 +11093,8 @@ const checks = {
   shapeTextTransformIdentity13State,
   coreContentPrimitiveInputs14,
   coreContentPrimitiveInputs14State,
+  placeholderTextStyle4,
+  placeholderTextStyle4State,
   hyperlinkOwners6,
   hyperlinkOwners6State,
   chartPresentation91,
@@ -19881,6 +19912,14 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
     await mkdir(dirname(output), { recursive: true });
     await writeFile(output, await readFile(coreContentPrimitiveInputs14DeckPath));
   }
+  if (process.env.PPTX_PLACEHOLDER_TEXT_STYLE_4_OUT) {
+    const output = resolve(process.env.PPTX_PLACEHOLDER_TEXT_STYLE_4_OUT);
+    await mkdir(dirname(output), { recursive: true });
+    await writeFile(
+      output,
+      await readFile(join(directory, 'placeholder-text-style-4-smoke.pptx')),
+    );
+  }
   if (process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -19987,6 +20026,8 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
     summary.coreContentPrimitiveInputs14Slides = true;
     summary.coreContentPrimitiveInputs14PartRead = true;
     summary.coreContentPrimitiveInputs14Relationships = true;
+    summary.placeholderTextStyle4 = apiChecks.placeholderTextStyle4;
+    summary.placeholderTextStyle4State = apiChecks.placeholderTextStyle4State;
     summary.tableMargins = apiChecks.tableMargins;
     summary.tableMarginsState = apiChecks.tableMarginsState;
     summary.tableMarginsInspect = true;

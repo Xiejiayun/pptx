@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1744);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1748);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(373).fill('defect-excluded'),
-      ...Array(757).fill('supported'),
-      ...Array(520).fill('deliberate-difference'),
+      ...Array(760).fill('supported'),
+      ...Array(521).fill('deliberate-difference'),
       ...Array(94).fill('deprecated-alias'),
     ].sort(),
   );
@@ -232,6 +232,35 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
       assert.equal(entry.serialization, true);
       assert.equal(entry.client, true);
     }
+  }
+  const placeholderTextStyleIds = new Set([
+    'interface:PlaceholderProps@property:align',
+    'interface:PlaceholderProps@property:margin',
+    'interface:PlaceholderProps@property:transparency',
+    'interface:PlaceholderProps@property:valign',
+  ]);
+  const placeholderTextStyleEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => placeholderTextStyleIds.has(id));
+  assert.deepEqual(
+    placeholderTextStyleEntries.map(({ id, status }) => ({ id, status }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+    [
+      { id: 'interface:PlaceholderProps@property:align', status: 'supported' },
+      { id: 'interface:PlaceholderProps@property:margin', status: 'deliberate-difference' },
+      { id: 'interface:PlaceholderProps@property:transparency', status: 'supported' },
+      { id: 'interface:PlaceholderProps@property:valign', status: 'supported' },
+    ],
+  );
+  for (const entry of placeholderTextStyleEntries) {
+    assert.equal(
+      entry.control.pattern,
+      'closes placeholder text style fields through canonical text owners',
+    );
+    assert.equal(entry.evidence.package[0].pattern, 'const placeholderTextStyle4Probe =');
+    assert.equal(entry.evidence.ooxml[0].pattern, 'const exactOoxml = {');
+    assert.equal(entry.evidence.clients[0].pattern, 'const placeholderTextStyle4State = {');
+    assert.equal(entry.serialization, true);
+    assert.equal(entry.client, true);
   }
   const lineFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
     /^(?:union:)?interface:(?:ShapeLineProps@property:(?:alpha|beginArrowType|color|dashType|endArrowType|lineDash|lineHead|lineTail|pt|size|transparency|type|width)|(?:ShapeProps|TextPropsOptions)@property:(?:line|lineDash|lineHead|lineSize|lineTail))(?:#.+)?$/u

@@ -1753,4 +1753,14 @@ PptxGenJS `TextPropsOptions`. The authoritative matrix is now 1,744/1,774
 diagnostic entries. This evidence-only family reuses the latest actual npm,
 persistent-browser, SDK, OOXML, and PowerPoint 2010 source-owner gates.
 
+The Placeholder Text Style family closes four more atoms. Paragraph alignment,
+rich-run transparency, and vertical alignment are supported; margin is a
+deliberate difference because native keeps documented top/right/bottom/left
+tuple order instead of PptxGenJS's asymmetric legacy mapping. One shared
+lifecycle probe covers layout, master, populated, direct, and duplicated owners
+through packed npm, persistent Chrome, exact OOXML, six formats, and reopen.
+The matrix is now 1,748/1,774 (98.53%) classified with 26 remaining: 760
+supported, 521 deliberate differences, 94 deprecated aliases, and 373 defect
+exclusions, with zero unsupported, stale, or diagnostic entries.
+
 Project documentation and source: [github.com/Xiejiayun/pptx](https://github.com/Xiejiayun/pptx)
