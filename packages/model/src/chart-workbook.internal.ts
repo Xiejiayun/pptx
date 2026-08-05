@@ -265,14 +265,14 @@ function createWorkbookPlan(definition: Readonly<ChartDefinition>): InternalWork
   const columns: WorkbookCell[][] = [];
   const formulas: Readonly<ChartWorkbookFormula>[] = [];
   definition.groups.forEach((group, groupIndex) => {
-    if (group.type === 'scatter' || group.type === 'bubble') {
+    if (group.type === 'scatter' || group.type === 'bubble' || group.type === 'bubble3D') {
       group.series.forEach((series, seriesIndex) => {
         const xColumn = columns.length + 1;
         columns.push(['', ...series.xValues!]);
         const valueColumn = columns.length + 1;
         columns.push([series.name, ...series.values]);
         let sizeColumn: number | undefined;
-        if (group.type === 'bubble') {
+        if (group.type === 'bubble' || group.type === 'bubble3D') {
           sizeColumn = columns.length + 1;
           columns.push(['', ...series.sizes!]);
         }

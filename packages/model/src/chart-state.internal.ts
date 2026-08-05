@@ -14,7 +14,10 @@ import type {
   ChartLegendOptions,
   ChartMarkerOptions,
   ChartOptions,
+  ChartPointDataLabelOptions,
+  ChartPointOptions,
   ChartSeriesAxisOptions,
+  ChartSeriesDataLabelOptions,
   ChartSeriesInput,
   ChartSeriesOptions,
   ChartState,
@@ -25,9 +28,14 @@ import type {
 import { normalizeChartDefinition } from './chart-definition.internal.js';
 import { readSimpleFillChoice, type SimpleFill } from './simple-fill.internal.js';
 import { readSimpleLine, type NormalizedSimpleLine } from './simple-line.internal.js';
+import {
+  readSimpleShadow,
+  type NormalizedShapeShadow,
+} from './simple-shadow.internal.js';
 
 const CHART_NAMESPACE = 'http://schemas.openxmlformats.org/drawingml/2006/chart';
 const MODERN_CHART_NAMESPACE = 'http://schemas.microsoft.com/office/drawing/2014/chartex';
+const CHART_2014_NAMESPACE = 'http://schemas.microsoft.com/office/drawing/2014/chart';
 const DRAWING_NAMESPACE = 'http://schemas.openxmlformats.org/drawingml/2006/main';
 const RELATIONSHIP_NAMESPACE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
@@ -188,7 +196,7 @@ function readGroup(
   group: XmlElement,
   requireWorkbookFormulas: boolean,
 ): ParsedGroup {
-  const type = GROUP_TYPES[group.localName]!;
+  let type = GROUP_TYPES[group.localName]!;
   const seriesElements = chartChildren(group, 'ser');
   if (seriesElements.length === 0) unsupported(`${group.localName} has no series`);
   const indexed = seriesElements.map((series) => ({
@@ -201,6 +209,7 @@ function readGroup(
   const orderedSeries = indexed
     .sort((left, right) => left.order - right.order)
     .map(({ element }) => element);
+  if (type === 'bubble') type = readBubbleGroupType(orderedSeries);
   const series = orderedSeries.map((element) =>
     readSeries(xml, element, type, requireWorkbookFormulas));
   const axisIds = chartChildren(group, 'axId').map((element) =>
@@ -225,6 +234,21 @@ function readGroup(
   };
 }
 
+function readBubbleGroupType(series: readonly XmlElement[]): 'bubble' | 'bubble3D' {
+  const flags = series.map((entry) => {
+    const elements = chartChildren(entry, 'bubble3D');
+    if (elements.length > 1) ambiguous('Bubble series has multiple bubble3D elements');
+    if (elements.length === 0) return false;
+    const value = readStringAttribute(elements[0]!, 'val');
+    if (value === '1' || value === 'true') return true;
+    if (value === '0' || value === 'false') return false;
+    unsupported('Bubble series bubble3D flag is malformed');
+  });
+  if (flags.every(Boolean)) return 'bubble3D';
+  if (flags.every((value) => !value)) return 'bubble';
+  unsupported('Bubble series bubble3D flags are inconsistent');
+}
+
 function readSeries(
   xml: LosslessXmlDocument,
   series: XmlElement,
@@ -236,10 +260,10 @@ function readSeries(
     unsupported('Chart series name cache must contain one non-empty point');
   }
   const name = nameValues[0]!;
-  if (type === 'scatter' || type === 'bubble') {
+  if (type === 'scatter' || type === 'bubble' || type === 'bubble3D') {
     const xValues = readNumericReference(xml, series, 'xVal', requireWorkbookFormulas);
     const values = readNumericReference(xml, series, 'yVal', requireWorkbookFormulas);
-    const sizes = type === 'bubble'
+    const sizes = type === 'bubble' || type === 'bubble3D'
       ? readNumericReference(xml, series, 'bubbleSize', requireWorkbookFormulas)
       : undefined;
     return {
@@ -507,8 +531,20 @@ function readRootChartOptions(
   firstType: ChartType,
 ): ChartOptions {
   const result: Record<string, unknown> = {};
-  const language = readChildStringValue(root, 'lang');
-  if (language !== undefined) result.language = language;
+  const rootLanguageElements = chartChildren(root, 'lang');
+  if (rootLanguageElements.length > 1) ambiguous('Chart root language occurs more than once');
+  const language = rootLanguageElements.length === 1
+    ? readStringAttribute(rootLanguageElements[0]!, 'val')
+    : undefined;
+  if (rootLanguageElements.length === 1) {
+    if (language === undefined || language.length === 0) {
+      unsupported('Chart root language has a malformed value');
+    }
+    result.language = language;
+  } else {
+    const effectiveLanguage = readUniformDrawingLanguage(root);
+    if (effectiveLanguage !== undefined) result.language = effectiveLanguage;
+  }
   const style = readChildNumberValue(root, 'style');
   if (style !== undefined) result.style = style;
   if (readChildBooleanValue(root, 'roundedCorners') === true) result.roundedCorners = true;
@@ -529,6 +565,8 @@ function readRootChartOptions(
   const plotAreaShape = optionalChartChild(plotArea, 'spPr');
   const plotAreaOptions = plotAreaShape ? readAreaOptions(plotAreaShape) : undefined;
   if (plotAreaOptions) result.plotArea = plotAreaOptions;
+  const layout = readPlotLayout(plotArea);
+  if (layout !== undefined) result.layout = layout;
 
   const primary = assignment.axisSets[0];
   if (primary) {
@@ -538,7 +576,7 @@ function readRootChartOptions(
           xml,
           category,
           'bottom',
-          firstType === 'scatter' || firstType === 'bubble',
+          firstType === 'scatter' || firstType === 'bubble' || firstType === 'bubble3D',
           'category',
         ) as ChartCategoryAxisOptions | undefined
       : undefined;
@@ -560,7 +598,7 @@ function readRootChartOptions(
           xml,
           category,
           'top',
-          firstType === 'scatter' || firstType === 'bubble',
+          firstType === 'scatter' || firstType === 'bubble' || firstType === 'bubble3D',
           'category',
         ) as ChartCategoryAxisOptions | undefined
       : undefined;
@@ -591,7 +629,7 @@ function resolveAxisRoles(
   const elements = ids.map((id) => assignment.axesById.get(id)?.element).filter(
     (element): element is XmlElement => element !== undefined,
   );
-  if (type !== 'scatter' && type !== 'bubble') {
+  if (type !== 'scatter' && type !== 'bubble' && type !== 'bubble3D') {
     return {
       category: elements.find(({ localName }) => localName === 'catAx' || localName === 'dateAx'),
       value: elements.find(({ localName }) => localName === 'valAx'),
@@ -606,6 +644,71 @@ function resolveAxisRoles(
     value: elements.find((element) => element !== category),
     series: undefined,
   };
+}
+
+function readPlotLayout(plotArea: XmlElement): ChartOptions['layout'] {
+  const layouts = chartChildren(plotArea, 'layout');
+  if (layouts.length > 1) ambiguous('Chart plot layout occurs more than once');
+  if (layouts.length === 0) return undefined;
+  const manuals = chartChildren(layouts[0]!, 'manualLayout');
+  if (manuals.length > 1) ambiguous('Chart plot manual layout occurs more than once');
+  if (manuals.length === 0) return undefined;
+  const manual = manuals[0]!;
+  const target = readStrictOptionalChildStringValue(manual, 'layoutTarget', 'Chart layoutTarget');
+  if (target !== undefined && target !== 'inner') {
+    unsupported('Chart plot layout must target the inner plot area');
+  }
+  for (const mode of ['xMode', 'yMode'] as const) {
+    const value = readStrictOptionalChildStringValue(manual, mode, `Chart plot ${mode}`);
+    if (value !== undefined && value !== 'edge') {
+      unsupported(`Chart plot ${mode} must use edge mode`);
+    }
+  }
+  for (const mode of ['wMode', 'hMode'] as const) {
+    const value = readStrictOptionalChildStringValue(manual, mode, `Chart plot ${mode}`);
+    if (value !== undefined && value !== 'factor') {
+      unsupported(`Chart plot ${mode} must use factor mode`);
+    }
+  }
+  const readCoordinate = (name: 'x' | 'y' | 'w' | 'h'): number => {
+    const value = readStrictOptionalChildStringValue(
+      manual,
+      name,
+      `Chart plot layout ${name}`,
+    );
+    if (value === undefined) unsupported('Chart plot layout must provide x, y, w, and h');
+    const parsed = readDecimal(value, `Chart plot layout ${name}`);
+    if (parsed < 0 || parsed > 1) unsupported(`Chart plot layout ${name} is outside [0, 1]`);
+    return parsed;
+  };
+  return {
+    x: readCoordinate('x'),
+    y: readCoordinate('y'),
+    width: readCoordinate('w'),
+    height: readCoordinate('h'),
+  };
+}
+
+function readUniformDrawingLanguage(root: XmlElement): string | undefined {
+  const owners = [
+    ...drawingDescendants(root, 'rPr'),
+    ...drawingDescendants(root, 'endParaRPr'),
+  ];
+  if (owners.length === 0) return undefined;
+  const values: string[] = [];
+  for (const owner of owners) {
+    const attributes = owner.attributes.filter(({ name }) => name === 'lang');
+    if (attributes.length > 1) return undefined;
+    if (attributes.length === 0) continue;
+    const value = attributes[0]!.value;
+    if (value.length === 0 || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(value)) {
+      return undefined;
+    }
+    values.push(value);
+  }
+  return values.length > 0 && values.every((value) => value === values[0])
+    ? values[0]
+    : undefined;
 }
 
 function readGroupOptions(
@@ -638,7 +741,13 @@ function readGroupOptions(
   } else if (groupDataLabels) {
     result.dataLabels = groupDataLabels;
   }
-  const seriesOptions = seriesElements.map((series) => readSeriesOptions(series));
+  const seriesOptions = seriesElements.map((seriesElement, index) => readSeriesOptions(
+    xml,
+    seriesElement,
+    series[index]?.values.length ?? 0,
+    groupDataLabels,
+    type,
+  ));
   if (seriesOptions.some((options) => Object.keys(options).length > 0)) {
     result.series = seriesOptions;
   }
@@ -666,10 +775,18 @@ function readGroupOptions(
       } else {
         const gapDepth = readChildNumberValue(group, 'gapDepth');
         if (gapDepth !== undefined && gapDepth !== 150) result.gapDepth = gapDepth;
+        const shape = readStrictOptionalChildStringValue(group, 'shape', 'bar3D shape');
+        if (shape !== undefined) {
+          if (!['box', 'cone', 'coneToMax', 'cylinder', 'pyramid', 'pyramidToMax'].includes(shape)) {
+            unsupported('bar3D shape is unsupported');
+          }
+          if (shape !== 'box') result.shape = shape;
+        }
       }
       break;
     }
-    case 'bubble': {
+    case 'bubble':
+    case 'bubble3D': {
       const scale = readChildNumberValue(group, 'bubbleScale');
       if (scale !== undefined && scale !== 100) result.scale = scale;
       if (readChildBooleanValue(group, 'showNegBubbles') === true) {
@@ -706,13 +823,128 @@ function readGroupOptions(
   return Object.keys(result).length === 0 ? undefined : result as ChartGroupOptions;
 }
 
-function readSeriesOptions(series: XmlElement): ChartSeriesOptions {
+function readSeriesOptions(
+  xml: LosslessXmlDocument,
+  series: XmlElement,
+  valueCount: number,
+  inheritedDataLabels: Readonly<ChartDataLabelOptions> | undefined,
+  type: ChartType,
+): ChartSeriesOptions {
   const result: Record<string, unknown> = {};
   const shape = optionalChartChild(series, 'spPr');
-  if (shape) Object.assign(result, readAreaOptions(shape));
+  if (shape) {
+    Object.assign(result, readAreaOptions(shape));
+    const shadow = readShadowFromProperties(shape);
+    if (shadow) result.shadow = shadow;
+  }
   const marker = optionalChartChild(series, 'marker');
   if (marker) result.marker = readMarkerOptions(marker);
+  const points = readPointOptions(xml, series, valueCount);
+  if (points.length > 0) result.points = points;
+  const labels = chartChildren(series, 'dLbls');
+  if (
+    labels.length === 1
+    && readPromotableSeriesDataLabels(series, valueCount, inheritedDataLabels) === undefined
+  ) {
+    const dataLabels = readSeriesDataLabelOptions(xml, labels[0]!, valueCount, type);
+    if (dataLabels !== undefined) result.dataLabels = dataLabels;
+  }
   return result as ChartSeriesOptions;
+}
+
+function readPointOptions(
+  xml: LosslessXmlDocument,
+  series: XmlElement,
+  valueCount: number,
+): readonly ChartPointOptions[] {
+  const indexed = chartChildren(series, 'dPt').map((point) => {
+    const index = readRequiredIndex(xml, point, 'idx');
+    if (index >= valueCount) unsupported('Chart point style index is outside the series values');
+    const properties = optionalChartChild(point, 'spPr');
+    const options: Record<string, unknown> = { index };
+    if (properties) {
+      Object.assign(options, readAreaOptions(properties));
+      const shadow = readShadowFromProperties(properties);
+      if (shadow) options.shadow = shadow;
+    }
+    return options as unknown as ChartPointOptions;
+  });
+  requireUnique(indexed.map(({ index }) => index), 'Chart point style indexes');
+  return Object.freeze(indexed.sort((left, right) => left.index - right.index));
+}
+
+function readSeriesDataLabelOptions(
+  xml: LosslessXmlDocument,
+  labels: XmlElement,
+  valueCount: number,
+  type: ChartType,
+): ChartSeriesDataLabelOptions | undefined {
+  const result: Record<string, unknown> = { ...readDataLabelOptions(labels) };
+  const properties = optionalChartChild(labels, 'spPr');
+  const fill = properties ? readFillFromProperties(properties) : undefined;
+  const pointLabels = type === 'scatter'
+    ? readPointDataLabels(xml, labels, valueCount)
+    : undefined;
+  if (!fill && pointLabels === undefined) return undefined;
+  if (fill) result.fill = fill;
+  if (pointLabels !== undefined) result.pointLabels = pointLabels;
+  return result as ChartSeriesDataLabelOptions;
+}
+
+function readPointDataLabels(
+  xml: LosslessXmlDocument,
+  labels: XmlElement,
+  valueCount: number,
+): readonly ChartPointDataLabelOptions[] | undefined {
+  const points = chartChildren(labels, 'dLbl');
+  if (points.length === 0) return undefined;
+  if (!points.every(hasPointLabelUniqueId)) return undefined;
+  const result = points.map((point) => {
+    const index = readRequiredIndex(xml, point, 'idx');
+    if (index >= valueCount) unsupported('Chart point label index is outside the series values');
+    const text = optionalChartChild(point, 'tx');
+    const rich = text ? optionalChartChild(text, 'rich') : undefined;
+    if (!rich) unsupported('Chart point label must contain rich text');
+    const paragraphs = drawingChildren(rich, 'p');
+    if (paragraphs.length !== 1) unsupported('Chart point label must contain one paragraph');
+    const literal: string[] = [];
+    const fields: ('xValue' | 'yValue')[] = [];
+    let sawField = false;
+    for (const child of elementChildren(paragraphs[0]!)) {
+      if (elementNamespaceUri(child) !== DRAWING_NAMESPACE) continue;
+      if (child.localName === 'fld') {
+        sawField = true;
+        const type = readStringAttribute(child, 'type');
+        const id = readStringAttribute(child, 'id');
+        if (!id || (type !== 'XVALUE' && type !== 'YVALUE')) {
+          unsupported('Chart point label field is unsupported');
+        }
+        fields.push(type === 'XVALUE' ? 'xValue' : 'yValue');
+      } else if (child.localName === 'r' && !sawField) {
+        const values = drawingChildren(child, 't');
+        if (values.length !== 1) unsupported('Chart point label run is unsupported');
+        literal.push(xml.text(values[0]!));
+      }
+    }
+    if (literal.length === 0 && fields.length === 0) {
+      unsupported('Chart point label has no supported content');
+    }
+    const publicText = fields.length > 0 ? literal.slice(0, 1).join('') : literal.join('');
+    return {
+      index,
+      ...(literal.length === 0 ? {} : { text: publicText }),
+      ...(fields.length === 0 ? {} : { fields: Object.freeze(fields) }),
+    } as ChartPointDataLabelOptions;
+  });
+  requireUnique(result.map(({ index }) => index), 'Chart point label indexes');
+  return Object.freeze(result.sort((left, right) => left.index - right.index));
+}
+
+function hasPointLabelUniqueId(point: XmlElement): boolean {
+  const extensions = chartChildren(point, 'extLst').flatMap((list) => chartChildren(list, 'ext'));
+  const uniqueIds = extensions.flatMap((extension) => elementChildren(extension).filter((child) =>
+    elementNamespaceUri(child) === CHART_2014_NAMESPACE && child.localName === 'uniqueId'));
+  return uniqueIds.length === 1 && Boolean(readStringAttribute(uniqueIds[0]!, 'val'));
 }
 
 function readMarkerOptions(marker: XmlElement): ChartMarkerOptions {
@@ -742,7 +974,41 @@ function readTitleOptions(
   const x = manual ? readChildNumberValue(manual, 'x') : undefined;
   const y = manual ? readChildNumberValue(manual, 'y') : undefined;
   if (x !== undefined && y !== undefined) result.position = { x, y };
+  const alignment = readTitleAlignment(title);
+  if (alignment !== undefined) result.align = alignment;
   return result as ChartTitleOptions;
+}
+
+function readTitleAlignment(title: XmlElement): ChartTitleOptions['align'] {
+  const text = optionalChartChild(title, 'tx');
+  const rich = text ? optionalChartChild(text, 'rich') : undefined;
+  if (!rich) return undefined;
+  const paragraphs = drawingChildren(rich, 'p');
+  const values: string[] = [];
+  for (const paragraph of paragraphs) {
+    const properties = drawingChildren(paragraph, 'pPr');
+    if (properties.length > 1) ambiguous('Chart title paragraph has multiple pPr elements');
+    if (properties.length === 0) {
+      if (values.length > 0) unsupported('Chart title paragraph alignment is inconsistent');
+      continue;
+    }
+    const attributes = properties[0]!.attributes.filter(({ name }) => name === 'algn');
+    if (attributes.length > 1) ambiguous('Chart title paragraph has multiple alignment attributes');
+    if (attributes.length === 0) {
+      if (values.length > 0) unsupported('Chart title paragraph alignment is inconsistent');
+      continue;
+    }
+    values.push(attributes[0]!.value);
+  }
+  if (values.length === 0) return undefined;
+  if (values.length !== paragraphs.length || !values.every((value) => value === values[0])) {
+    unsupported('Chart title paragraph alignment is inconsistent');
+  }
+  const alignment = ({ l: 'left', ctr: 'center', r: 'right' } as const)[
+    values[0]! as 'l' | 'ctr' | 'r'
+  ];
+  if (alignment === undefined) unsupported('Chart title paragraph alignment is unsupported');
+  return alignment;
 }
 
 function readLegendOptions(legend: XmlElement): ChartLegendOptions {
@@ -1181,6 +1447,16 @@ function readAreaOptions(properties: XmlElement): ChartAreaOptions | undefined {
   return Object.keys(result).length === 0 ? undefined : result as ChartAreaOptions;
 }
 
+function readShadowFromProperties(properties: XmlElement): NormalizedShapeShadow | undefined {
+  const effectLists = elementChildren(properties).filter((child) =>
+    elementNamespaceUri(child) === DRAWING_NAMESPACE && child.localName === 'effectLst');
+  if (effectLists.length !== 1) return undefined;
+  const shadows = elementChildren(effectLists[0]!).filter((child) =>
+    elementNamespaceUri(child) === DRAWING_NAMESPACE
+      && (child.localName === 'outerShdw' || child.localName === 'innerShdw'));
+  return shadows.length === 1 ? readSimpleShadow(shadows[0]!, 'a:') : undefined;
+}
+
 function readFillFromProperties(properties: XmlElement): SimpleFill | undefined {
   const fills = elementChildren(properties).filter((child) =>
     elementNamespaceUri(child) === DRAWING_NAMESPACE
@@ -1246,6 +1522,21 @@ function readChildStringValue(parent: XmlElement, localName: string): string | u
   return child ? readStringAttribute(child, 'val') : undefined;
 }
 
+function readStrictOptionalChildStringValue(
+  parent: XmlElement,
+  localName: string,
+  context: string,
+): string | undefined {
+  const children = chartChildren(parent, localName);
+  if (children.length > 1) ambiguous(`${context} occurs more than once`);
+  if (children.length === 0) return undefined;
+  const attributes = children[0]!.attributes.filter(({ name }) => name === 'val');
+  if (attributes.length !== 1 || attributes[0]!.value.length === 0) {
+    unsupported(`${context} has a malformed value`);
+  }
+  return attributes[0]!.value;
+}
+
 function readChildNumberValue(parent: XmlElement, localName: string): number | undefined {
   const value = readChildStringValue(parent, localName);
   if (value === undefined || !DECIMAL_PATTERN.test(value)) return undefined;
@@ -1295,6 +1586,11 @@ function drawingDescendants(parent: XmlElement, localName: string): XmlElement[]
   };
   visit(parent);
   return result;
+}
+
+function drawingChildren(parent: XmlElement, localName: string): XmlElement[] {
+  return elementChildren(parent).filter((child) =>
+    elementNamespaceUri(child) === DRAWING_NAMESPACE && child.localName === localName);
 }
 
 function readWorkbookPartUri(

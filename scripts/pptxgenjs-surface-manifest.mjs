@@ -755,7 +755,7 @@ function chartCreationEvidence(
     }],
     package: [{
       path: 'scripts/smoke-npm-package.mjs',
-      pattern: 'const nativeCharts = reopenedNativeChartModels.length === 19',
+      pattern: 'const nativeCharts = reopenedNativeChartModels.length ===',
     }],
     ooxml: [{
       path: 'packages/sdk/src/index.test.ts',
@@ -763,7 +763,7 @@ function chartCreationEvidence(
     }],
     clients: [{
       path: 'scripts/playwright-browser-smoke.js',
-      pattern: 'const nativeCharts = reopenedCharts.length === 19',
+      pattern: 'const nativeCharts = reopenedCharts.length ===',
     }],
   };
 }
@@ -926,14 +926,14 @@ function chartPresentationEvidence(id, importerFix) {
       path: 'scripts/smoke-npm-package.mjs',
       pattern: importerFix
         ? CHART_PRESENTATION_PACKAGE_PATTERN
-        : 'const nativeCharts = reopenedNativeChartModels.length === 19',
+        : 'const nativeCharts = reopenedNativeChartModels.length ===',
     }],
     ooxml: [{ path: 'packages/sdk/src/index.test.ts', pattern: CHART_PRESENTATION_OOXML_TITLE }],
     clients: [{
       path: 'scripts/playwright-browser-smoke.js',
       pattern: importerFix
         ? 'const chartPresentation91Probe = await chartPresentationProbeModule'
-        : 'const nativeCharts = reopenedCharts.length === 19',
+        : 'const nativeCharts = reopenedCharts.length ===',
     }],
   };
 }
@@ -1541,6 +1541,239 @@ const CHART_AXIS_ADVANCED_FAMILY_ENTRIES = Object.freeze([
     'PptxGenJS 4.0.1 accepts this axisPos token but emits axis XML identical to the baseline.',
   )),
 ]);
+
+const CHART_RESIDUAL_23_CONTROL_TITLE =
+  'closes chart residual visual options through strict native state';
+const CHART_RESIDUAL_23_ATOMS = Object.freeze([
+  ['class:PptxGenJS@property:ChartType', 'deliberate-difference'],
+  ['inline:interface:IChartOpts@property:titlePos@property:titlePos.x', 'deliberate-difference'],
+  ['inline:interface:IChartOpts@property:titlePos@property:titlePos.y', 'deliberate-difference'],
+  ['interface:IChartOpts@property:bar3DShape', 'deliberate-difference'],
+  ['interface:IChartOpts@property:dataBorder', 'deliberate-difference'],
+  ['interface:IChartOpts@property:dataLabelBkgrdColors', 'deliberate-difference'],
+  ['interface:IChartOpts@property:dataLabelFormatScatter', 'deliberate-difference'],
+  ['interface:IChartOpts@property:dataNoEffects', 'deliberate-difference'],
+  ['interface:IChartOpts@property:invertedColors', 'deliberate-difference'],
+  ['interface:IChartOpts@property:lang', 'deliberate-difference'],
+  ['interface:IChartOpts@property:layout', 'deliberate-difference'],
+  ['interface:IChartOpts@property:lineCap', 'deliberate-difference'],
+  ['interface:IChartOpts@property:shadow', 'deliberate-difference'],
+  ['interface:IChartOpts@property:titleAlign', 'deliberate-difference'],
+  ['interface:OptsChartGridLine@property:cap', 'deliberate-difference'],
+  ['union:ChartLineCap#flat', 'supported'],
+  ['union:ChartLineCap#round', 'supported'],
+  ['union:ChartLineCap#square', 'supported'],
+  ['union:ChartType#bubble3D', 'supported'],
+  ['union:interface:IChartOpts@property:dataLabelFormatScatter#XY', 'deliberate-difference'],
+  ['union:interface:IChartOpts@property:dataLabelFormatScatter#custom', 'deliberate-difference'],
+  ['union:interface:IChartOpts@property:dataLabelFormatScatter#customXY', 'deliberate-difference'],
+  ['union:interface:OptsChartData@property:labels#string[][]', 'deliberate-difference'],
+]);
+
+function chartResidual23Native(id) {
+  if (id.includes('ChartLineCap') || id.endsWith('@property:lineCap')
+      || id.endsWith('OptsChartGridLine@property:cap')) {
+    return ['ShapeLine.cap', 'ShapeLineCap'];
+  }
+  if (id.includes('ChartType')) return ['CHART_TYPES', 'ChartType', 'ChartModel'];
+  if (id.includes('titlePos')) return ['ChartTitleOptions.position'];
+  if (id.endsWith('@property:bar3DShape')) return ['ChartBar3DGroupOptions.shape'];
+  if (id.endsWith('@property:dataBorder')) {
+    return ['ChartPointOptions.line', 'ChartSeriesOptions.line'];
+  }
+  if (id.endsWith('@property:dataLabelBkgrdColors')) {
+    return ['ChartSeriesDataLabelOptions.fill'];
+  }
+  if (id.endsWith('@property:dataNoEffects')) {
+    return ['ChartPointOptions.shadow', 'ChartSeriesOptions.shadow'];
+  }
+  if (id.endsWith('@property:invertedColors')) return ['ChartPointOptions.fill'];
+  if (id.endsWith('@property:lang')) return ['ChartOptions.language'];
+  if (id.endsWith('@property:layout')) return ['ChartLayoutOptions', 'ChartOptions.layout'];
+  if (id.endsWith('@property:titleAlign')) return ['ChartTitleOptions.align'];
+  if (id.endsWith('@property:shadow')) return ['ChartSeriesOptions.shadow'];
+  if (id.includes('dataLabelFormatScatter')) {
+    if (id.endsWith('@property:dataLabelFormatScatter')) {
+      return [
+        'ChartDataLabelOptions.showCategoryName',
+        'ChartDataLabelOptions.showValue',
+        'ChartSeriesDataLabelOptions.pointLabels',
+      ];
+    }
+    if (id.endsWith('#XY')) {
+      return ['ChartDataLabelOptions.showCategoryName', 'ChartDataLabelOptions.showValue'];
+    }
+    return ['ChartPointDataLabelOptions', 'ChartSeriesDataLabelOptions.pointLabels'];
+  }
+  if (id.includes('labels#string[][]')) return ['ChartSeries.categories'];
+  throw new Error(`Unmapped Chart Residual 23 atom: ${id}`);
+}
+
+function chartResidual23CodeEvidence(id) {
+  const chartCode = (pattern) => ({ path: 'packages/model/src/chart.ts', pattern });
+  if (id.includes('ChartLineCap') || id.endsWith('@property:lineCap')
+      || id.endsWith('OptsChartGridLine@property:cap')) {
+    return [{
+      path: 'packages/model/src/preset-shape.ts',
+      pattern: 'export type ShapeLineCap =',
+    }, {
+      path: 'packages/model/src/simple-line.internal.ts',
+      pattern: 'const LINE_CAP_TO_OOXML:',
+    }, {
+      path: 'packages/model/src/simple-line.internal.ts',
+      pattern: 'const OOXML_TO_LINE_CAP:',
+    }];
+  }
+  if (id.includes('ChartType')) {
+    return [
+      chartCode('export const CHART_TYPES = Object.freeze(['),
+      chartCode("  'bubble3D',"),
+      chartCode("ChartGroupBase<'bubble3D', ChartBubbleGroupOptions>"),
+    ];
+  }
+  if (id.includes('titlePos')) {
+    return [
+      chartCode('export interface ChartTitlePositionOptions {'),
+      chartCode(id.endsWith('titlePos.x') ? '  readonly x: number;' : '  readonly y: number;'),
+      chartCode('  readonly position?: ChartTitlePositionOptions;'),
+    ];
+  }
+  if (id.endsWith('@property:titleAlign')) {
+    return [
+      chartCode('export type ChartTitleAlignment ='),
+      chartCode('  readonly align?: ChartTitleAlignment;'),
+    ];
+  }
+  if (id.endsWith('@property:bar3DShape')) {
+    return [
+      chartCode('export type ChartBar3DShape ='),
+      chartCode('export interface ChartBar3DGroupOptions extends ChartCommonGroupOptions {'),
+      chartCode('  readonly shape?: ChartBar3DShape;'),
+    ];
+  }
+  if (id.endsWith('@property:dataBorder')) {
+    return [
+      chartCode('export interface ChartPointOptions {'),
+      chartCode('export interface ChartSeriesOptions {'),
+      chartCode('  readonly line?: ShapeLine;'),
+    ];
+  }
+  if (id.endsWith('@property:dataNoEffects')) {
+    return [
+      chartCode('export interface ChartPointOptions {'),
+      chartCode('export interface ChartSeriesOptions {'),
+      chartCode('  readonly shadow?: ShapeShadow;'),
+    ];
+  }
+  if (id.endsWith('@property:invertedColors')) {
+    return [
+      chartCode('export interface ChartPointOptions {'),
+      chartCode('  readonly fill?: ShapeFill;'),
+    ];
+  }
+  if (id.endsWith('@property:dataLabelBkgrdColors')) {
+    return [
+      chartCode('export interface ChartSeriesDataLabelOptions extends ChartDataLabelOptions {'),
+      chartCode('  readonly fill?: ShapeFill;'),
+    ];
+  }
+  if (id.includes('dataLabelFormatScatter')) {
+    if (id.endsWith('@property:dataLabelFormatScatter')) {
+      return [
+        chartCode('export interface ChartDataLabelOptions extends ChartFontOptions {'),
+        chartCode('  readonly showValue?: boolean;'),
+        chartCode('  readonly showCategoryName?: boolean;'),
+        chartCode('export interface ChartPointDataLabelOptions {'),
+        chartCode('  readonly fields?: readonly ChartDataLabelFieldKind[];'),
+        chartCode('export interface ChartSeriesDataLabelOptions extends ChartDataLabelOptions {'),
+        chartCode('  readonly pointLabels?: readonly ChartPointDataLabelOptions[];'),
+      ];
+    }
+    if (id.endsWith('#XY')) {
+      return [
+        chartCode('export interface ChartDataLabelOptions extends ChartFontOptions {'),
+        chartCode('  readonly showValue?: boolean;'),
+        chartCode('  readonly showCategoryName?: boolean;'),
+      ];
+    }
+    return [
+      chartCode('export interface ChartPointDataLabelOptions {'),
+      chartCode('  readonly fields?: readonly ChartDataLabelFieldKind[];'),
+      chartCode('export interface ChartSeriesDataLabelOptions extends ChartDataLabelOptions {'),
+      chartCode('  readonly pointLabels?: readonly ChartPointDataLabelOptions[];'),
+    ];
+  }
+  if (id.endsWith('@property:lang')) {
+    return [
+      chartCode('export interface ChartOptions {'),
+      chartCode('  readonly language?: string;'),
+    ];
+  }
+  if (id.endsWith('@property:shadow')) {
+    return [
+      chartCode('export interface ChartSeriesOptions {'),
+      chartCode('  readonly shadow?: ShapeShadow;'),
+    ];
+  }
+  if (id.endsWith('@property:layout')) {
+    return [
+      chartCode('export interface ChartLayoutOptions {'),
+      chartCode('  readonly layout?: ChartLayoutOptions;'),
+    ];
+  }
+  if (id.includes('labels#string[][]')) {
+    return [
+      chartCode('export type ChartCategories ='),
+      chartCode('  | readonly (readonly string[])[];'),
+      chartCode('export interface ChartSeries extends ChartSeriesInput {'),
+      chartCode('  readonly categories?: ChartCategories;'),
+    ];
+  }
+  throw new Error(`Unmapped Chart Residual 23 code evidence: ${id}`);
+}
+
+function chartResidual23Entry([id, status]) {
+  const difference = status === 'deliberate-difference';
+  return {
+    id,
+    status,
+    native: chartResidual23Native(id),
+    evidence: {
+      code: chartResidual23CodeEvidence(id),
+      tests: [{
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: CHART_RESIDUAL_23_CONTROL_TITLE,
+      }],
+      package: [{
+        path: 'scripts/smoke-npm-package.mjs',
+        pattern: 'const chartResidual23Probe = await runChartResidual23LifecycleProbe({',
+      }],
+      ooxml: [{
+        path: 'scripts/chart-residual-23-lifecycle-probe.mjs',
+        pattern: 'const exactOoxml = {',
+      }],
+      clients: [{
+        path: 'scripts/playwright-browser-smoke.js',
+        pattern: 'const chartResidual23State = chartResidual23Probe.state;',
+      }],
+    },
+    ...(difference ? {
+      control: {
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        pattern: CHART_RESIDUAL_23_CONTROL_TITLE,
+      },
+    } : {}),
+    serialization: true,
+    client: true,
+    note: difference
+      ? 'Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.'
+      : 'Native exposes this declared chart capability directly through strict immutable state, package serialization, browser use, and editable reopen behavior.',
+  };
+}
+
+const CHART_RESIDUAL_23_FAMILY_ENTRIES = Object.freeze(
+  CHART_RESIDUAL_23_ATOMS.map((atom) => chartResidual23Entry(atom)),
+);
 
 const INERT_CHART_OPTION_CONTROL_TITLE =
   'isolates inherited inert IChartOpts text and top-level gridline declarations from chart output';
@@ -3973,7 +4206,7 @@ const SLIDE_SECTION_EVIDENCE = Object.freeze({
   chart: Object.freeze({
     code: Object.freeze({ path: 'packages/model/src/slide.ts', pattern: 'async addChart(' }),
     test: 'compares PptxGenJS and native chart creation return semantics',
-    packagePattern: 'const nativeCharts = reopenedNativeChartModels.length === 19',
+    packagePattern: 'const nativeCharts = reopenedNativeChartModels.length ===',
     ooxmlPattern: 'creates and reopens all native chart types through the public SDK in all six formats',
     clientPattern: 'const chartDocument = api.PptxDocument.create();',
   }),
@@ -7552,6 +7785,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...CHART_AXIS_LINE_GRID_DIFFERENCE_ENTRIES,
     ...CHART_AXIS_BEHAVIOR_DIFFERENCE_ENTRIES,
     ...CHART_AXIS_ADVANCED_FAMILY_ENTRIES,
+    ...CHART_RESIDUAL_23_FAMILY_ENTRIES,
     ...INERT_CHART_OPTION_DEFECT_ENTRIES,
     ...BULLET_FAMILY_ENTRIES,
     ...TAB_STOPS_FAMILY_ENTRIES,

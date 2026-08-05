@@ -1,4 +1,4 @@
-import type { ShapeFill, ShapeLine } from './preset-shape.js';
+import type { ShapeFill, ShapeLine, ShapeShadow } from './preset-shape.js';
 import type { PlaceholderSelector } from './placeholder.js';
 import type { RichTextColor } from './text.js';
 
@@ -7,6 +7,7 @@ export const CHART_TYPES = Object.freeze([
   'bar',
   'bar3D',
   'bubble',
+  'bubble3D',
   'doughnut',
   'line',
   'pie',
@@ -48,12 +49,30 @@ export interface ChartTitlePositionOptions {
   readonly y: number;
 }
 
+export type ChartTitleAlignment = 'left' | 'center' | 'right';
+
+export interface ChartLayoutOptions {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+export type ChartBar3DShape =
+  | 'box'
+  | 'cone'
+  | 'coneToMax'
+  | 'cylinder'
+  | 'pyramid'
+  | 'pyramidToMax';
+
 export interface ChartTitleOptions extends ChartFontOptions {
   readonly visible?: boolean;
   readonly text?: string;
   readonly overlay?: boolean;
   readonly rotation?: number;
   readonly position?: ChartTitlePositionOptions;
+  readonly align?: ChartTitleAlignment;
 }
 
 export interface ChartLegendOptions extends ChartFontOptions {
@@ -172,10 +191,33 @@ export interface ChartMarkerOptions {
   readonly line?: ShapeLine;
 }
 
+export interface ChartPointOptions {
+  readonly index: number;
+  readonly fill?: ShapeFill;
+  readonly line?: ShapeLine;
+  readonly shadow?: ShapeShadow;
+}
+
+export type ChartDataLabelFieldKind = 'xValue' | 'yValue';
+
+export interface ChartPointDataLabelOptions {
+  readonly index: number;
+  readonly text?: string;
+  readonly fields?: readonly ChartDataLabelFieldKind[];
+}
+
+export interface ChartSeriesDataLabelOptions extends ChartDataLabelOptions {
+  readonly fill?: ShapeFill;
+  readonly pointLabels?: readonly ChartPointDataLabelOptions[];
+}
+
 export interface ChartSeriesOptions {
   readonly fill?: ShapeFill;
   readonly line?: ShapeLine;
   readonly marker?: ChartMarkerOptions;
+  readonly shadow?: ShapeShadow;
+  readonly points?: readonly ChartPointOptions[];
+  readonly dataLabels?: ChartSeriesDataLabelOptions;
 }
 
 export interface ChartCommonGroupOptions {
@@ -200,6 +242,7 @@ export interface ChartBar3DGroupOptions extends ChartCommonGroupOptions {
   readonly grouping?: 'clustered' | 'percentStacked' | 'stacked' | 'standard';
   readonly gapWidth?: number;
   readonly gapDepth?: number;
+  readonly shape?: ChartBar3DShape;
 }
 
 export interface ChartBubbleGroupOptions extends ChartCommonGroupOptions {
@@ -264,6 +307,7 @@ export type ChartGroupInput =
   | ChartGroupInputBase<'bar', ChartBarGroupOptions>
   | ChartGroupInputBase<'bar3D', ChartBar3DGroupOptions>
   | ChartGroupInputBase<'bubble', ChartBubbleGroupOptions>
+  | ChartGroupInputBase<'bubble3D', ChartBubbleGroupOptions>
   | ChartGroupInputBase<'doughnut', ChartDoughnutGroupOptions>
   | ChartGroupInputBase<'line', ChartLineGroupOptions>
   | ChartGroupInputBase<'pie', ChartPieGroupOptions>
@@ -275,6 +319,7 @@ export type ChartGroup =
   | ChartGroupBase<'bar', ChartBarGroupOptions>
   | ChartGroupBase<'bar3D', ChartBar3DGroupOptions>
   | ChartGroupBase<'bubble', ChartBubbleGroupOptions>
+  | ChartGroupBase<'bubble3D', ChartBubbleGroupOptions>
   | ChartGroupBase<'doughnut', ChartDoughnutGroupOptions>
   | ChartGroupBase<'line', ChartLineGroupOptions>
   | ChartGroupBase<'pie', ChartPieGroupOptions>
@@ -290,6 +335,7 @@ export interface ChartOptions {
   readonly legend?: ChartLegendOptions;
   readonly chartArea?: ChartAreaOptions;
   readonly plotArea?: ChartAreaOptions;
+  readonly layout?: ChartLayoutOptions;
   readonly categoryAxis?: ChartCategoryAxisOptions;
   readonly valueAxis?: ChartValueAxisOptions;
   readonly seriesAxis?: ChartSeriesAxisOptions;

@@ -75,6 +75,62 @@ describe('categorical chart rendering', () => {
     expect(multiXml.match(/<c:lvl>/g)).toHaveLength(2);
   });
 
+  it('renders series shadows, indexed point styles, and series label backgrounds in schema order', () => {
+    const definition = normalizeChartDefinition({ groups: [{
+      type: 'pie',
+      series: [{ name: 'Share', categories: ['A', 'B'], values: [1, 2] }],
+      options: { series: [{
+        shadow: { kind: 'outer' },
+        points: [{
+          index: 1,
+          line: {
+            kind: 'line',
+            color: { kind: 'srgb', value: '123456' },
+            width: 2,
+          },
+          shadow: { kind: 'inner' },
+        }],
+        dataLabels: {
+          fill: { kind: 'solid', color: { kind: 'srgb', value: '112233' } },
+        },
+      }] },
+    }] });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+    const series = xml.match(/<c:ser>[\s\S]*?<\/c:ser>/u)?.[0] ?? '';
+
+    expect(series).toContain('<a:effectLst><a:outerShdw');
+    expect(series).toContain('<c:dPt><c:idx val="1"/><c:spPr>');
+    expect(series).toContain('<a:effectLst><a:innerShdw');
+    expect(series).toContain('<c:dLbls><c:spPr><a:solidFill><a:srgbClr val="112233"/>');
+    expect(series.indexOf('<c:dPt>')).toBeLessThan(series.indexOf('<c:dLbls>'));
+    expect(series.indexOf('<c:dLbls>')).toBeLessThan(series.indexOf('<c:cat>'));
+  });
+
+  it('renders deterministic scatter point-label fields and private identities', () => {
+    const input = { groups: [{
+      type: 'scatter' as const,
+      series: [{ name: 'XY', xValues: [1, 2], values: [10, 20] }],
+      options: { series: [{ dataLabels: { pointLabels: [
+        { index: 0, text: 'Alpha', fields: ['xValue', 'yValue'] as const },
+        { index: 1, fields: ['yValue'] as const },
+      ] } }] },
+    }] };
+    const definition = normalizeChartDefinition(input);
+    const render = () => renderChartPart(
+      definition,
+      planChartWorkbook(definition).formulas,
+      'rId1',
+    );
+    const xml = render();
+
+    expect(render()).toBe(xml);
+    expect(xml.match(/<c:dLbl>/gu)).toHaveLength(2);
+    expect(xml.match(/type="XVALUE"/gu)).toHaveLength(1);
+    expect(xml.match(/type="YVALUE"/gu)).toHaveLength(2);
+    expect(xml.match(/<c16:uniqueId /gu)).toHaveLength(2);
+    expect(xml.match(/<a:fld id="\{[0-9a-f-]+\}"/gu)).toHaveLength(3);
+  });
+
   it('renders strict date value and editable series axis options', () => {
     const definition = normalizeChartDefinition({
       groups: [{
@@ -223,6 +279,18 @@ describe('scatter and bubble chart rendering', () => {
     expect(xml).toContain('<c:bubble3D val="0"/>');
     expect(xml).toContain('<c:sizeRepresents val="area"/>');
     expect(xml.match(/<c:valAx>/g)).toHaveLength(2);
+
+    const bubble3D = normalizeChartDefinition({ groups: [{
+      type: 'bubble3D',
+      series: [{ name: 'Depth', xValues: [1], values: [2], sizes: [3] }],
+    }] });
+    const bubble3DXml = renderChartPart(
+      bubble3D,
+      planChartWorkbook(bubble3D).formulas,
+      'rId1',
+    );
+    expect(bubble3DXml).toContain('<c:bubbleChart>');
+    expect(bubble3DXml).toContain('<c:bubble3D val="1"/>');
   });
 });
 
@@ -477,6 +545,71 @@ describe('chart option rendering', () => {
       '<c:view3D><c:rotX val="-30"/><c:rotY val="360"/>'
       + '<c:rAngAx val="0"/><c:perspective val="0"/></c:view3D>',
     );
+  });
+
+  it('renders strict bar shape, plot layout, and direct title alignment', () => {
+    const definition = normalizeChartDefinition({
+      groups: [{
+        type: 'bar3D',
+        series: [{ name: 'S', categories: ['A'], values: [1] }],
+        options: { shape: 'pyramidToMax' },
+      }],
+      options: {
+        layout: { x: 0.1, y: 0.2, width: 0.7, height: 0.6 },
+        title: { text: 'Aligned', align: 'right' },
+      },
+    });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+    expect(xml).toContain('<c:gapDepth val="150"/><c:shape val="pyramidToMax"/>');
+    expect(xml).toContain(
+      '<c:layout><c:manualLayout><c:layoutTarget val="inner"/>'
+      + '<c:xMode val="edge"/><c:yMode val="edge"/>'
+      + '<c:wMode val="factor"/><c:hMode val="factor"/>'
+      + '<c:x val="0.1"/><c:y val="0.2"/><c:w val="0.7"/><c:h val="0.6"/>',
+    );
+    expect(xml).toContain('<a:p><a:pPr algn="r"/><a:r>');
+  });
+
+  it('renders shared line caps on series, markers, axes, and grid lines', () => {
+    const definition = normalizeChartDefinition({
+      groups: [{
+        type: 'line',
+        series: [{ name: 'S', categories: ['A'], values: [1] }],
+        options: {
+          series: [{
+            line: {
+              kind: 'line', color: { kind: 'srgb', value: '112233' }, cap: 'flat',
+            },
+            marker: {
+              line: {
+                kind: 'line', color: { kind: 'srgb', value: '445566' }, cap: 'round',
+              },
+            },
+          }],
+        },
+      }],
+      options: {
+        categoryAxis: {
+          line: {
+            kind: 'line', color: { kind: 'srgb', value: '778899' }, cap: 'square',
+          },
+          majorGridLine: {
+            kind: 'line', color: { kind: 'srgb', value: 'AABBCC' }, cap: 'round',
+          },
+        },
+        valueAxis: {
+          minorGridLine: {
+            kind: 'line', color: { kind: 'srgb', value: 'DDEEFF' }, cap: 'square',
+          },
+        },
+      },
+    });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+    expect(xml).toContain('<a:ln w="12700" cap="flat"><a:solidFill><a:srgbClr val="112233"/>');
+    expect(xml).toContain('<a:ln w="12700" cap="rnd"><a:solidFill><a:srgbClr val="445566"/>');
+    expect(xml).toContain('<a:ln w="12700" cap="sq"><a:solidFill><a:srgbClr val="778899"/>');
+    expect(xml).toContain('<a:ln w="12700" cap="rnd"><a:solidFill><a:srgbClr val="AABBCC"/>');
+    expect(xml).toContain('<a:ln w="12700" cap="sq"><a:solidFill><a:srgbClr val="DDEEFF"/>');
   });
 });
 

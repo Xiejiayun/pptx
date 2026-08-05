@@ -118,6 +118,132 @@ describe('strict chart semantic state', () => {
     }
   });
 
+  it('projects series effects, independent point effects, and label backgrounds', () => {
+    const definition = normalizeChartDefinition({ groups: [{
+      type: 'pie',
+      series: [{ name: 'Share', categories: ['A', 'B'], values: [1, 2] }],
+      options: { series: [{
+        shadow: { kind: 'outer', color: { kind: 'srgb', value: '778899' } },
+        points: [{
+          index: 0,
+          fill: { kind: 'solid', color: { kind: 'srgb', value: 'AA0000' } },
+          shadow: { kind: 'inner', color: { kind: 'srgb', value: '445566' } },
+        }],
+        dataLabels: {
+          fill: { kind: 'solid', color: { kind: 'srgb', value: '112233' } },
+        },
+      }] },
+    }] });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+    const options = readChartState(chartPackage(xml), CHART_URI)
+      .definition?.groups[0]?.options?.series?.[0];
+
+    expect(options?.shadow).toMatchObject({ kind: 'outer' });
+    expect(options?.points?.[0]).toMatchObject({
+      index: 0,
+      fill: { color: { value: 'AA0000' } },
+      shadow: { kind: 'inner' },
+    });
+    expect(options?.dataLabels?.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: '112233' },
+    });
+  });
+
+  it('reopens native scatter point-label literals and field kinds', () => {
+    const definition = normalizeChartDefinition({ groups: [{
+      type: 'scatter',
+      series: [{ name: 'XY', xValues: [1, 2, 3], values: [10, 20, 30] }],
+      options: { series: [{ dataLabels: { pointLabels: [
+        { index: 0, text: 'Alpha', fields: ['xValue', 'yValue'] },
+        { index: 1, text: ' ' },
+        { index: 2, fields: ['yValue'] },
+      ] } }] },
+    }] });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+    const labels = readChartState(chartPackage(xml), CHART_URI)
+      .definition?.groups[0]?.options?.series?.[0]?.dataLabels?.pointLabels;
+
+    expect(labels).toEqual([
+      { index: 0, text: 'Alpha', fields: ['xValue', 'yValue'] },
+      { index: 1, text: ' ' },
+      { index: 2, fields: ['yValue'] },
+    ]);
+  });
+
+  it('reads strict residual bubble3D, shape, layout, title alignment, and effective language', () => {
+    const bubble3D = normalizeChartDefinition({ groups: [{
+      type: 'bubble3D',
+      series: [
+        { name: 'First', xValues: [1], values: [2], sizes: [3] },
+        { name: 'Second', xValues: [4], values: [5], sizes: [6] },
+      ],
+    }] });
+    const bubbleXml = renderChartPart(
+      bubble3D,
+      planChartWorkbook(bubble3D).formulas,
+      'rId1',
+    );
+    expect(readChartState(chartPackage(bubbleXml), CHART_URI).definition?.groups[0]?.type)
+      .toBe('bubble3D');
+    expect(readChartState(
+      chartPackage(bubbleXml.replace('<c:bubble3D val="1"/>', '<c:bubble3D val="0"/>')),
+      CHART_URI,
+    ).status).toBe('unsupported');
+
+    const bar3D = normalizeChartDefinition({
+      groups: [{
+        type: 'bar3D',
+        series: [{ name: 'Revenue', categories: ['Q1'], values: [10] }],
+        options: { shape: 'coneToMax' },
+      }],
+      options: {
+        language: 'fr-FR',
+        layout: { x: 0.1, y: 0.2, width: 0.7, height: 0.6 },
+        title: { text: 'Revenue', align: 'right' },
+      },
+    });
+    const importedXml = renderChartPart(
+      bar3D,
+      planChartWorkbook(bar3D).formulas,
+      'rId1',
+    ).replace('<c:lang val="fr-FR"/>', '');
+    const imported = readChartState(chartPackage(importedXml), CHART_URI);
+    expect(imported.definition?.groups[0]?.options).toMatchObject({ shape: 'coneToMax' });
+    expect(imported.definition?.options).toMatchObject({
+      language: 'fr-FR',
+      layout: { x: 0.1, y: 0.2, width: 0.7, height: 0.6 },
+      title: { text: 'Revenue', align: 'right' },
+    });
+  });
+
+  it('projects shared series, axis, and grid line caps from strict OOXML', () => {
+    const definition = normalizeChartDefinition({
+      groups: [{
+        type: 'bar',
+        series: [{ name: 'Revenue', categories: ['Q1'], values: [10] }],
+        options: { series: [{
+          line: {
+            kind: 'line', color: { kind: 'srgb', value: '112233' }, cap: 'flat',
+          },
+        }] },
+      }],
+      options: {
+        categoryAxis: { majorGridLine: {
+          kind: 'line', color: { kind: 'srgb', value: '445566' }, cap: 'round',
+        } },
+        valueAxis: { majorGridLine: {
+          kind: 'line', color: { kind: 'srgb', value: '778899' }, cap: 'square',
+        } },
+      },
+    });
+    const xml = renderChartPart(definition, planChartWorkbook(definition).formulas, 'rId1');
+    const reopened = readChartState(chartPackage(xml), CHART_URI).definition;
+    expect(reopened?.groups[0]?.options?.series?.[0]?.line).toMatchObject({ cap: 'flat' });
+    expect(reopened?.options.categoryAxis?.majorGridLine).toMatchObject({ cap: 'round' });
+    expect(reopened?.options.valueAxis?.majorGridLine).toMatchObject({ cap: 'square' });
+  });
+
   it('strictly reads renderer-produced primary and secondary combination axes', () => {
     const definition = normalizeChartDefinition({ groups: [
       {

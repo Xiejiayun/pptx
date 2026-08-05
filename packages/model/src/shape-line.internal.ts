@@ -10,6 +10,7 @@ import {
   type NormalizedSimpleLine,
   readSimpleLine,
   renderSimpleLine,
+  renderSimpleLineAttributes,
   SIMPLE_LINE_DASH_CHOICE_NAMES,
   SIMPLE_LINE_FILL_CHOICE_NAMES,
   simpleLinesEqual,
@@ -45,6 +46,7 @@ const LATER_PROPERTY_CHOICES = new Set([
 interface ExistingLineState {
   readonly line: XmlElement;
   readonly width: XmlAttribute | undefined;
+  readonly cap: XmlAttribute | undefined;
   readonly fill: XmlElement | undefined;
   readonly dash: XmlElement | undefined;
   readonly prefix: string;
@@ -104,7 +106,7 @@ export function replaceShapeLine(
   const prefix = state.prefix === '' ? '' : `${state.prefix}:`;
   const current = readSimpleLine(candidate, prefix);
   if (line !== undefined && simpleLinesEqual(current, line)) return false;
-  if (line === undefined && !state.width && !state.fill && !state.dash) return false;
+  if (line === undefined && !state.width && !state.cap && !state.fill && !state.dash) return false;
 
   const original = xml.original(candidate);
   const updated = patchExistingLine(original, state, line);
@@ -127,6 +129,17 @@ function analyzeExistingLine(
     if (!Number.isSafeInteger(emus) || emus < 0 || emus > MAX_LINE_WIDTH_EMUS) {
       throw new ModelParseError('Shape line contains an invalid width', partUri);
     }
+  }
+
+  const caps = line.attributes.filter(({ localName }) => localName === 'cap');
+  if (caps.length > 1) {
+    throw new ModelParseError('Shape line contains repeated cap attributes', partUri);
+  }
+  if (
+    caps[0]
+    && (caps[0].name !== 'cap' || !['flat', 'rnd', 'sq'].includes(caps[0].value))
+  ) {
+    throw new ModelParseError('Shape line contains an invalid cap', partUri);
   }
 
   const children = directChildren(line);
@@ -172,6 +185,7 @@ function analyzeExistingLine(
   return {
     line,
     width: widths[0],
+    cap: caps[0],
     fill: fills[0],
     dash: dashes[0],
     prefix: lexicalPrefix(line.name),
@@ -195,6 +209,12 @@ function patchExistingLine(
   const targetDash = target?.kind === 'line'
     ? `<${prefix}prstDash val="${target.dash}"/>`
     : undefined;
+  const targetCap = target?.kind === 'line'
+    ? target.cap === undefined && state.cap?.value === 'flat'
+      ? ' cap="flat"'
+      : renderSimpleLineAttributes(target)
+    : '';
+  const missingAttributes: string[] = [];
 
   if (target?.kind === 'line') {
     const width = String(Math.round(target.width * EMU_PER_POINT));
@@ -206,12 +226,33 @@ function patchExistingLine(
           replacement: width,
         });
       }
-    } else if (!state.line.selfClosing) {
-      const insertion = state.line.startTagEnd - offset - 1;
-      edits.push({ start: insertion, end: insertion, replacement: ` w="${width}"` });
-    }
+    } else if (!state.line.selfClosing) missingAttributes.push(` w="${width}"`);
   } else if (state.width) {
     edits.push(removeAttributeEdit(source, state.width, offset));
+  }
+
+  if (targetCap !== '') {
+    const value = targetCap.slice(' cap="'.length, -1);
+    if (state.cap) {
+      if (state.cap.value !== value) {
+        edits.push({
+          start: state.cap.valueStart - offset,
+          end: state.cap.valueEnd - offset,
+          replacement: value,
+        });
+      }
+    } else if (!state.line.selfClosing) missingAttributes.push(targetCap);
+  } else if (state.cap) {
+    edits.push(removeAttributeEdit(source, state.cap, offset));
+  }
+
+  if (missingAttributes.length > 0) {
+    const insertion = state.line.startTagEnd - offset - 1;
+    edits.push({
+      start: insertion,
+      end: insertion,
+      replacement: missingAttributes.join(''),
+    });
   }
 
   if (state.line.selfClosing) {
@@ -220,10 +261,13 @@ function patchExistingLine(
     const width = target.kind === 'line' && !state.width
       ? ` w="${Math.round(target.width * EMU_PER_POINT)}"`
       : '';
+    const cap = target.kind === 'line' && !state.cap
+      ? renderSimpleLineAttributes(target)
+      : '';
     edits.push({
       start: marker,
       end: source.length,
-      replacement: `${width}>${targetFill ?? ''}${targetDash ?? ''}</${state.line.name}>`,
+      replacement: `${width}${cap}>${targetFill ?? ''}${targetDash ?? ''}</${state.line.name}>`,
     });
     return applyLocalEdits(source, edits);
   }
@@ -360,7 +404,7 @@ function renderLineForParent(
     return `<${qualifiedPrefix}ln${namespaceDeclaration}>` +
       `${renderSimpleLine(line, qualifiedPrefix)}</${qualifiedPrefix}ln>`;
   }
-  return `<${qualifiedPrefix}ln${namespaceDeclaration} w="${Math.round(line.width * EMU_PER_POINT)}">` +
+  return `<${qualifiedPrefix}ln${namespaceDeclaration} w="${Math.round(line.width * EMU_PER_POINT)}"${renderSimpleLineAttributes(line)}>` +
     `${renderSimpleLine(line, qualifiedPrefix)}</${qualifiedPrefix}ln>`;
 }
 

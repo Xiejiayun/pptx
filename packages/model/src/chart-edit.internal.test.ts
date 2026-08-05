@@ -172,6 +172,51 @@ describe('chart semantic editing', () => {
     expect(chart.xml).toContain('uri="urn:root-keep"');
   });
 
+  it('edits residual layout without rewriting title, point, label, shape, effect, or extension owners', async () => {
+    const { pkg, slide } = emptyPresentation();
+    const chart = await slide.addChart([{
+      type: 'bar3D',
+      series: [{ name: 'Revenue', categories: ['Q1'], values: [10] }],
+      options: { shape: 'coneToMax' },
+    }]);
+    await chart.replaceDefinition({
+      groups: chart.definition!.groups,
+      options: {
+        layout: { x: 0.1, y: 0.2, width: 0.7, height: 0.6 },
+        title: { text: 'Revenue', align: 'right' },
+      },
+    });
+    const pointPayload = '<c:dPt><c:idx val="0"/><c:spPr><a:effectLst/>'
+      + '<a:extLst><a:ext uri="urn:point-keep"/></a:extLst></c:spPr></c:dPt>';
+    const labelPayload = '<c:dLbls><c:dLbl><c:idx val="0"/><c:tx><c:rich>'
+      + '<a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>KEEP</a:t></a:r></a:p>'
+      + '</c:rich></c:tx><c:extLst><c:ext uri="urn:label-keep"/></c:extLst>'
+      + '</c:dLbl></c:dLbls>';
+    const seriesShape = '<c:spPr><a:effectLst/><a:extLst>'
+      + '<a:ext uri="urn:series-shape-keep"/></a:extLst></c:spPr>';
+    updateChartXml(pkg, chart, (xml) => xml
+      .replace('<c:order val="0"/>', `<c:order val="0"/>${pointPayload}${labelPayload}${seriesShape}`)
+      .replace('</c:title>', '<c:extLst><c:ext uri="urn:title-keep"/></c:extLst></c:title>'));
+
+    const imported = chart.definition!;
+    expect(imported.options.layout).toEqual({ x: 0.1, y: 0.2, width: 0.7, height: 0.6 });
+    await chart.replaceDefinition({
+      groups: imported.groups,
+      options: {
+        ...imported.options,
+        layout: { x: 0.15, y: 0.25, width: 0.65, height: 0.55 },
+      },
+    });
+
+    expect(chart.xml).toContain(pointPayload);
+    expect(chart.xml).toContain(labelPayload);
+    expect(chart.xml).toContain(seriesShape);
+    expect(chart.xml).toContain('<c:ext uri="urn:title-keep"/>');
+    expect(chart.definition?.options.layout).toEqual({
+      x: 0.15, y: 0.25, width: 0.65, height: 0.55,
+    });
+  });
+
   it('edits promoted labels only when requested and preserves unsafe custom point labels', async () => {
     const { pkg, slide } = emptyPresentation();
     const chart = await slide.addChart('pie', [{
@@ -503,6 +548,223 @@ describe('chart semantic editing', () => {
         restore();
       }
     }
+  });
+
+  it('edits only the selected indexed point style and preserves sibling bytes', async () => {
+    const { slide } = emptyPresentation();
+    const chart = await slide.addChart('pie', [{
+      name: 'Share', categories: ['A', 'B', 'C'], values: [1, 2, 3],
+    }]);
+    const base = chart.definition!;
+    const points = [0, 1, 2].map((index) => ({
+      index,
+      fill: {
+        kind: 'solid' as const,
+        color: { kind: 'srgb' as const, value: index === 1 ? '00AA00' : 'AA0000' },
+      },
+      shadow: { kind: 'outer' as const },
+    }));
+    await chart.replaceDefinition({ groups: [{
+      type: 'pie',
+      series: base.groups[0]!.series,
+      options: { series: [{ points }] },
+    }] });
+    const fragments = (xml: string) => xml.match(/<c:dPt>[\s\S]*?<\/c:dPt>/gu) ?? [];
+    const before = fragments(chart.xml);
+    const current = chart.definition!;
+    const currentOptions = current.groups[0]!.options!.series![0]!;
+    await chart.replaceDefinition({
+      groups: [{
+        type: 'pie',
+        series: current.groups[0]!.series,
+        options: { series: [{
+          ...currentOptions,
+          points: currentOptions.points!.map((point) => point.index === 1
+            ? {
+                ...point,
+                fill: { kind: 'solid', color: { kind: 'srgb', value: 'ABCDEF' } },
+              }
+            : point),
+        }] },
+      }],
+      options: current.options,
+    });
+    const after = fragments(chart.xml);
+
+    expect(after).toHaveLength(3);
+    expect(after[0]).toBe(before[0]);
+    expect(after[1]).not.toBe(before[1]);
+    expect(after[2]).toBe(before[2]);
+    expect(chart.definition?.groups[0]?.options?.series?.[0]?.points?.[1]?.fill)
+      .toMatchObject({ color: { value: 'ABCDEF' } });
+  });
+
+  it('edits only the selected scatter point label and preserves sibling identities', async () => {
+    const { slide } = emptyPresentation();
+    const chart = await slide.addChart('scatter', [{
+      name: 'XY', xValues: [1, 2, 3], values: [10, 20, 30],
+    }]);
+    const base = chart.definition!;
+    await chart.replaceDefinition({ groups: [{
+      type: 'scatter',
+      series: base.groups[0]!.series,
+      options: { series: [{ dataLabels: { pointLabels: [
+        { index: 0, text: 'Alpha', fields: ['xValue', 'yValue'] },
+        { index: 1, text: 'Beta' },
+        { index: 2, fields: ['xValue', 'yValue'] },
+      ] } }] },
+    }] });
+    const fragments = (xml: string) => xml.match(/<c:dLbl>[\s\S]*?<\/c:dLbl>/gu) ?? [];
+    const before = fragments(chart.xml);
+    const current = chart.definition!;
+    const group = current.groups[0]!;
+    if (group.type !== 'scatter') throw new Error('Expected scatter chart');
+    const seriesOptions = group.options!.series![0]!;
+    await chart.replaceDefinition({
+      groups: [{
+        type: 'scatter',
+        ...(group.axis === undefined ? {} : { axis: group.axis }),
+        series: group.series,
+        options: {
+          ...group.options,
+          series: [{
+            ...seriesOptions,
+            dataLabels: {
+              ...seriesOptions.dataLabels,
+              pointLabels: seriesOptions.dataLabels!.pointLabels!.map((label) =>
+                label.index === 1 ? { ...label, text: 'Beta edited' } : label),
+            },
+          }],
+        },
+      }],
+      options: current.options,
+    });
+    const after = fragments(chart.xml);
+
+    expect(after[0]).toBe(before[0]);
+    expect(after[1]).not.toBe(before[1]);
+    expect(after[2]).toBe(before[2]);
+    expect(chart.definition?.groups[0]?.options?.series?.[0]?.dataLabels?.pointLabels?.[1])
+      .toMatchObject({ index: 1, text: 'Beta edited' });
+  });
+
+  it('patches chart line caps without rewriting join, arrow, effect, or extension payload', async () => {
+    const { pkg, slide } = emptyPresentation();
+    const chart = await slide.addChart('line', [{
+      name: 'Trend', categories: ['A', 'B'], values: [1, 2],
+    }]);
+    const base = chart.definition!;
+    const line = {
+      kind: 'line' as const,
+      color: { kind: 'srgb' as const, value: '112233' },
+      width: 1,
+      dash: 'solid' as const,
+      cap: 'round' as const,
+    };
+    await chart.replaceDefinition({
+      groups: [{
+        ...base.groups[0]!,
+        options: { series: [{ line }] },
+      }],
+      options: {
+        categoryAxis: { line },
+        valueAxis: { majorGridLine: line, minorGridLine: line },
+      },
+    });
+    updateChartXml(pkg, chart, (xml) => {
+      let index = 0;
+      return xml.replace(/<a:ln\b[^>]*cap="rnd"[^>]*>[\s\S]*?<\/a:ln>/gu, (fragment) => {
+        index += 1;
+        if (index > 4) return fragment;
+        return fragment
+          .replace('cap="rnd"', 'cap="rnd" cmpd="sng" algn="ctr"')
+          .replace('</a:ln>', '<a:round/><a:headEnd type="triangle"/>'
+            + `<a:extLst><a:ext uri="urn:keep-${index}"/></a:extLst></a:ln>`);
+      });
+    });
+    expect(chart.definition).toBeDefined();
+
+    const imported = chart.definition!;
+    const group = imported.groups[0]!;
+    const importedSeriesLine = group.options?.series?.[0]?.line;
+    const importedMajorGridLine = imported.options.valueAxis?.majorGridLine;
+    const importedMinorGridLine = imported.options.valueAxis?.minorGridLine;
+    const importedAxisLine = imported.options.categoryAxis?.line;
+    if (
+      importedSeriesLine?.kind !== 'line'
+      || importedMajorGridLine?.kind !== 'line'
+      || importedMinorGridLine?.kind !== 'line'
+      || importedAxisLine?.kind !== 'line'
+    ) throw new Error('Expected imported line owners');
+    await chart.replaceDefinition({
+      groups: [{
+        ...group,
+        options: { series: [{
+          ...group.options!.series![0]!,
+          line: { ...importedSeriesLine, cap: 'square' },
+        }] },
+      }],
+      options: {
+        ...imported.options,
+        valueAxis: {
+          ...imported.options.valueAxis,
+          majorGridLine: {
+            ...importedMajorGridLine,
+            cap: 'square',
+          },
+          minorGridLine: {
+            ...importedMinorGridLine,
+            cap: 'square',
+          },
+        },
+        categoryAxis: {
+          ...imported.options.categoryAxis,
+          line: { ...importedAxisLine, cap: 'square' },
+        },
+      },
+    });
+    expect(chart.xml.match(/cmpd="sng" algn="ctr"/gu)).toHaveLength(4);
+    expect(chart.xml.match(/cap="sq" cmpd="sng" algn="ctr"/gu)).toHaveLength(4);
+    expect(chart.xml.match(/<a:headEnd type="triangle"\/>/gu)).toHaveLength(4);
+    expect(chart.xml).toContain('uri="urn:keep-1"');
+    expect(chart.xml).toContain('uri="urn:keep-2"');
+    expect(chart.xml).toContain('uri="urn:keep-3"');
+    expect(chart.xml).toContain('uri="urn:keep-4"');
+
+    const squared = chart.definition!;
+    const squaredGroup = squared.groups[0]!;
+    const squaredSeriesLine = squaredGroup.options?.series?.[0]?.line;
+    const squaredMajorGridLine = squared.options.valueAxis?.majorGridLine;
+    const squaredMinorGridLine = squared.options.valueAxis?.minorGridLine;
+    const squaredAxisLine = squared.options.categoryAxis?.line;
+    if (
+      squaredSeriesLine?.kind !== 'line'
+      || squaredMajorGridLine?.kind !== 'line'
+      || squaredMinorGridLine?.kind !== 'line'
+      || squaredAxisLine?.kind !== 'line'
+    ) throw new Error('Expected squared line owners');
+    const { cap: _seriesCap, ...seriesLine } = squaredSeriesLine;
+    const { cap: _gridCap, ...gridLine } = squaredMajorGridLine;
+    const { cap: _minorGridCap, ...minorGridLine } = squaredMinorGridLine;
+    const { cap: _axisCap, ...axisLine } = squaredAxisLine;
+    await chart.replaceDefinition({
+      groups: [{
+        ...squaredGroup,
+        options: { series: [{ ...squaredGroup.options!.series![0]!, line: seriesLine }] },
+      }],
+      options: {
+        ...squared.options,
+        valueAxis: {
+          ...squared.options.valueAxis,
+          majorGridLine: gridLine,
+          minorGridLine,
+        },
+        categoryAxis: { ...squared.options.categoryAxis, line: axisLine },
+      },
+    });
+    expect(chart.xml.match(/cmpd="sng" algn="ctr"/gu)).toHaveLength(4);
+    expect(chart.xml).not.toMatch(/cap="sq" cmpd="sng" algn="ctr"/u);
+    expect(chart.xml.match(/<a:headEnd type="triangle"\/>/gu)).toHaveLength(4);
   });
 });
 

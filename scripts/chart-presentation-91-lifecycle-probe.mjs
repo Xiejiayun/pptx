@@ -165,7 +165,10 @@ export async function runChartPresentation91LifecycleProbe(api, fixtureBytes) {
   await scatter.replaceDefinition({
     groups: [{
       ...scatterDefinition.groups[0],
-      options: { dataLabels: { position: 'center', showCategoryName: true } },
+      options: {
+        ...scatterDefinition.groups[0].options,
+        dataLabels: { position: 'center', showCategoryName: true },
+      },
     }],
     options: scatterDefinition.options,
   });

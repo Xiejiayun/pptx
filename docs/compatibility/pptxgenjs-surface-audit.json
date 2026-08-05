@@ -591,28 +591,69 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "PptxGenJS",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  'bubble3D',"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "ChartGroupBase<'bubble3D', ChartBubbleGroupOptions>"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "class:PptxGenJS@property:ChartType",
       "kind": "property",
       "name": "ChartType",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartModel",
+        "ChartType"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": false,
       "owner": "PptxGenJS",
       "readonly": true,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "typeof PptxGenJS.ChartType"
     },
     {
@@ -1735,54 +1776,132 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "IChartPropsTitle",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartTitlePositionOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly x: number;"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly position?: ChartTitlePositionOptions;"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "inline:interface:IChartOpts@property:titlePos@property:titlePos.x",
       "kind": "property",
       "name": "titlePos.x",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartTitleOptions.position"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": false,
       "owner": "interface:IChartOpts@property:titlePos",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "IChartPropsTitle",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartTitlePositionOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly y: number;"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly position?: ChartTitlePositionOptions;"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "inline:interface:IChartOpts@property:titlePos@property:titlePos.y",
       "kind": "property",
       "name": "titlePos.y",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartTitleOptions.position"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": false,
       "owner": "interface:IChartOpts@property:titlePos",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
@@ -9667,7 +9786,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -9693,7 +9812,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -9732,7 +9851,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -9758,7 +9877,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -9794,7 +9913,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -9812,7 +9931,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -9977,28 +10096,67 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "IChartPropsChartBar",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export type ChartBar3DShape ="
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartBar3DGroupOptions extends ChartCommonGroupOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly shape?: ChartBar3DShape;"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:bar3DShape",
       "kind": "property",
       "name": "bar3DShape",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartBar3DGroupOptions.shape"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
@@ -10015,7 +10173,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -10045,7 +10203,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -10085,7 +10243,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -10115,7 +10273,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -10154,7 +10312,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -10184,7 +10342,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -10220,7 +10378,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -10250,7 +10408,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -10290,7 +10448,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -10320,7 +10478,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -13040,7 +13198,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -13070,7 +13228,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -13109,7 +13267,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -13139,7 +13297,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -13208,54 +13366,129 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "IChartPropsBase",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartPointOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartSeriesOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly line?: ShapeLine;"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:dataBorder",
       "kind": "property",
       "name": "dataBorder",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartPointOptions.line",
+        "ChartSeriesOptions.line"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "BorderProps"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "IChartPropsDataLabel",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartSeriesDataLabelOptions extends ChartDataLabelOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly fill?: ShapeFill;"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:dataLabelBkgrdColors",
       "kind": "property",
       "name": "dataLabelBkgrdColors",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartSeriesDataLabelOptions.fill"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
@@ -13272,7 +13505,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -13302,7 +13535,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -13337,7 +13570,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -13367,7 +13600,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -13406,7 +13639,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -13436,7 +13669,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -13471,7 +13704,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -13501,7 +13734,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -13536,7 +13769,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -13566,7 +13799,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -13605,7 +13838,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -13635,7 +13868,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -13662,28 +13895,85 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "IChartPropsDataLabel",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartDataLabelOptions extends ChartFontOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly showValue?: boolean;"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly showCategoryName?: boolean;"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartPointDataLabelOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly fields?: readonly ChartDataLabelFieldKind[];"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartSeriesDataLabelOptions extends ChartDataLabelOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly pointLabels?: readonly ChartPointDataLabelOptions[];"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:dataLabelFormatScatter",
       "kind": "property",
       "name": "dataLabelFormatScatter",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartDataLabelOptions.showCategoryName",
+        "ChartDataLabelOptions.showValue",
+        "ChartSeriesDataLabelOptions.pointLabels"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'custom' | 'customXY' | 'XY'"
     },
     {
@@ -13700,7 +13990,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -13730,7 +14020,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -13757,28 +14047,68 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "IChartPropsChartDoughnut",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartPointOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartSeriesOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly shadow?: ShapeShadow;"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:dataNoEffects",
       "kind": "property",
       "name": "dataNoEffects",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartPointOptions.shadow",
+        "ChartSeriesOptions.shadow"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "boolean"
     },
     {
@@ -13791,7 +14121,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -13821,7 +14151,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -13860,7 +14190,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -13890,7 +14220,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -13929,7 +14259,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -13959,7 +14289,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -14066,7 +14396,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -14096,7 +14426,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -14317,7 +14647,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -14347,7 +14677,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -14374,28 +14704,63 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "IChartPropsBase",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartPointOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly fill?: ShapeFill;"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:invertedColors",
       "kind": "property",
       "name": "invertedColors",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartPointOptions.fill"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "HexColor[]"
     },
     {
@@ -14440,54 +14805,125 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "IChartPropsBase",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly language?: string;"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:lang",
       "kind": "property",
       "name": "lang",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartOptions.language"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "IChartPropsBase",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartLayoutOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly layout?: ChartLayoutOptions;"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:layout",
       "kind": "property",
       "name": "layout",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartLayoutOptions",
+        "ChartOptions.layout"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "PositionProps"
     },
     {
@@ -14504,7 +14940,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -14534,7 +14970,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -14573,7 +15009,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -14603,7 +15039,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -14638,7 +15074,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -14668,7 +15104,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -14707,7 +15143,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -14737,7 +15173,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -14764,28 +15200,68 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "IChartPropsChartLine",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export type ShapeLineCap ="
+          },
+          {
+            "path": "packages/model/src/simple-line.internal.ts",
+            "pattern": "const LINE_CAP_TO_OOXML:"
+          },
+          {
+            "path": "packages/model/src/simple-line.internal.ts",
+            "pattern": "const OOXML_TO_LINE_CAP:"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:lineCap",
       "kind": "property",
       "name": "lineCap",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeLine.cap",
+        "ShapeLineCap"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "ChartLineCap"
     },
     {
@@ -14802,7 +15278,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -14832,7 +15308,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -14872,7 +15348,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -14902,7 +15378,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -14941,7 +15417,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -14971,7 +15447,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -15011,7 +15487,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -15041,7 +15517,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -15081,7 +15557,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -15111,7 +15587,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -15150,7 +15626,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -15180,7 +15656,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -15216,7 +15692,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -15246,7 +15722,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -15414,7 +15890,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -15444,7 +15920,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -17170,28 +17646,63 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "IChartPropsBase",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartSeriesOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly shadow?: ShapeShadow;"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:shadow",
       "kind": "property",
       "name": "shadow",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartSeriesOptions.shadow"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "ShadowProps"
     },
     {
@@ -17275,7 +17786,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -17305,7 +17816,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -17340,7 +17851,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -17370,7 +17881,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -17405,7 +17916,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -17435,7 +17946,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -17470,7 +17981,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -17500,7 +18011,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -17535,7 +18046,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -17565,7 +18076,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -17669,7 +18180,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -17699,7 +18210,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -17734,7 +18245,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -17764,7 +18275,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -17938,7 +18449,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -17968,7 +18479,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -18003,7 +18514,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -18033,7 +18544,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -18139,7 +18650,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -18169,7 +18680,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -18404,7 +18915,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -18434,7 +18945,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -18461,28 +18972,63 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "IChartPropsTitle",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export type ChartTitleAlignment ="
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly align?: ChartTitleAlignment;"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "interface:IChartOpts@property:titleAlign",
       "kind": "property",
       "name": "titleAlign",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartTitleOptions.align"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": true,
       "owner": "IChartOpts",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
@@ -18495,7 +19041,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -18525,7 +19071,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -18564,7 +19110,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -18594,7 +19140,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -18633,7 +19179,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -18663,7 +19209,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -18698,7 +19244,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -18728,7 +19274,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -18767,7 +19313,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -18797,7 +19343,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -18837,7 +19383,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -18867,7 +19413,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -18986,7 +19532,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -19016,7 +19562,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -19055,7 +19601,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -19085,7 +19631,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -19124,7 +19670,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -19154,7 +19700,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -19193,7 +19739,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -19223,7 +19769,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -28768,7 +29314,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -28794,7 +29340,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -28830,7 +29376,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -28848,7 +29394,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -28883,7 +29429,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -28901,7 +29447,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -28936,7 +29482,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -28954,7 +29500,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -28981,28 +29527,68 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "OptsChartGridLine",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export type ShapeLineCap ="
+          },
+          {
+            "path": "packages/model/src/simple-line.internal.ts",
+            "pattern": "const LINE_CAP_TO_OOXML:"
+          },
+          {
+            "path": "packages/model/src/simple-line.internal.ts",
+            "pattern": "const OOXML_TO_LINE_CAP:"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "interface:OptsChartGridLine@property:cap",
       "kind": "property",
       "name": "cap",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeLine.cap",
+        "ShapeLineCap"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": true,
       "owner": "OptsChartGridLine",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "ChartLineCap"
     },
     {
@@ -31290,7 +31876,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -47215,7 +47801,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -47233,7 +47819,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -48409,7 +48995,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -48427,7 +49013,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -48463,7 +49049,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -48481,7 +49067,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -48517,7 +49103,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -48535,7 +49121,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -48571,7 +49157,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -48589,7 +49175,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -48625,7 +49211,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -48643,7 +49229,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -48679,7 +49265,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -48697,7 +49283,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -48733,7 +49319,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -48751,7 +49337,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -48787,7 +49373,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -48805,7 +49391,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -48841,7 +49427,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -48859,7 +49445,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -49159,80 +49745,188 @@
     },
     {
       "catalogKey": "flat",
-      "client": false,
+      "client": true,
       "declaredIn": "ChartLineCap",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export type ShapeLineCap ="
+          },
+          {
+            "path": "packages/model/src/simple-line.internal.ts",
+            "pattern": "const LINE_CAP_TO_OOXML:"
+          },
+          {
+            "path": "packages/model/src/simple-line.internal.ts",
+            "pattern": "const OOXML_TO_LINE_CAP:"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "union:ChartLineCap#flat",
       "kind": "union-member",
       "name": "flat",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeLine.cap",
+        "ShapeLineCap"
+      ],
+      "note": "Native exposes this declared chart capability directly through strict immutable state, package serialization, browser use, and editable reopen behavior.",
       "optional": false,
       "owner": "ChartLineCap",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'flat'"
     },
     {
       "catalogKey": "round",
-      "client": false,
+      "client": true,
       "declaredIn": "ChartLineCap",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export type ShapeLineCap ="
+          },
+          {
+            "path": "packages/model/src/simple-line.internal.ts",
+            "pattern": "const LINE_CAP_TO_OOXML:"
+          },
+          {
+            "path": "packages/model/src/simple-line.internal.ts",
+            "pattern": "const OOXML_TO_LINE_CAP:"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "union:ChartLineCap#round",
       "kind": "union-member",
       "name": "round",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeLine.cap",
+        "ShapeLineCap"
+      ],
+      "note": "Native exposes this declared chart capability directly through strict immutable state, package serialization, browser use, and editable reopen behavior.",
       "optional": false,
       "owner": "ChartLineCap",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'round'"
     },
     {
       "catalogKey": "square",
-      "client": false,
+      "client": true,
       "declaredIn": "ChartLineCap",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "export type ShapeLineCap ="
+          },
+          {
+            "path": "packages/model/src/simple-line.internal.ts",
+            "pattern": "const LINE_CAP_TO_OOXML:"
+          },
+          {
+            "path": "packages/model/src/simple-line.internal.ts",
+            "pattern": "const OOXML_TO_LINE_CAP:"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "union:ChartLineCap#square",
       "kind": "union-member",
       "name": "square",
-      "native": [],
-      "note": "",
+      "native": [
+        "ShapeLine.cap",
+        "ShapeLineCap"
+      ],
+      "note": "Native exposes this declared chart capability directly through strict immutable state, package serialization, browser use, and editable reopen behavior.",
       "optional": false,
       "owner": "ChartLineCap",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'square'"
     },
     {
@@ -49245,7 +49939,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -49263,7 +49957,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -49299,7 +49993,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -49317,7 +50011,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -49353,7 +50047,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -49371,7 +50065,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -49407,7 +50101,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -49425,7 +50119,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -49453,28 +50147,65 @@
     },
     {
       "catalogKey": "bubble3d",
-      "client": false,
+      "client": true,
       "declaredIn": "ChartType",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export const CHART_TYPES = Object.freeze(["
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  'bubble3D',"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "ChartGroupBase<'bubble3D', ChartBubbleGroupOptions>"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "union:ChartType#bubble3D",
       "kind": "union-member",
       "name": "bubble3D",
-      "native": [],
-      "note": "",
+      "native": [
+        "CHART_TYPES",
+        "ChartModel",
+        "ChartType"
+      ],
+      "note": "Native exposes this declared chart capability directly through strict immutable state, package serialization, browser use, and editable reopen behavior.",
       "optional": false,
       "owner": "ChartType",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "'bubble3D'"
     },
     {
@@ -49487,7 +50218,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -49505,7 +50236,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -49541,7 +50272,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -49559,7 +50290,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -49595,7 +50326,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -49613,7 +50344,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -49649,7 +50380,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -49667,7 +50398,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -49703,7 +50434,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -49721,7 +50452,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -75228,80 +75959,208 @@
     },
     {
       "catalogKey": "XY",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "interface:IChartOpts@property:dataLabelFormatScatter",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartDataLabelOptions extends ChartFontOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly showValue?: boolean;"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly showCategoryName?: boolean;"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:dataLabelFormatScatter#XY",
       "kind": "union-member",
       "name": "XY",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartDataLabelOptions.showCategoryName",
+        "ChartDataLabelOptions.showValue"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": false,
       "owner": "interface:IChartOpts@property:dataLabelFormatScatter",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'XY'"
     },
     {
       "catalogKey": "custom",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "interface:IChartOpts@property:dataLabelFormatScatter",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartPointDataLabelOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly fields?: readonly ChartDataLabelFieldKind[];"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartSeriesDataLabelOptions extends ChartDataLabelOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly pointLabels?: readonly ChartPointDataLabelOptions[];"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:dataLabelFormatScatter#custom",
       "kind": "union-member",
       "name": "custom",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartPointDataLabelOptions",
+        "ChartSeriesDataLabelOptions.pointLabels"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": false,
       "owner": "interface:IChartOpts@property:dataLabelFormatScatter",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'custom'"
     },
     {
       "catalogKey": "customXY",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "interface:IChartOpts@property:dataLabelFormatScatter",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartPointDataLabelOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly fields?: readonly ChartDataLabelFieldKind[];"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartSeriesDataLabelOptions extends ChartDataLabelOptions {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly pointLabels?: readonly ChartPointDataLabelOptions[];"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "union:interface:IChartOpts@property:dataLabelFormatScatter#customXY",
       "kind": "union-member",
       "name": "customXY",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartPointDataLabelOptions",
+        "ChartSeriesDataLabelOptions.pointLabels"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": false,
       "owner": "interface:IChartOpts@property:dataLabelFormatScatter",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "'customXY'"
     },
     {
@@ -75318,7 +76177,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -75348,7 +76207,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -75456,7 +76315,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -75486,7 +76345,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -75525,7 +76384,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -75555,7 +76414,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -75594,7 +76453,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -75624,7 +76483,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -75663,7 +76522,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -75693,7 +76552,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -75732,7 +76591,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -75762,7 +76621,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -75801,7 +76660,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -75831,7 +76690,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -75870,7 +76729,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -75900,7 +76759,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -75939,7 +76798,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -75969,7 +76828,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -76008,7 +76867,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -76038,7 +76897,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -76077,7 +76936,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -76107,7 +76966,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -76146,7 +77005,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -76176,7 +77035,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -76215,7 +77074,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -76245,7 +77104,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -76285,7 +77144,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -76315,7 +77174,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -76355,7 +77214,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -76385,7 +77244,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -76425,7 +77284,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -76455,7 +77314,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -76495,7 +77354,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -76525,7 +77384,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -76565,7 +77424,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -76595,7 +77454,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -76635,7 +77494,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -76665,7 +77524,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -76705,7 +77564,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -76735,7 +77594,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -76775,7 +77634,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -76805,7 +77664,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -76844,7 +77703,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -76874,7 +77733,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -76913,7 +77772,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -76943,7 +77802,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -76982,7 +77841,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -77012,7 +77871,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -77051,7 +77910,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -77081,7 +77940,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -77120,7 +77979,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -77150,7 +78009,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -77189,7 +78048,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -77219,7 +78078,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -77254,7 +78113,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -77284,7 +78143,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -77319,7 +78178,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -77349,7 +78208,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -77384,7 +78243,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -77414,7 +78273,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -82139,7 +82998,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -82165,7 +83024,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -82192,28 +83051,71 @@
     },
     {
       "catalogKey": "string[][]",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes chart residual visual options through strict native state"
+      },
       "declaredIn": "interface:OptsChartData@property:labels",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const chartResidual23State = chartResidual23Probe.state;"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export type ChartCategories ="
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  | readonly (readonly string[])[];"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "export interface ChartSeries extends ChartSeriesInput {"
+          },
+          {
+            "path": "packages/model/src/chart.ts",
+            "pattern": "  readonly categories?: ChartCategories;"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/chart-residual-23-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const chartResidual23Probe = await runChartResidual23LifecycleProbe({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes chart residual visual options through strict native state"
+          }
+        ]
       },
       "id": "union:interface:OptsChartData@property:labels#string[][]",
       "kind": "union-member",
       "name": "string[][]",
-      "native": [],
-      "note": "",
+      "native": [
+        "ChartSeries.categories"
+      ],
+      "note": "Native preserves the same legal chart intent through strict nested state, deterministic OOXML, transactional editing, and reopen behavior instead of PptxGenJS permissive flat options and aliases.",
       "optional": false,
       "owner": "interface:OptsChartData@property:labels",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string[][]"
     },
     {
@@ -101893,7 +102795,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -101911,7 +102813,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -101952,7 +102854,7 @@
         "clients": [
           {
             "path": "scripts/playwright-browser-smoke.js",
-            "pattern": "const nativeCharts = reopenedCharts.length === 19"
+            "pattern": "const nativeCharts = reopenedCharts.length ==="
           }
         ],
         "code": [
@@ -101978,7 +102880,7 @@
         "package": [
           {
             "path": "scripts/smoke-npm-package.mjs",
-            "pattern": "const nativeCharts = reopenedNativeChartModels.length === 19"
+            "pattern": "const nativeCharts = reopenedNativeChartModels.length ==="
           }
         ],
         "tests": [
@@ -102156,45 +103058,21 @@
       "typeText": "string"
     }
   ],
-  "complete": false,
+  "complete": true,
   "counts": {
     "defect-excluded": 374,
-    "deliberate-difference": 523,
+    "deliberate-difference": 542,
     "deprecated-alias": 94,
     "stale": 0,
-    "supported": 760,
+    "supported": 764,
     "unsupported": 0,
-    "unverified": 23
+    "unverified": 0
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
   "diagnostics": [],
   "extensions": [],
-  "incompleteIds": [
-    "class:PptxGenJS@property:ChartType",
-    "inline:interface:IChartOpts@property:titlePos@property:titlePos.x",
-    "inline:interface:IChartOpts@property:titlePos@property:titlePos.y",
-    "interface:IChartOpts@property:bar3DShape",
-    "interface:IChartOpts@property:dataBorder",
-    "interface:IChartOpts@property:dataLabelBkgrdColors",
-    "interface:IChartOpts@property:dataLabelFormatScatter",
-    "interface:IChartOpts@property:dataNoEffects",
-    "interface:IChartOpts@property:invertedColors",
-    "interface:IChartOpts@property:lang",
-    "interface:IChartOpts@property:layout",
-    "interface:IChartOpts@property:lineCap",
-    "interface:IChartOpts@property:shadow",
-    "interface:IChartOpts@property:titleAlign",
-    "interface:OptsChartGridLine@property:cap",
-    "union:ChartLineCap#flat",
-    "union:ChartLineCap#round",
-    "union:ChartLineCap#square",
-    "union:ChartType#bubble3D",
-    "union:interface:IChartOpts@property:dataLabelFormatScatter#XY",
-    "union:interface:IChartOpts@property:dataLabelFormatScatter#custom",
-    "union:interface:IChartOpts@property:dataLabelFormatScatter#customXY",
-    "union:interface:OptsChartData@property:labels#string[][]"
-  ],
+  "incompleteIds": [],
   "packageVersion": "4.0.1",
   "runtimeEntrySha256": "873d182a8e2e1c0b5e522ef146117936b96b9b2024667bd4c1de59e2b031d27a",
   "runtimeMismatches": [

@@ -15,6 +15,10 @@ import type {
   ChartState,
 } from './chart.js';
 import { chartOptionValuesEqual } from './chart-options.internal.js';
+import {
+  simpleLinesEqual,
+  type NormalizedSimpleLine,
+} from './simple-line.internal.js';
 import { cloneOwnedPartForMutation } from './dependency.internal.js';
 import { renderChartPart } from './chart-render.internal.js';
 import {
@@ -298,19 +302,46 @@ function patchChartOptions(
 ): void {
   const root = xml.roots[0]!;
   const canonicalRoot = canonical.roots[0]!;
-  syncChartChildren(xml, root, canonical, canonicalRoot, ['lang', 'roundedCorners', 'style', 'spPr']);
+  const currentOptions = current.options;
+  const nextOptions = next.options;
+  const rootNames = [
+    ...changedOptionName(currentOptions.language, nextOptions.language, 'lang'),
+    ...changedOptionName(currentOptions.roundedCorners, nextOptions.roundedCorners, 'roundedCorners'),
+    ...changedOptionName(currentOptions.style, nextOptions.style, 'style'),
+    ...changedOptionName(currentOptions.chartArea, nextOptions.chartArea, 'spPr'),
+  ];
+  syncChartChildren(xml, root, canonical, canonicalRoot, rootNames);
   const chart = exactlyOneDirectChartChild(root, 'chart');
   const canonicalChart = exactlyOneDirectChartChild(canonicalRoot, 'chart');
-  syncChartChildren(xml, chart, canonical, canonicalChart, [
-    'title',
-    'autoTitleDeleted',
-    'view3D',
-    'legend',
-    'dispBlanksAs',
-  ]);
+  const chartNames = [
+    ...changedOptionNames(currentOptions.title, nextOptions.title, ['title', 'autoTitleDeleted']),
+    ...changedOptionName(currentOptions.legend, nextOptions.legend, 'legend'),
+    ...changedOptionName(currentOptions.displayBlanksAs, nextOptions.displayBlanksAs, 'dispBlanksAs'),
+    ...changedOptionNames(
+      [
+        currentOptions.rotationX,
+        currentOptions.rotationY,
+        currentOptions.rightAngleAxes,
+        currentOptions.perspective,
+      ],
+      [
+        nextOptions.rotationX,
+        nextOptions.rotationY,
+        nextOptions.rightAngleAxes,
+        nextOptions.perspective,
+      ],
+      ['view3D'],
+    ),
+  ];
+  syncChartChildren(xml, chart, canonical, canonicalChart, chartNames);
   const plotArea = exactlyOneDirectChartChild(chart, 'plotArea');
   const canonicalPlotArea = exactlyOneDirectChartChild(canonicalChart, 'plotArea');
-  syncChartChildren(xml, plotArea, canonical, canonicalPlotArea, ['dTable', 'spPr']);
+  const plotNames = [
+    ...changedOptionName(currentOptions.layout, nextOptions.layout, 'layout'),
+    ...changedOptionName(currentOptions.dataTable, nextOptions.dataTable, 'dTable'),
+    ...changedOptionName(currentOptions.plotArea, nextOptions.plotArea, 'spPr'),
+  ];
+  syncChartChildren(xml, plotArea, canonical, canonicalPlotArea, plotNames);
   if (!patchPlotStructures) return;
 
   const groups = directChartChildren(plotArea).filter(({ localName }) => GROUP_NAMES.has(localName));
@@ -324,18 +355,64 @@ function patchChartOptions(
       currentGroup.options?.dataLabels,
       nextGroup.options?.dataLabels,
     );
-    const optionNames = dataLabelsChanged
-      ? groupOptionElementNames(group.localName)
-      : groupOptionElementNames(group.localName).filter((name) => name !== 'dLbls');
+    const optionNames = changedGroupOptionElementNames(
+      group.localName,
+      currentGroup.options,
+      nextGroup.options,
+    );
     syncChartChildren(xml, group, canonical, canonicalGroup, optionNames);
     const series = directChartChildren(group).filter(({ localName }) => localName === 'ser');
     const canonicalSeries = directChartChildren(canonicalGroup).filter(({ localName }) => localName === 'ser');
     series.forEach((entry, seriesIndex) => {
-      syncChartChildren(xml, entry, canonical, canonicalSeries[seriesIndex]!, [
-        'spPr',
-        'marker',
-        'smooth',
-      ]);
+      const currentSeriesOptions = currentGroup.options?.series?.[seriesIndex];
+      const nextSeriesOptions = nextGroup.options?.series?.[seriesIndex];
+      const seriesCapPatched = patchChartLineCap(
+        xml,
+        entry,
+        currentSeriesOptions?.line,
+        nextSeriesOptions?.line,
+      );
+      const seriesShapeChanged = !chartOptionValuesEqual(
+        [currentSeriesOptions?.fill, currentSeriesOptions?.shadow, currentOptions.colors],
+        [nextSeriesOptions?.fill, nextSeriesOptions?.shadow, nextOptions.colors],
+      ) || (!lineValuesEqual(currentSeriesOptions?.line, nextSeriesOptions?.line)
+        && !seriesCapPatched);
+      const seriesNames = [
+        ...(seriesShapeChanged ? ['spPr'] : []),
+        ...changedOptionNames(
+          [currentSeriesOptions?.marker, optionProperty(currentGroup.options, 'marker')],
+          [nextSeriesOptions?.marker, optionProperty(nextGroup.options, 'marker')],
+          ['marker'],
+        ),
+        ...changedOptionNames(
+          [
+            optionProperty(currentGroup.options, 'smooth'),
+            optionProperty(currentGroup.options, 'style'),
+          ],
+          [
+            optionProperty(nextGroup.options, 'smooth'),
+            optionProperty(nextGroup.options, 'style'),
+          ],
+          ['smooth'],
+        ),
+      ];
+      syncChartChildren(xml, entry, canonical, canonicalSeries[seriesIndex]!, seriesNames);
+      patchSeriesPointStyles(
+        xml,
+        entry,
+        canonical,
+        canonicalSeries[seriesIndex]!,
+        currentSeriesOptions?.points,
+        nextSeriesOptions?.points,
+      );
+      patchSeriesDataLabels(
+        xml,
+        entry,
+        canonical,
+        canonicalSeries[seriesIndex]!,
+        currentSeriesOptions?.dataLabels,
+        nextSeriesOptions?.dataLabels,
+      );
       if (
         dataLabelsChanged
         && readPromotableSeriesDataLabels(
@@ -355,40 +432,35 @@ function patchChartOptions(
     .filter(({ localName }) => AXIS_NAMES.has(localName));
   axes.forEach((axis, index) => {
     const canonicalAxis = canonicalAxes[index]!;
+    const currentAxisOptions = axisSemanticOptions(current, index);
+    const nextAxisOptions = axisSemanticOptions(next, index);
+    const locallyPatched = new Set<string>();
+    for (const [key, ownerName] of [
+      ['line', 'spPr'],
+      ['majorGridLine', 'majorGridlines'],
+      ['minorGridLine', 'minorGridlines'],
+    ] as const) {
+      const owner = ownerName === 'spPr'
+        ? axis
+        : directChartChildren(axis).find(({ localName }) => localName === ownerName);
+      if (
+        owner
+        && patchChartLineCap(
+          xml,
+          owner,
+          optionProperty(currentAxisOptions, key),
+          optionProperty(nextAxisOptions, key),
+        )
+      ) locallyPatched.add(ownerName);
+    }
+    const optionNames = changedAxisElementNames(currentAxisOptions, nextAxisOptions)
+      .filter((name) => !locallyPatched.has(name));
     syncChartChildren(
       xml,
       axis,
       canonical,
       canonicalAxis,
-      [
-        'scaling',
-        'delete',
-        'axPos',
-        'majorGridlines',
-        'minorGridlines',
-        'title',
-        'numFmt',
-        'majorTickMark',
-        'minorTickMark',
-        'tickLblPos',
-        'spPr',
-        'txPr',
-        'crosses',
-        'crossesAt',
-        'auto',
-        'lblAlgn',
-        'lblOffset',
-        'baseTimeUnit',
-        'majorUnit',
-        'majorTimeUnit',
-        'minorUnit',
-        'minorTimeUnit',
-        'tickLblSkip',
-        'tickMarkSkip',
-        'noMultiLvlLbl',
-        'crossBetween',
-        'dispUnits',
-      ],
+      optionNames,
     );
     if (axis.localName !== canonicalAxis.localName) {
       renameChartElement(xml, axis, canonicalAxis.name);
@@ -403,6 +475,355 @@ function dataLabelOptionsEqual(left: unknown, right: unknown): boolean {
     Object.entries(value).filter(([, entry]) => entry !== false),
   );
   return chartOptionValuesEqual(canonical(left), canonical(right));
+}
+
+function changedOptionName(left: unknown, right: unknown, name: string): string[] {
+  return chartOptionValuesEqual(left, right) ? [] : [name];
+}
+
+function lineValuesEqual(left: unknown, right: unknown): boolean {
+  const leftLine = left as NormalizedSimpleLine | undefined;
+  const rightLine = right as NormalizedSimpleLine | undefined;
+  return rightLine === undefined ? leftLine === undefined : simpleLinesEqual(leftLine, rightLine);
+}
+
+function patchChartLineCap(
+  xml: LosslessXmlDocument,
+  owner: XmlElement,
+  currentValue: unknown,
+  nextValue: unknown,
+): boolean {
+  const current = currentValue as NormalizedSimpleLine | undefined;
+  const next = nextValue as NormalizedSimpleLine | undefined;
+  if (
+    current?.kind !== 'line'
+    || next?.kind !== 'line'
+    || simpleLinesEqual(current, next)
+    || !simpleLinesEqual(withoutLineCap(current), withoutLineCap(next))
+  ) return false;
+  const properties = owner.localName === 'spPr'
+    ? owner
+    : directChartChildren(owner).filter(({ localName }) => localName === 'spPr')[0];
+  if (!properties) return false;
+  const lines = properties.children.filter((child): child is XmlElement =>
+    child.type === 'element'
+      && namespaceUri(child) === 'http://schemas.openxmlformats.org/drawingml/2006/main'
+      && child.localName === 'ln');
+  if (lines.length !== 1) return false;
+  const line = lines[0]!;
+  const caps = line.attributes.filter(({ name }) => name === 'cap');
+  if (caps.length > 1) return false;
+  const target = next.cap === undefined
+    ? undefined
+    : ({ flat: 'flat', round: 'rnd', square: 'sq' } as const)[next.cap];
+  const cap = caps[0];
+  if (cap && target !== undefined) {
+    if (cap.value === target) return true;
+    xml.replace(cap.valueStart, cap.valueEnd, target);
+    return true;
+  }
+  if (cap) {
+    let start = cap.start;
+    while (start > line.start && /[\t ]/.test(xml.source[start - 1] ?? '')) start -= 1;
+    xml.replace(start, cap.end, '');
+    return true;
+  }
+  if (target === undefined) return true;
+  const position = line.selfClosing
+    ? xml.source.lastIndexOf('/', line.startTagEnd - 1)
+    : line.startTagEnd - 1;
+  if (position <= line.start) return false;
+  xml.replace(position, position, ` cap="${target}"`);
+  return true;
+}
+
+function withoutLineCap(line: Extract<NormalizedSimpleLine, { readonly kind: 'line' }>): NormalizedSimpleLine {
+  const { cap: _cap, ...rest } = line;
+  return rest;
+}
+
+function patchSeriesPointStyles(
+  xml: LosslessXmlDocument,
+  series: XmlElement,
+  canonical: LosslessXmlDocument,
+  canonicalSeries: XmlElement,
+  current: readonly Readonly<{ readonly index: number }>[] | undefined,
+  next: readonly Readonly<{ readonly index: number }>[] | undefined,
+): void {
+  if (chartOptionValuesEqual(current, next)) return;
+  const existing = pointElementMap(series);
+  const replacements = pointElementMap(canonicalSeries);
+  const currentByIndex = new Map((current ?? []).map((point) => [point.index, point]));
+  const nextByIndex = new Map((next ?? []).map((point) => [point.index, point]));
+  const indexes = new Set([...currentByIndex.keys(), ...nextByIndex.keys()]);
+  for (const index of [...indexes].sort((left, right) => left - right)) {
+    if (chartOptionValuesEqual(currentByIndex.get(index), nextByIndex.get(index))) continue;
+    const target = existing.get(index);
+    const replacement = replacements.get(index);
+    if (target && replacement) {
+      xml.replaceElement(target, canonical.original(replacement));
+    } else if (target) {
+      xml.removeElement(target);
+    } else if (replacement) {
+      insertPointStyle(xml, series, canonical, replacement, index);
+    }
+  }
+}
+
+function pointElementMap(series: XmlElement): Map<number, XmlElement> {
+  const result = new Map<number, XmlElement>();
+  for (const point of directChartChildren(series).filter(({ localName }) => localName === 'dPt')) {
+    const indexes = directChartChildren(point).filter(({ localName }) => localName === 'idx');
+    const raw = indexes.length === 1
+      ? indexes[0]!.attributes.find(({ name }) => name === 'val')?.value
+      : undefined;
+    const index = raw === undefined ? Number.NaN : Number(raw);
+    if (!Number.isSafeInteger(index) || index < 0 || result.has(index)) {
+      throw new Error('Chart point style indexes are ambiguous');
+    }
+    result.set(index, point);
+  }
+  return result;
+}
+
+function insertPointStyle(
+  xml: LosslessXmlDocument,
+  series: XmlElement,
+  canonical: LosslessXmlDocument,
+  replacement: XmlElement,
+  index: number,
+): void {
+  const rendered = canonical.original(replacement);
+  const followingPoint = [...pointElementMap(series)]
+    .filter(([candidate]) => candidate > index)
+    .sort(([left], [right]) => left - right)[0]?.[1];
+  if (followingPoint) {
+    xml.replace(followingPoint.start, followingPoint.start, rendered);
+    return;
+  }
+  const canonicalSiblings = directChartChildren(replacement.parent!);
+  const replacementIndex = canonicalSiblings.indexOf(replacement);
+  for (const sibling of canonicalSiblings.slice(replacementIndex + 1)) {
+    if (sibling.localName === 'dPt') continue;
+    const anchor = directChartChildren(series).find(({ localName }) => localName === sibling.localName);
+    if (anchor) {
+      xml.replace(anchor.start, anchor.start, rendered);
+      return;
+    }
+  }
+  const extension = directChartChildren(series).find(({ localName }) => localName === 'extLst');
+  if (extension) xml.replace(extension.start, extension.start, rendered);
+  else xml.appendChildXml(series, rendered);
+}
+
+function patchSeriesDataLabels(
+  xml: LosslessXmlDocument,
+  series: XmlElement,
+  canonical: LosslessXmlDocument,
+  canonicalSeries: XmlElement,
+  current: Readonly<object> | undefined,
+  next: Readonly<object> | undefined,
+): void {
+  if (dataLabelOptionsEqual(current, next)) return;
+  const existing = directChartChildren(series).filter(({ localName }) => localName === 'dLbls');
+  const replacements = directChartChildren(canonicalSeries)
+    .filter(({ localName }) => localName === 'dLbls');
+  if (existing.length !== 1 || replacements.length !== 1) {
+    syncChartChildren(xml, series, canonical, canonicalSeries, ['dLbls']);
+    return;
+  }
+  patchSeriesPointLabels(
+    xml,
+    existing[0]!,
+    canonical,
+    replacements[0]!,
+    optionProperty(current, 'pointLabels') as readonly Readonly<{ readonly index: number }>[] | undefined,
+    optionProperty(next, 'pointLabels') as readonly Readonly<{ readonly index: number }>[] | undefined,
+  );
+  const mappings: readonly [readonly string[], string][] = [
+    [['numberFormat'], 'numFmt'],
+    [['fill'], 'spPr'],
+    [['face', 'size', 'bold', 'italic', 'color'], 'txPr'],
+    [['position'], 'dLblPos'],
+    [['showValue'], 'showVal'],
+    [['showCategoryName'], 'showCatName'],
+    [['showSeriesName'], 'showSerName'],
+    [['showPercent'], 'showPercent'],
+    [['showBubbleSize'], 'showBubbleSize'],
+    [['showLeaderLines'], 'showLeaderLines'],
+  ];
+  const names = mappings.flatMap(([keys, element]) =>
+    chartOptionValuesEqual(
+      keys.map((key) => optionProperty(current, key)),
+      keys.map((key) => optionProperty(next, key)),
+    ) ? [] : [element]);
+  syncChartChildren(xml, existing[0]!, canonical, replacements[0]!, names);
+}
+
+function patchSeriesPointLabels(
+  xml: LosslessXmlDocument,
+  labels: XmlElement,
+  canonical: LosslessXmlDocument,
+  canonicalLabels: XmlElement,
+  current: readonly Readonly<{ readonly index: number }>[] | undefined,
+  next: readonly Readonly<{ readonly index: number }>[] | undefined,
+): void {
+  if (chartOptionValuesEqual(current, next)) return;
+  const existing = indexedChartChildMap(labels, 'dLbl');
+  const replacements = indexedChartChildMap(canonicalLabels, 'dLbl');
+  const currentByIndex = new Map((current ?? []).map((label) => [label.index, label]));
+  const nextByIndex = new Map((next ?? []).map((label) => [label.index, label]));
+  const indexes = new Set([...currentByIndex.keys(), ...nextByIndex.keys()]);
+  for (const index of [...indexes].sort((left, right) => left - right)) {
+    if (chartOptionValuesEqual(currentByIndex.get(index), nextByIndex.get(index))) continue;
+    const target = existing.get(index);
+    const replacement = replacements.get(index);
+    if (target && replacement) {
+      xml.replaceElement(target, canonical.original(replacement));
+    } else if (target) {
+      xml.removeElement(target);
+    } else if (replacement) {
+      insertIndexedChartChild(xml, labels, canonical, replacement, 'dLbl', index);
+    }
+  }
+}
+
+function indexedChartChildMap(parent: XmlElement, localName: string): Map<number, XmlElement> {
+  const result = new Map<number, XmlElement>();
+  for (const child of directChartChildren(parent).filter((entry) => entry.localName === localName)) {
+    const indexes = directChartChildren(child).filter(({ localName: name }) => name === 'idx');
+    const raw = indexes.length === 1
+      ? indexes[0]!.attributes.find(({ name }) => name === 'val')?.value
+      : undefined;
+    const index = raw === undefined ? Number.NaN : Number(raw);
+    if (!Number.isSafeInteger(index) || index < 0 || result.has(index)) {
+      throw new Error(`Chart ${localName} indexes are ambiguous`);
+    }
+    result.set(index, child);
+  }
+  return result;
+}
+
+function insertIndexedChartChild(
+  xml: LosslessXmlDocument,
+  parent: XmlElement,
+  canonical: LosslessXmlDocument,
+  replacement: XmlElement,
+  localName: string,
+  index: number,
+): void {
+  const rendered = canonical.original(replacement);
+  const following = [...indexedChartChildMap(parent, localName)]
+    .filter(([candidate]) => candidate > index)
+    .sort(([left], [right]) => left - right)[0]?.[1];
+  if (following) {
+    xml.replace(following.start, following.start, rendered);
+    return;
+  }
+  const canonicalSiblings = directChartChildren(replacement.parent!);
+  const replacementIndex = canonicalSiblings.indexOf(replacement);
+  for (const sibling of canonicalSiblings.slice(replacementIndex + 1)) {
+    if (sibling.localName === localName) continue;
+    const anchor = directChartChildren(parent).find((entry) => entry.localName === sibling.localName);
+    if (anchor) {
+      xml.replace(anchor.start, anchor.start, rendered);
+      return;
+    }
+  }
+  const extension = directChartChildren(parent).find(({ localName: name }) => name === 'extLst');
+  if (extension) xml.replace(extension.start, extension.start, rendered);
+  else xml.appendChildXml(parent, rendered);
+}
+
+function optionProperty(value: unknown, key: string): unknown {
+  return value && typeof value === 'object'
+    ? (value as Readonly<Record<string, unknown>>)[key]
+    : undefined;
+}
+
+function changedOptionNames(
+  left: unknown,
+  right: unknown,
+  names: readonly string[],
+): string[] {
+  return chartOptionValuesEqual(left, right) ? [] : [...names];
+}
+
+function changedGroupOptionElementNames(
+  localName: string,
+  current: Readonly<Record<string, unknown>> | undefined,
+  next: Readonly<Record<string, unknown>> | undefined,
+): string[] {
+  const mapping: Readonly<Record<string, readonly [string, string][]>> = {
+    areaChart: [['grouping', 'grouping'], ['varyColors', 'varyColors'], ['dataLabels', 'dLbls']],
+    barChart: [['direction', 'barDir'], ['grouping', 'grouping'], ['varyColors', 'varyColors'], ['dataLabels', 'dLbls'], ['gapWidth', 'gapWidth'], ['overlap', 'overlap']],
+    bar3DChart: [['direction', 'barDir'], ['grouping', 'grouping'], ['varyColors', 'varyColors'], ['dataLabels', 'dLbls'], ['gapWidth', 'gapWidth'], ['gapDepth', 'gapDepth'], ['shape', 'shape']],
+    bubbleChart: [['varyColors', 'varyColors'], ['dataLabels', 'dLbls'], ['scale', 'bubbleScale'], ['showNegativeBubbles', 'showNegBubbles'], ['sizeRepresents', 'sizeRepresents']],
+    doughnutChart: [['varyColors', 'varyColors'], ['dataLabels', 'dLbls'], ['firstSliceAngle', 'firstSliceAng'], ['holeSize', 'holeSize']],
+    lineChart: [['grouping', 'grouping'], ['varyColors', 'varyColors'], ['dataLabels', 'dLbls']],
+    pieChart: [['varyColors', 'varyColors'], ['dataLabels', 'dLbls'], ['firstSliceAngle', 'firstSliceAng']],
+    radarChart: [['style', 'radarStyle'], ['varyColors', 'varyColors'], ['dataLabels', 'dLbls']],
+    scatterChart: [['style', 'scatterStyle'], ['varyColors', 'varyColors'], ['dataLabels', 'dLbls']],
+  };
+  return (mapping[localName] ?? []).flatMap(([key, element]) => {
+    const equal = key === 'dataLabels'
+      ? dataLabelOptionsEqual(current?.[key], next?.[key])
+      : chartOptionValuesEqual(current?.[key], next?.[key]);
+    return equal ? [] : [element];
+  });
+}
+
+function axisSemanticOptions(
+  definition: Readonly<ChartDefinition>,
+  index: number,
+): unknown {
+  const options = definition.options;
+  if (definition.groups[0]?.type === 'bar3D') {
+    return [options.categoryAxis, options.valueAxis, options.seriesAxis][index];
+  }
+  return [
+    options.categoryAxis,
+    options.valueAxis,
+    options.secondaryCategoryAxis,
+    options.secondaryValueAxis,
+  ][index];
+}
+
+function changedAxisElementNames(current: unknown, next: unknown): string[] {
+  const mappings: readonly [readonly string[], readonly string[]][] = [
+    [['kind'], ['scaling', 'baseTimeUnit', 'majorTimeUnit', 'minorTimeUnit', 'crossBetween']],
+    [['minimum', 'maximum', 'logarithmicBase', 'orientation'], ['scaling']],
+    [['visible'], ['delete']],
+    [['position'], ['axPos']],
+    [['majorGridLine'], ['majorGridlines']],
+    [['minorGridLine'], ['minorGridlines']],
+    [['title'], ['title']],
+    [['numberFormat'], ['numFmt']],
+    [['majorTickMark'], ['majorTickMark']],
+    [['minorTickMark'], ['minorTickMark']],
+    [['labelPosition'], ['tickLblPos']],
+    [['line'], ['spPr']],
+    [['face', 'size', 'bold', 'italic', 'color', 'labelRotation'], ['txPr']],
+    [['crossesAt'], ['crosses', 'crossesAt']],
+    [['baseTimeUnit'], ['baseTimeUnit']],
+    [['majorUnit'], ['majorUnit']],
+    [['majorTimeUnit'], ['majorTimeUnit']],
+    [['minorUnit'], ['minorUnit']],
+    [['minorTimeUnit'], ['minorTimeUnit']],
+    [['labelFrequency'], ['tickLblSkip']],
+    [['multiLevelLabels'], ['noMultiLvlLbl']],
+    [['displayUnit', 'displayUnitLabel'], ['dispUnits']],
+  ];
+  const names = new Set<string>();
+  for (const [keys, elements] of mappings) {
+    const left = keys.map((key) => optionProperty(current, key));
+    const right = keys.map((key) => optionProperty(next, key));
+    const equal = keys.length === 1 && ['line', 'majorGridLine', 'minorGridLine'].includes(keys[0]!)
+      ? lineValuesEqual(left[0], right[0])
+      : chartOptionValuesEqual(left, right);
+    if (!equal) elements.forEach((name) => names.add(name));
+  }
+  return [...names];
 }
 
 function renameChartElement(
@@ -480,7 +901,7 @@ function groupOptionElementNames(localName: string): readonly string[] {
   switch (localName) {
     case 'areaChart': return ['grouping', 'varyColors', 'dLbls'];
     case 'barChart': return ['barDir', 'grouping', 'varyColors', 'dLbls', 'gapWidth', 'overlap'];
-    case 'bar3DChart': return ['barDir', 'grouping', 'varyColors', 'dLbls', 'gapWidth', 'gapDepth'];
+    case 'bar3DChart': return ['barDir', 'grouping', 'varyColors', 'dLbls', 'gapWidth', 'gapDepth', 'shape'];
     case 'bubbleChart': return ['varyColors', 'dLbls', 'bubbleScale', 'showNegBubbles', 'sizeRepresents'];
     case 'doughnutChart': return ['varyColors', 'dLbls', 'firstSliceAng', 'holeSize'];
     case 'lineChart': return ['grouping', 'varyColors', 'dLbls'];

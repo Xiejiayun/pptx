@@ -76,6 +76,8 @@ export type ShapeLineDash =
   | 'sysDash'
   | 'sysDot';
 
+export type ShapeLineCap = 'flat' | 'round' | 'square';
+
 export type ShapeLine =
   | { readonly kind: 'none' }
   | {
@@ -84,6 +86,7 @@ export type ShapeLine =
       readonly transparency?: number;
       readonly width?: number;
       readonly dash?: ShapeLineDash;
+      readonly cap?: ShapeLineCap;
     };
 
 export type ShapeArrowType =

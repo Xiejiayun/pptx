@@ -10,13 +10,17 @@ import type {
   ChartLegendOptions,
   ChartMarkerOptions,
   ChartOptions,
+  ChartPointDataLabelOptions,
+  ChartPointOptions,
   ChartSeriesAxisOptions,
+  ChartSeriesDataLabelOptions,
   ChartSeriesOptions,
   ChartTimeUnit,
   ChartTitleOptions,
   ChartType,
   ChartValueAxisOptions,
 } from './chart.js';
+import { normalizeShapeShadow } from './simple-shadow.internal.js';
 import { normalizeSimpleFill, type SimpleFill } from './simple-fill.internal.js';
 import {
   normalizeSimpleLine,
@@ -33,6 +37,7 @@ const OPTION_KEYS = [
   'legend',
   'chartArea',
   'plotArea',
+  'layout',
   'categoryAxis',
   'valueAxis',
   'seriesAxis',
@@ -46,8 +51,17 @@ const OPTION_KEYS = [
   'perspective',
 ] as const;
 const FONT_KEYS = ['face', 'size', 'bold', 'italic', 'color'] as const;
-const TITLE_KEYS = [...FONT_KEYS, 'visible', 'text', 'overlay', 'rotation', 'position'] as const;
+const TITLE_KEYS = [
+  ...FONT_KEYS,
+  'visible',
+  'text',
+  'overlay',
+  'rotation',
+  'position',
+  'align',
+] as const;
 const TITLE_POSITION_KEYS = ['x', 'y'] as const;
+const LAYOUT_KEYS = ['x', 'y', 'width', 'height'] as const;
 const LEGEND_KEYS = [...FONT_KEYS, 'visible', 'position', 'overlay'] as const;
 const AREA_KEYS = ['fill', 'line'] as const;
 const AXIS_KEYS = [
@@ -129,7 +143,10 @@ const DATA_TABLE_KEYS = [
   'numberFormat',
 ] as const;
 const MARKER_KEYS = ['shape', 'size', 'fill', 'line'] as const;
-const SERIES_KEYS = ['fill', 'line', 'marker'] as const;
+const POINT_KEYS = ['index', 'fill', 'line', 'shadow'] as const;
+const POINT_DATA_LABEL_KEYS = ['index', 'text', 'fields'] as const;
+const SERIES_DATA_LABEL_KEYS = [...DATA_LABEL_KEYS, 'fill', 'pointLabels'] as const;
+const SERIES_KEYS = ['fill', 'line', 'marker', 'shadow', 'points', 'dataLabels'] as const;
 const COMMON_GROUP_KEYS = ['varyColors', 'series', 'dataLabels'] as const;
 
 const GROUP_KEYS: Readonly<Record<ChartType, readonly string[]>> = Object.freeze({
@@ -141,8 +158,10 @@ const GROUP_KEYS: Readonly<Record<ChartType, readonly string[]>> = Object.freeze
     'grouping',
     'gapWidth',
     'gapDepth',
+    'shape',
   ],
   bubble: [...COMMON_GROUP_KEYS, 'scale', 'showNegativeBubbles', 'sizeRepresents'],
+  bubble3D: [...COMMON_GROUP_KEYS, 'scale', 'showNegativeBubbles', 'sizeRepresents'],
   doughnut: [...COMMON_GROUP_KEYS, 'firstSliceAngle', 'holeSize'],
   line: [...COMMON_GROUP_KEYS, 'grouping', 'smooth', 'marker'],
   pie: [...COMMON_GROUP_KEYS, 'firstSliceAngle'],
@@ -162,6 +181,7 @@ export function normalizeChartOptions(value: unknown): Readonly<ChartOptions> {
     ...optionalObject(input, 'legend', normalizeLegendOptions, 'Chart legend'),
     ...optionalObject(input, 'chartArea', normalizeAreaOptions, 'Chart area'),
     ...optionalObject(input, 'plotArea', normalizeAreaOptions, 'Chart plot area'),
+    ...optionalObject(input, 'layout', normalizeLayoutOptions, 'Chart layout'),
     ...optionalObject(
       input,
       'categoryAxis',
@@ -195,14 +215,14 @@ export function normalizeChartOptions(value: unknown): Readonly<ChartOptions> {
 export function normalizeChartGroupOptions(
   type: ChartType,
   value: unknown,
-  seriesCount: number,
+  seriesValueCounts: readonly number[],
 ): Readonly<ChartGroupOptions> | undefined {
   if (value === undefined) return undefined;
   const context = `Chart ${type} group options`;
   const input = readObject(value, GROUP_KEYS[type], context);
   const common: ChartGroupOptions = {
     ...optionalBoolean(input, 'varyColors', `${context} varyColors`),
-    ...optionalSeriesOptions(input, type, seriesCount, context),
+    ...optionalSeriesOptions(input, type, seriesValueCounts, context),
     ...optionalObject(input, 'dataLabels', normalizeDataLabelOptions, `${context} dataLabels`),
   };
   let specific: object;
@@ -232,11 +252,22 @@ export function normalizeChartGroupOptions(
           ? optionalInteger(input, 'overlap', `${context} overlap`, -100, 100)
           : {}),
         ...(type === 'bar3D'
-          ? optionalInteger(input, 'gapDepth', `${context} gapDepth`, 0, 500)
+          ? {
+              ...optionalInteger(input, 'gapDepth', `${context} gapDepth`, 0, 500),
+              ...optionalEnum(input, 'shape', `${context} shape`, [
+                'box',
+                'cone',
+                'coneToMax',
+                'cylinder',
+                'pyramid',
+                'pyramidToMax',
+              ]),
+            }
           : {}),
       };
       break;
     case 'bubble':
+    case 'bubble3D':
       specific = {
         ...optionalInteger(input, 'scale', `${context} scale`, 0, 300),
         ...optionalBoolean(input, 'showNegativeBubbles', `${context} showNegativeBubbles`),
@@ -325,7 +356,29 @@ function normalizeTitleOptions(value: unknown, context: string): Readonly<ChartT
     ...optionalBoolean(input, 'overlay', `${context} overlay`),
     ...optionalNumber(input, 'rotation', `${context} rotation`, -90, 90),
     ...optionalObject(input, 'position', normalizeTitlePosition, `${context} position`),
+    ...optionalEnum(input, 'align', `${context} align`, ['left', 'center', 'right']),
   });
+}
+
+function normalizeLayoutOptions(
+  value: unknown,
+  context: string,
+): Readonly<{ readonly x: number; readonly y: number; readonly width: number; readonly height: number }> {
+  const input = readObject(value, LAYOUT_KEYS, context);
+  for (const key of LAYOUT_KEYS) {
+    if (!Object.hasOwn(input, key)) throw new TypeError(`${context} must provide ${key}`);
+  }
+  return Object.freeze({
+    ...optionalNumber(input, 'x', `${context} x`, 0, 1),
+    ...optionalNumber(input, 'y', `${context} y`, 0, 1),
+    ...optionalNumber(input, 'width', `${context} width`, 0, 1),
+    ...optionalNumber(input, 'height', `${context} height`, 0, 1),
+  }) as Readonly<{
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+  }>;
 }
 
 function normalizeTitlePosition(
@@ -508,6 +561,13 @@ function normalizeDataLabelOptions(
   context: string,
 ): Readonly<ChartDataLabelOptions> {
   const input = readObject(value, DATA_LABEL_KEYS, context);
+  return normalizeDataLabelRecord(input, context);
+}
+
+function normalizeDataLabelRecord(
+  input: Record<string, unknown>,
+  context: string,
+): Readonly<ChartDataLabelOptions> {
   return Object.freeze({
     ...normalizeFontOptions(input, context),
     ...optionalBoolean(input, 'showValue', `${context} showValue`),
@@ -569,15 +629,143 @@ function normalizeMarkerOptions(value: unknown, context: string): Readonly<Chart
   });
 }
 
-function normalizeSeriesOptions(value: unknown, context: string): Readonly<ChartSeriesOptions> {
+function normalizeSeriesOptions(
+  value: unknown,
+  type: ChartType,
+  valueCount: number,
+  context: string,
+): Readonly<ChartSeriesOptions> {
   const input = readObject(value, SERIES_KEYS, context);
   const fill = normalizeSimpleFill(input.fill, `${context} fill`);
   const line = normalizeSimpleLine(input.line, `${context} line`);
+  const shadow = input.shadow !== undefined
+    ? normalizeShapeShadow(input.shadow, `${context} shadow`)
+    : undefined;
+  const points = Object.hasOwn(input, 'points')
+    ? normalizePointOptions(input.points, valueCount, `${context} points`)
+    : undefined;
+  const dataLabels = Object.hasOwn(input, 'dataLabels')
+    ? normalizeSeriesDataLabelOptions(
+        input.dataLabels,
+        type,
+        valueCount,
+        `${context} dataLabels`,
+      )
+    : undefined;
+  validateDataLabelCompatibility(type, dataLabels);
   return Object.freeze({
     ...(fill === undefined ? {} : { fill: freezeFill(fill) }),
     ...(line === undefined ? {} : { line: freezeLine(line) }),
     ...optionalObject(input, 'marker', normalizeMarkerOptions, `${context} marker`),
+    ...(shadow === undefined ? {} : { shadow }),
+    ...(points === undefined ? {} : { points }),
+    ...(dataLabels === undefined ? {} : { dataLabels }),
   });
+}
+
+function normalizePointOptions(
+  value: unknown,
+  valueCount: number,
+  context: string,
+): readonly Readonly<ChartPointOptions>[] {
+  const values = readArray(value, context);
+  const indexes = new Set<number>();
+  const normalized = values.map((entry, position) => {
+    const itemContext = `${context} item ${position}`;
+    const input = readObject(entry, POINT_KEYS, itemContext);
+    if (!Object.hasOwn(input, 'index')) throw new TypeError(`${itemContext} must provide index`);
+    if (!Number.isSafeInteger(input.index) || (input.index as number) < 0) {
+      throw new TypeError(`${itemContext} index must be a non-negative safe integer`);
+    }
+    const index = input.index as number;
+    if (index >= valueCount) throw new RangeError(`${itemContext} index is outside the series values`);
+    if (indexes.has(index)) throw new RangeError(`${context} indexes must be unique`);
+    indexes.add(index);
+    const fill = normalizeSimpleFill(input.fill, `${itemContext} fill`);
+    const line = normalizeSimpleLine(input.line, `${itemContext} line`);
+    const shadow = input.shadow !== undefined
+      ? normalizeShapeShadow(input.shadow, `${itemContext} shadow`)
+      : undefined;
+    return Object.freeze({
+      index,
+      ...(fill === undefined ? {} : { fill: freezeFill(fill) }),
+      ...(line === undefined ? {} : { line: freezeLine(line) }),
+      ...(shadow === undefined ? {} : { shadow }),
+    });
+  });
+  return Object.freeze(normalized);
+}
+
+function normalizeSeriesDataLabelOptions(
+  value: unknown,
+  type: ChartType,
+  valueCount: number,
+  context: string,
+): Readonly<ChartSeriesDataLabelOptions> {
+  const input = readObject(value, SERIES_DATA_LABEL_KEYS, context);
+  const fill = normalizeSimpleFill(input.fill, `${context} fill`);
+  const pointLabels = Object.hasOwn(input, 'pointLabels')
+    ? normalizePointDataLabelOptions(input.pointLabels, valueCount, `${context} pointLabels`)
+    : undefined;
+  if (pointLabels !== undefined && type !== 'scatter') {
+    throw new TypeError(`${context} pointLabels are supported only for scatter charts`);
+  }
+  return Object.freeze({
+    ...normalizeDataLabelRecord(input, context),
+    ...(fill === undefined ? {} : { fill: freezeFill(fill) }),
+    ...(pointLabels === undefined ? {} : { pointLabels }),
+  });
+}
+
+function normalizePointDataLabelOptions(
+  value: unknown,
+  valueCount: number,
+  context: string,
+): readonly Readonly<ChartPointDataLabelOptions>[] {
+  const values = readArray(value, context);
+  const indexes = new Set<number>();
+  const normalized = values.map((entry, position) => {
+    const itemContext = `${context} item ${position}`;
+    const input = readObject(entry, POINT_DATA_LABEL_KEYS, itemContext);
+    if (!Object.hasOwn(input, 'index')) throw new TypeError(`${itemContext} must provide index`);
+    if (!Number.isSafeInteger(input.index) || (input.index as number) < 0) {
+      throw new TypeError(`${itemContext} index must be a non-negative safe integer`);
+    }
+    const index = input.index as number;
+    if (index >= valueCount) throw new RangeError(`${itemContext} index is outside the series values`);
+    if (indexes.has(index)) throw new RangeError(`${context} indexes must be unique`);
+    indexes.add(index);
+    const text = optionalString(input, 'text', `${itemContext} text`, true);
+    const fields = Object.hasOwn(input, 'fields')
+      ? normalizeDataLabelFields(input.fields, `${itemContext} fields`)
+      : undefined;
+    if (!Object.hasOwn(text, 'text') && (fields === undefined || fields.length === 0)) {
+      throw new TypeError(`${itemContext} must provide text or at least one field`);
+    }
+    return Object.freeze({
+      index,
+      ...text,
+      ...(fields === undefined ? {} : { fields }),
+    });
+  });
+  return Object.freeze(normalized);
+}
+
+function normalizeDataLabelFields(
+  value: unknown,
+  context: string,
+): readonly ('xValue' | 'yValue')[] {
+  const values = readArray(value, context);
+  const fields = values.map((entry, index) => {
+    if (entry !== 'xValue' && entry !== 'yValue') {
+      throw new TypeError(`${context} item ${index} must be xValue or yValue`);
+    }
+    return entry;
+  });
+  if (new Set(fields).size !== fields.length) {
+    throw new RangeError(`${context} must not contain duplicate fields`);
+  }
+  return Object.freeze(fields);
 }
 
 function normalizeFontOptions(
@@ -596,16 +784,21 @@ function normalizeFontOptions(
 function optionalSeriesOptions(
   input: Record<string, unknown>,
   type: ChartType,
-  seriesCount: number,
+  seriesValueCounts: readonly number[],
   context: string,
 ): object {
   if (!Object.hasOwn(input, 'series')) return {};
   const values = readArray(input.series, `${context} series`);
-  if (values.length > seriesCount) {
+  if (values.length > seriesValueCounts.length) {
     throw new RangeError(`${context} series styles cannot exceed the group series count`);
   }
   const normalized = values.map((value, index) =>
-    normalizeSeriesOptions(value, `${context} series ${index}`));
+    normalizeSeriesOptions(
+      value,
+      type,
+      seriesValueCounts[index]!,
+      `${context} series ${index}`,
+    ));
   if (
     type !== 'line'
     && type !== 'scatter'
@@ -776,6 +969,7 @@ function freezeLine(line: NormalizedSimpleLine): NormalizedSimpleLine {
         ...(line.transparency === undefined ? {} : { transparency: line.transparency }),
         width: line.width,
         dash: line.dash,
+        ...(line.cap === undefined ? {} : { cap: line.cap }),
       });
 }
 
@@ -789,7 +983,7 @@ function validateDataLabelCompatibility(
     ? ['bestFit', 'center', 'insideEnd', 'outsideEnd']
     : type === 'bar' || type === 'bar3D'
       ? ['center', 'insideBase', 'insideEnd', 'outsideEnd']
-      : type === 'line' || type === 'scatter' || type === 'bubble'
+      : type === 'line' || type === 'scatter' || type === 'bubble' || type === 'bubble3D'
         ? ['bottom', 'center', 'left', 'right', 'top']
         : ['center'];
   if (!allowed.includes(position)) {

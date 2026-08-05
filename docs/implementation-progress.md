@@ -1307,3 +1307,14 @@ $ pptx-inspect --json package inspect output.pptx
 - `angleRange` 与 `arcThicknessRatio` 归为 deliberate-difference。PptxGenJS shortcuts 的合法最终 `adj1`/`adj2`/`adj3` 由 Native strict ordered `ShapeAdjustment[]` 直接表达；不复制 truthy-zero、coercion、shortcut precedence 或 malformed formula passthrough。
 - Aggregate 1/1 与既有 adjustment controls 2/2 通过；unified runtime 为 10/10，TypeScript 与 surface/runtime audit 29/29 通过，audit 两次生成 byte-stable。复用的 PowerPoint 2010 evidence 为 0 errors / 1 条预期 external-hyperlink warning。
 - 权威矩阵更新为 1,751/1,774（98.70%）：supported 760、deliberate-difference 523、deprecated-alias 94、defect-excluded 374、unverified 23、unsupported/stale 0，diagnostics 0。剩余唯一能力族为 Chart Residual（23 项）。
+
+## PptxGenJS 全表面：Chart Residual
+
+状态：能力族 23/23 完成；PptxGenJS 4.0.1 全表面矩阵 1,774/1,774（100%）
+
+- `ChartLineCap` 的 flat/round/square 与 `ChartType.bubble3D` 共 4 项归为 supported；其余 19 项通过 strict nested chart state 归为 deliberate-difference，不复制 PptxGenJS 的 permissive flat aliases、truthy fallback 或 caller mutation。
+- Native 新增并闭合 bar3D shape、plot/title layout、title alignment、effective language、multi-level categories、shared line cap、series/point/data-label visual state，以及 scatter custom/customXY point-label fields。创建、导入、局部编辑、exact no-op、invalid isolation、rollback、duplicate copy-on-write、write/reopen 与未选中 OOXML byte isolation 共用同一 lifecycle contract。
+- 四 Slice PptxGenJS 4.0.1 runtime/control 分别为 A 15/15 + 20/20、B 8/8 + 14/14、C 13/13 + 17/17、D 11/11 + 19/19；能力族 focused gate 为 8 files / 291 tests，TypeScript project build 通过。最终 full Vitest 为 93 passed / 1 skipped files、1,862 passed / 1 skipped tests。
+- Native、actual npm tarball 与 persistent Google Chrome 150.0.7871.188 均通过统一 23-atom / 33-state probe；六种 presentation format、10 charts / 10 workbooks、0 orphan、workbook cache 10/10 与 exact OOXML 全部通过。完整 npm aggregate 为 20 native charts / 21 slides；Chrome console/page/network/driver errors 均为 0。
+- Native、tarball 与 browser evidence deck 的 PowerPoint 2010 validation 均为 0 errors / 0 warnings；npm/browser package diff 为 added 0 / removed 0 / changed 0。Chart Presentation 91 回归 7/7，custom scatter series labels 在 unrelated group edit 后保持 byte-identical。
+- 权威矩阵最终为 supported 764、deliberate-difference 542、deprecated-alias 94、defect-excluded 374、unsupported/unverified/stale 0、diagnostics 0。两次 audit JSON/Markdown 生成 byte-identical，`complete=true`；PptxGenJS 4.0.1 声明表面已全部分类并由代码、control、package、OOXML 与 browser 证据闭合。

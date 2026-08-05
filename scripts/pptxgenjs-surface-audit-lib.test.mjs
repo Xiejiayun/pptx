@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1751);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1774);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(374).fill('defect-excluded'),
-      ...Array(760).fill('supported'),
-      ...Array(523).fill('deliberate-difference'),
+      ...Array(764).fill('supported'),
+      ...Array(542).fill('deliberate-difference'),
       ...Array(94).fill('deprecated-alias'),
     ].sort(),
   );
@@ -426,13 +426,39 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
       .sort((left, right) => left.id.localeCompare(right.id)),
     expectedChartCreationEntries,
   );
-  assert.equal(
-    PPTXGENJS_SURFACE_MANIFEST.entries.some(({ id }) => [
-      'union:ChartType#bubble3D',
-      'class:PptxGenJS@property:ChartType',
-      'union:interface:OptsChartData@property:labels#string[][]',
-    ].includes(id)),
-    false,
+  const expectedChartResidual23Entries = [
+    ['class:PptxGenJS@property:ChartType', 'deliberate-difference'],
+    ['inline:interface:IChartOpts@property:titlePos@property:titlePos.x', 'deliberate-difference'],
+    ['inline:interface:IChartOpts@property:titlePos@property:titlePos.y', 'deliberate-difference'],
+    ['interface:IChartOpts@property:bar3DShape', 'deliberate-difference'],
+    ['interface:IChartOpts@property:dataBorder', 'deliberate-difference'],
+    ['interface:IChartOpts@property:dataLabelBkgrdColors', 'deliberate-difference'],
+    ['interface:IChartOpts@property:dataLabelFormatScatter', 'deliberate-difference'],
+    ['interface:IChartOpts@property:dataNoEffects', 'deliberate-difference'],
+    ['interface:IChartOpts@property:invertedColors', 'deliberate-difference'],
+    ['interface:IChartOpts@property:lang', 'deliberate-difference'],
+    ['interface:IChartOpts@property:layout', 'deliberate-difference'],
+    ['interface:IChartOpts@property:lineCap', 'deliberate-difference'],
+    ['interface:IChartOpts@property:shadow', 'deliberate-difference'],
+    ['interface:IChartOpts@property:titleAlign', 'deliberate-difference'],
+    ['interface:OptsChartGridLine@property:cap', 'deliberate-difference'],
+    ['union:ChartLineCap#flat', 'supported'],
+    ['union:ChartLineCap#round', 'supported'],
+    ['union:ChartLineCap#square', 'supported'],
+    ['union:ChartType#bubble3D', 'supported'],
+    ['union:interface:IChartOpts@property:dataLabelFormatScatter#XY', 'deliberate-difference'],
+    ['union:interface:IChartOpts@property:dataLabelFormatScatter#custom', 'deliberate-difference'],
+    ['union:interface:IChartOpts@property:dataLabelFormatScatter#customXY', 'deliberate-difference'],
+    ['union:interface:OptsChartData@property:labels#string[][]', 'deliberate-difference'],
+  ].map(([id, status]) => ({ id, status }))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  const chartResidual23Ids = new Set(expectedChartResidual23Entries.map(({ id }) => id));
+  assert.deepEqual(
+    PPTXGENJS_SURFACE_MANIFEST.entries
+      .filter(({ id }) => chartResidual23Ids.has(id))
+      .map(({ id, status }) => ({ id, status }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+    expectedChartResidual23Entries,
   );
   const chartPresentationSupportedIds = [
     'interface:IChartOpts@property:altText',
@@ -785,15 +811,6 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
       .map(({ id, status }) => ({ id, status }))
       .sort((left, right) => left.id.localeCompare(right.id)),
     expectedAdvancedAxisEntries,
-  );
-  assert.equal(
-    PPTXGENJS_SURFACE_MANIFEST.entries.some(({ id }) => [
-      'interface:OptsChartGridLine@property:cap',
-      'union:ChartLineCap#flat',
-      'union:ChartLineCap#round',
-      'union:ChartLineCap#square',
-    ].includes(id)),
-    false,
   );
   const inertChartOptionProperties = new Set([
     'align',

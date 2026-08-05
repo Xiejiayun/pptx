@@ -9,6 +9,7 @@ describe('chart definition normalization', () => {
       'bar',
       'bar3D',
       'bubble',
+      'bubble3D',
       'doughnut',
       'line',
       'pie',
@@ -93,6 +94,142 @@ describe('chart definition normalization', () => {
       xValues: [1],
       sizes: [3],
     });
+
+    const bubble3D = normalizeChartDefinition({
+      groups: [{
+        type: 'bubble3D',
+        series: [{ name: 'Depth', xValues: [1], values: [2], sizes: [3] }],
+      }],
+    });
+    expect(bubble3D.groups[0]?.type).toBe('bubble3D');
+    expect(bubble3D.groups[0]?.series[0]).toEqual({
+      name: 'Depth',
+      values: [2],
+      xValues: [1],
+      sizes: [3],
+    });
+  });
+
+  it('normalizes strict indexed point styles, series effects, and label fills', () => {
+    const points = [{
+      index: 1,
+      fill: { kind: 'solid' as const, color: { kind: 'srgb' as const, value: 'ABCDEF' } },
+      shadow: { kind: 'outer' as const },
+    }];
+    const normalized = normalizeChartDefinition({ groups: [{
+      type: 'pie',
+      series: [{ name: 'Share', categories: ['A', 'B'], values: [1, 2] }],
+      options: { series: [{
+        shadow: { kind: 'inner' },
+        points,
+        dataLabels: {
+          fill: { kind: 'solid', color: { kind: 'srgb', value: '112233' } },
+        },
+      }] },
+    }] });
+
+    const options = normalized.groups[0]!.options!.series![0]!;
+    expect(options.points?.[0]).toMatchObject({ index: 1, shadow: { kind: 'outer' } });
+    expect(options.shadow).toMatchObject({ kind: 'inner' });
+    expect(options.dataLabels?.fill).toEqual({
+      kind: 'solid',
+      color: { kind: 'srgb', value: '112233' },
+    });
+    expect(Object.isFrozen(options.points)).toBe(true);
+    expect(Object.isFrozen(options.points?.[0])).toBe(true);
+    points[0]!.index = 0;
+    expect(options.points?.[0]?.index).toBe(1);
+
+    for (const invalid of [
+      [{ index: 0 }, { index: 0 }],
+      [{ index: 2 }],
+      Object.assign([], { 1: { index: 1 }, length: 2 }),
+    ]) {
+      expect(() => normalizeChartDefinition({ groups: [{
+        type: 'pie',
+        series: [{ name: 'Share', categories: ['A', 'B'], values: [1, 2] }],
+        options: { series: [{ points: invalid }] },
+      }] } as never)).toThrow();
+    }
+  });
+
+  it('normalizes detached scatter point-label literals and fields', () => {
+    const pointLabels = [
+      { index: 0, text: 'Alpha', fields: ['xValue', 'yValue'] as const },
+      { index: 1, text: ' ' },
+      { index: 2, fields: ['yValue'] as const },
+    ];
+    const normalized = normalizeChartDefinition({ groups: [{
+      type: 'scatter',
+      series: [{ name: 'XY', xValues: [1, 2, 3], values: [10, 20, 30] }],
+      options: { series: [{ dataLabels: { pointLabels } }] },
+    }] });
+    const labels = normalized.groups[0]!.options!.series![0]!.dataLabels!.pointLabels!;
+
+    expect(labels).toEqual(pointLabels);
+    expect(Object.isFrozen(labels)).toBe(true);
+    expect(Object.isFrozen(labels[0])).toBe(true);
+    expect(Object.isFrozen(labels[0]!.fields)).toBe(true);
+    pointLabels[0]!.text = 'mutated';
+    expect(labels[0]!.text).toBe('Alpha');
+
+    for (const invalid of [
+      [{ index: 0, text: 'A' }, { index: 0, text: 'B' }],
+      [{ index: 3, text: 'outside' }],
+      [{ index: 0, text: 'bad\u0001' }],
+      [{ index: 0, fields: ['xValue', 'xValue'] }],
+      [{ index: 0 }],
+    ]) {
+      expect(() => normalizeChartDefinition({ groups: [{
+        type: 'scatter',
+        series: [{ name: 'XY', xValues: [1, 2, 3], values: [10, 20, 30] }],
+        options: { series: [{ dataLabels: { pointLabels: invalid } }] },
+      }] } as never)).toThrow();
+    }
+  });
+
+  it('normalizes strict residual chart layout, title alignment, and bar3D shape', () => {
+    const input = {
+      groups: [{
+        type: 'bar3D' as const,
+        series: [{ name: 'Revenue', categories: ['Q1'], values: [10] }],
+        options: { shape: 'coneToMax' as const },
+      }],
+      options: {
+        layout: { x: 0, y: 0.2, width: 0.7, height: 1 },
+        title: { text: 'Revenue', align: 'right' as const },
+      },
+    };
+    const normalized = normalizeChartDefinition(input);
+    expect(normalized.groups[0]?.options).toMatchObject({ shape: 'coneToMax' });
+    expect(normalized.options.layout).toEqual({ x: 0, y: 0.2, width: 0.7, height: 1 });
+    expect(normalized.options.title?.align).toBe('right');
+    expect(Object.isFrozen(normalized.options.layout)).toBe(true);
+    input.options.layout.width = 0.1;
+    expect(normalized.options.layout?.width).toBe(0.7);
+
+    for (const layout of [
+      { x: 0, y: 0, width: 1 },
+      { x: -0.1, y: 0, width: 1, height: 1 },
+      { x: 0, y: 0, width: 1.1, height: 1 },
+      { x: 0, y: 0, width: Number.NaN, height: 1 },
+    ]) {
+      expect(() => normalizeChartDefinition({
+        groups: [{ type: 'bar', series: [categoricalSeries() as never] }],
+        options: { layout } as never,
+      })).toThrow();
+    }
+    expect(() => normalizeChartDefinition({
+      groups: [{
+        type: 'bar3D',
+        series: [categoricalSeries() as never],
+        options: { shape: 'sphere' } as never,
+      }],
+    })).toThrow();
+    expect(() => normalizeChartDefinition({
+      groups: [{ type: 'bar', series: [categoricalSeries() as never] }],
+      options: { title: { align: 'justify' } } as never,
+    })).toThrow();
   });
 
   it('accepts null-prototype data objects without retaining them', () => {

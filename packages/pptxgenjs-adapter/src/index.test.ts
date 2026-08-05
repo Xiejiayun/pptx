@@ -7,6 +7,7 @@ import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  CHART_TYPES,
   ChartModel,
   chartWorkbookMatches,
   degrees,
@@ -21694,6 +21695,47 @@ describe('importPptxGenJS', () => {
       undefined,
     ]);
   }, 20_000);
+
+  it('closes chart residual visual options through strict native state', async () => {
+    const probeSource = await readFile(
+      fileURLToPath(new URL('../../../scripts/chart-residual-23-lifecycle-probe.mjs', import.meta.url)),
+      'utf8',
+    );
+    const probeModule = await import(
+      `data:text/javascript;base64,${Buffer.from(probeSource).toString('base64')}`
+    ) as {
+      runChartResidual23LifecycleProbe(api: {
+        readonly CHART_TYPES: readonly string[];
+        readonly ChartModel: typeof ChartModel;
+        readonly PptxDocument: typeof PptxDocument;
+        readonly chartWorkbookMatches: typeof chartWorkbookMatches;
+      }): Promise<{
+        readonly ok: boolean;
+        readonly atomCount: number;
+        readonly classification: Readonly<Record<string, number>>;
+        readonly atoms: readonly { readonly id: string; readonly status: string }[];
+        readonly state: Readonly<Record<string, boolean>>;
+        readonly explicitOutputBytes: Uint8Array;
+      }>;
+    };
+    const result = await probeModule.runChartResidual23LifecycleProbe({
+      CHART_TYPES,
+      ChartModel,
+      PptxDocument,
+      chartWorkbookMatches,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.atomCount).toBe(23);
+    expect(result.classification).toEqual({
+      supported: 4,
+      'deliberate-difference': 19,
+      'defect-excluded': 0,
+    });
+    expect(result.atoms).toHaveLength(23);
+    expect(Object.values(result.state).every(Boolean)).toBe(true);
+    expect(result.explicitOutputBytes).toBeInstanceOf(Uint8Array);
+  }, 60_000);
 
   it('keeps pptxgenjs out of every non-adapter package dependency list', async () => {
     const packagesDirectory = fileURLToPath(new URL('../..', import.meta.url));

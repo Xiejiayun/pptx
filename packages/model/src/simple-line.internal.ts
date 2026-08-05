@@ -1,5 +1,6 @@
 import type { XmlElement } from '@pptx/lossless-xml';
 import type { RichTextColor } from './text.js';
+import type { ShapeLineCap } from './preset-shape.js';
 import {
   normalizeSimpleFill,
   readSimpleFillChoice,
@@ -33,6 +34,7 @@ export type NormalizedSimpleLine =
       readonly transparency?: number;
       readonly width: number;
       readonly dash: SimpleLineDash;
+      readonly cap?: ShapeLineCap;
     };
 
 export const SIMPLE_LINE_FILL_CHOICE_NAMES = SIMPLE_FILL_CHOICE_NAMES;
@@ -53,6 +55,16 @@ const DASHES = new Set<SimpleLineDash>([
 ]);
 const FILL_CHOICES = new Set<string>(SIMPLE_LINE_FILL_CHOICE_NAMES);
 const DASH_CHOICES = new Set<string>(SIMPLE_LINE_DASH_CHOICE_NAMES);
+const LINE_CAP_TO_OOXML: Readonly<Record<ShapeLineCap, string>> = Object.freeze({
+  flat: 'flat',
+  round: 'rnd',
+  square: 'sq',
+});
+const OOXML_TO_LINE_CAP: Readonly<Record<string, ShapeLineCap>> = Object.freeze({
+  flat: 'flat',
+  rnd: 'round',
+  sq: 'square',
+});
 
 export function normalizeSimpleLine(
   value: unknown,
@@ -62,7 +74,7 @@ export function normalizeSimpleLine(
   const candidate = readDataObject(
     value,
     context,
-    ['kind', 'color', 'transparency', 'width', 'dash'],
+    ['kind', 'color', 'transparency', 'width', 'dash', 'cap'],
   );
   if (candidate.kind === 'none') {
     assertKeys(candidate, ['kind'], context);
@@ -92,6 +104,9 @@ export function normalizeSimpleLine(
   const dash = candidate.dash === undefined
     ? 'solid'
     : normalizeDash(candidate.dash, `${context} dash`);
+  const cap = candidate.cap === undefined
+    ? undefined
+    : normalizeCap(candidate.cap, `${context} cap`);
   return {
     kind: 'line',
     color: fill.color,
@@ -100,6 +115,7 @@ export function normalizeSimpleLine(
       : {}),
     width,
     dash,
+    ...(cap === undefined ? {} : { cap }),
   };
 }
 
@@ -114,6 +130,7 @@ export function readSimpleLine(
 
   let width = 1;
   let hasWidth = false;
+  let cap: ShapeLineCap | undefined;
   const seenAttributes = new Set<string>();
   for (const attribute of nonNamespaceAttributes(lineElement)) {
     if (seenAttributes.has(attribute.name)) return undefined;
@@ -126,7 +143,11 @@ export function readSimpleLine(
       hasWidth = true;
       continue;
     }
-    if (attribute.name === 'cap' && attribute.value === 'flat') continue;
+    if (attribute.name === 'cap') {
+      cap = OOXML_TO_LINE_CAP[attribute.value];
+      if (cap === undefined) return undefined;
+      continue;
+    }
     if (attribute.name === 'cmpd' && attribute.value === 'sng') continue;
     if (attribute.name === 'algn' && attribute.value === 'ctr') continue;
     return undefined;
@@ -143,7 +164,7 @@ export function readSimpleLine(
   const dashChoices = children.filter(({ localName }) => DASH_CHOICES.has(localName));
   if (dashChoices.length > 1) return undefined;
   if (fill.kind === 'none') {
-    return !hasWidth && dashChoices.length === 0
+    return !hasWidth && cap === undefined && dashChoices.length === 0
       ? { kind: 'none' }
       : undefined;
   }
@@ -159,8 +180,11 @@ export function readSimpleLine(
     ) return undefined;
     const attributes = nonNamespaceAttributes(dashChoice);
     if (attributes.length !== 1 || attributes[0]?.name !== 'val') return undefined;
-    if (!DASHES.has(attributes[0].value as SimpleLineDash)) return undefined;
-    dash = attributes[0].value as SimpleLineDash;
+    if (attributes[0].value === 'dot') dash = 'sysDot';
+    else {
+      if (!DASHES.has(attributes[0].value as SimpleLineDash)) return undefined;
+      dash = attributes[0].value as SimpleLineDash;
+    }
   }
 
   return {
@@ -171,7 +195,13 @@ export function readSimpleLine(
       : {}),
     width,
     dash,
+    ...(cap === undefined ? {} : { cap }),
   };
+}
+
+export function renderSimpleLineAttributes(line: NormalizedSimpleLine): string {
+  if (line.kind === 'none' || line.cap === undefined) return '';
+  return ` cap="${LINE_CAP_TO_OOXML[line.cap]}"`;
 }
 
 export function renderSimpleLine(
@@ -212,7 +242,8 @@ export function simpleLinesEqual(
   };
   return simpleFillsEqual(leftFill, rightFill)
     && left.width === right.width
-    && left.dash === right.dash;
+    && left.dash === right.dash
+    && (left.cap ?? 'flat') === (right.cap ?? 'flat');
 }
 
 function normalizeWidth(value: unknown, context: string): number {
@@ -230,6 +261,13 @@ function normalizeDash(value: unknown, context: string): SimpleLineDash {
     throw new TypeError(`${context} is unsupported`);
   }
   return value as SimpleLineDash;
+}
+
+function normalizeCap(value: unknown, context: string): ShapeLineCap {
+  if (typeof value !== 'string' || !Object.hasOwn(LINE_CAP_TO_OOXML, value)) {
+    throw new TypeError(`${context} is unsupported`);
+  }
+  return value as ShapeLineCap;
 }
 
 function readDataObject(

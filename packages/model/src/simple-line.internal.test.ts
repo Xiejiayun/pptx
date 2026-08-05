@@ -4,6 +4,7 @@ import {
   normalizeSimpleLine,
   readSimpleLine,
   renderSimpleLine,
+  renderSimpleLineAttributes,
   simpleLinesEqual,
   type SimpleLineDash,
 } from './simple-line.internal.js';
@@ -113,6 +114,32 @@ describe('simple line normalization', () => {
       width: 1,
       dash: 'solid',
     });
+  });
+
+  it('normalizes, reads, renders, and compares all shared line caps strictly', () => {
+    const tokens = [
+      ['flat', 'flat'],
+      ['round', 'rnd'],
+      ['square', 'sq'],
+    ] as const;
+    for (const [cap, ooxml] of tokens) {
+      const normalized = normalizeSimpleLine({
+        kind: 'line',
+        color: { kind: 'srgb', value: '112233' },
+        cap,
+      }, 'Shape line');
+      expect(normalized).toMatchObject({ cap });
+      expect(renderSimpleLineAttributes(normalized!)).toBe(` cap="${ooxml}"`);
+      expect(readSimpleLine(parseLine(
+        `<a:ln cap="${ooxml}"><a:solidFill><a:srgbClr val="112233"/>`
+        + '</a:solidFill></a:ln>',
+      ), 'a:')).toMatchObject({ cap });
+    }
+    expect(renderSimpleLineAttributes({ kind: 'none' })).toBe('');
+    expect(() => normalizeSimpleLine({ kind: 'none', cap: 'round' }, 'Shape line')).toThrow();
+    expect(() => normalizeSimpleLine({
+      kind: 'line', color: { kind: 'srgb', value: '112233' }, cap: 'triangle',
+    }, 'Shape line')).toThrow();
   });
 
   it('rejects non-ordinary, inherited, unknown, and alias-bearing values', () => {
@@ -266,7 +293,7 @@ describe('simple line codec', () => {
     expect(readSimpleLine(parseLine(
       '<a:ln cap="flat"><a:noFill/><a:round/><a:headEnd type="triangle"/>' +
       '<a:tailEnd type="arrow"/><a:extLst><a:ext uri="urn:keep"/></a:extLst></a:ln>',
-    ), 'a:')).toEqual({ kind: 'none' });
+    ), 'a:')).toBeUndefined();
     expect(readSimpleLine(parseLine(
       '<a:ln><a:solidFill><a:srgbClr val="ff0000"/></a:solidFill></a:ln>',
     ), 'a:')).toEqual({
@@ -287,6 +314,16 @@ describe('simple line codec', () => {
       dash: 'lgDashDot',
     });
     expect(readSimpleLine(parseLine(
+      '<a:ln cap="sq"><a:solidFill><a:srgbClr val="445566"/>'
+      + '</a:solidFill><a:prstDash val="dot"/></a:ln>',
+    ), 'a:')).toEqual({
+      kind: 'line',
+      color: { kind: 'srgb', value: '445566' },
+      width: 1,
+      dash: 'sysDot',
+      cap: 'square',
+    });
+    expect(readSimpleLine(parseLine(
       '<a:ln w="31750" cap="flat" cmpd="sng" algn="ctr">' +
       '<a:solidFill><a:srgbClr val="112233"/></a:solidFill>' +
       '<a:prstDash val="sysDot"/><a:round/><a:headEnd type="triangle"/>' +
@@ -296,6 +333,7 @@ describe('simple line codec', () => {
       color: { kind: 'srgb', value: '112233' },
       width: 2.5,
       dash: 'sysDot',
+      cap: 'flat',
     });
 
     for (const dash of DASHES) {
@@ -342,8 +380,6 @@ describe('simple line codec', () => {
       '<a:ln><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill>' +
         '<a:prstDash/></a:ln>',
       '<a:ln><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill>' +
-        '<a:prstDash val="dot"/></a:ln>',
-      '<a:ln><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill>' +
         '<a:prstDash val="dash" custom="x"/></a:ln>',
       '<a:ln><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill>' +
         '<a:prstDash val="dash"><a:ext/></a:prstDash></a:ln>',
@@ -382,6 +418,9 @@ describe('simple line codec', () => {
     expect(simpleLinesEqual({ kind: 'none' }, { kind: 'none' })).toBe(true);
     expect(simpleLinesEqual(undefined, { kind: 'none' })).toBe(false);
     expect(simpleLinesEqual(red, { ...red })).toBe(true);
+    expect(simpleLinesEqual(red, { ...red, cap: 'flat' })).toBe(true);
+    expect(simpleLinesEqual({ ...red, cap: 'round' }, { ...red, cap: 'round' })).toBe(true);
+    expect(simpleLinesEqual(red, { ...red, cap: 'round' })).toBe(false);
     expect(simpleLinesEqual(red, { ...red, transparency: 0 })).toBe(false);
     expect(simpleLinesEqual(red, { ...red, width: 2 })).toBe(false);
     expect(simpleLinesEqual(red, { ...red, dash: 'dash' })).toBe(false);

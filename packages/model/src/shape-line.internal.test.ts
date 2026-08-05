@@ -55,7 +55,7 @@ describe('shape line reader', () => {
           '<a:ln cap="flat"><a:noFill/><a:headEnd type="triangle"/>' +
           '<a:tailEnd type="arrow"/></a:ln>',
         )),
-        expected: { kind: 'none' },
+        expected: undefined,
       },
       {
         source: fixture(properties(
@@ -82,6 +82,7 @@ describe('shape line reader', () => {
           transparency: 25,
           width: 2.5,
           dash: 'dashDot',
+          cap: 'flat',
         },
       },
       {
@@ -107,7 +108,7 @@ describe('shape line reader', () => {
       const second = readShapeLine(xml, shape);
       expect(first, source).toEqual(expected);
       expect(second, source).toEqual(expected);
-      expect(first).not.toBe(second);
+      if (expected !== undefined) expect(first).not.toBe(second);
       if (first?.kind === 'line' && second?.kind === 'line') {
         expect(first.color).not.toBe(second.color);
       }
@@ -163,8 +164,6 @@ describe('shape line reader', () => {
       '<a:ln cap="round"><a:solidFill><a:srgbClr val="FF0000"/>' +
         '</a:solidFill></a:ln>',
       '<a:ln><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill>' +
-        '<a:prstDash val="dot"/></a:ln>',
-      '<a:ln><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill>' +
         '<a:prstDash val="dash"/><a:prstDash val="solid"/></a:ln>',
       '<a:ln><x:solidFill xmlns:x="urn:wrong"><x:srgbClr val="FF0000"/>' +
         '</x:solidFill></a:ln>',
@@ -186,7 +185,7 @@ describe('shape line replacement', () => {
   it('preserves exact bytes for same-value assignments', () => {
     const sources = [
       fixture(properties(
-        '<a:ln cap="flat"><a:noFill/><a:headEnd type="triangle"/></a:ln>',
+        '<a:ln><a:noFill/><a:headEnd type="triangle"/></a:ln>',
       )),
       fixture(properties(
         '<a:ln w="31750"><a:solidFill><a:srgbClr val="FF0000"/>' +
@@ -209,6 +208,33 @@ describe('shape line replacement', () => {
       expect(xml.changed).toBe(false);
       expect(xml.serialize()).toBe(source);
     }
+  });
+
+  it('patches only the shared cap attribute and preserves line payload bytes', () => {
+    const source = fixture(properties(
+      '<a:ln w="31750" cap="rnd" data-keep="LINE">'
+      + '<a:solidFill><a:srgbClr val="FF0000"/></a:solidFill>'
+      + '<a:prstDash val="dash"/><a:round/><a:headEnd type="triangle"/>'
+      + '<a:extLst><a:ext uri="urn:keep"/></a:extLst></a:ln>',
+    ));
+    const square = parse(source);
+    expect(replaceShapeLine(square.xml, square.shape, {
+      kind: 'line',
+      color: { kind: 'srgb', value: 'FF0000' },
+      width: 2.5,
+      dash: 'dash',
+      cap: 'square',
+    }, PART_URI)).toBe(true);
+    expect(square.xml.serialize()).toBe(source.replace('cap="rnd"', 'cap="sq"'));
+
+    const flat = parse(source);
+    expect(replaceShapeLine(flat.xml, flat.shape, {
+      kind: 'line',
+      color: { kind: 'srgb', value: 'FF0000' },
+      width: 2.5,
+      dash: 'dash',
+    }, PART_URI)).toBe(true);
+    expect(flat.xml.serialize()).toBe(source.replace(' cap="rnd"', ''));
   });
 
   it('replaces and clears owned state while preserving attributes, arrows, joins, and extensions', () => {
@@ -252,7 +278,7 @@ describe('shape line replacement', () => {
         .toBe(true);
       const clearedXml = cleared.xml.serialize();
       expect(clearedXml).toContain(
-        '<a:ln cap="flat" data-keep="LINE"><a:round/>' +
+        '<a:ln data-keep="LINE"><a:round/>' +
         '<a:headEnd type="triangle" w="lg" len="sm"/><a:tailEnd type="arrow"/>',
       );
       const clearedLine = /<a:ln\b[\s\S]*?<\/a:ln>/.exec(clearedXml)?.[0];
@@ -349,6 +375,14 @@ describe('shape line replacement', () => {
       fixture(properties(
         '<a:ln w="1" w="2"><a:solidFill><a:srgbClr val="FF0000"/>' +
         '</a:solidFill></a:ln>',
+      )),
+      fixture(properties(
+        '<a:ln cap="rnd" cap="sq"><a:solidFill><a:srgbClr val="FF0000"/>' +
+        '</a:solidFill></a:ln>',
+      )),
+      fixture(properties(
+        '<a:ln x:cap="rnd" xmlns:x="urn:wrong"><a:solidFill>' +
+        '<a:srgbClr val="FF0000"/></a:solidFill></a:ln>',
       )),
       fixture(properties(
         '<a:ln w="1.5"><a:solidFill><a:srgbClr val="FF0000"/>' +

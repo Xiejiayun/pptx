@@ -21,6 +21,7 @@ import {
 import {
   normalizeSimpleLine,
   renderSimpleLine,
+  renderSimpleLineAttributes,
   type NormalizedSimpleLine,
 } from './simple-line.internal.js';
 import {
@@ -365,7 +366,7 @@ function renderPresetLine(
   if (line.kind === 'none') {
     return `<a:ln>${renderSimpleLine(line, 'a:')}${arrowXml}</a:ln>`;
   }
-  return `<a:ln w="${Math.round(line.width * 12_700)}">` +
+  return `<a:ln w="${Math.round(line.width * 12_700)}"${renderSimpleLineAttributes(line)}>` +
     `${renderSimpleLine(line, 'a:')}${arrowXml}</a:ln>`;
 }
 

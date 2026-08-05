@@ -202,6 +202,7 @@ import {
 import {
   normalizeSimpleLine,
   renderSimpleLine,
+  renderSimpleLineAttributes,
   type NormalizedSimpleLine,
 } from './simple-line.internal.js';
 import {
@@ -3153,7 +3154,7 @@ function textShapeXml(
   const lineContents = renderSimpleLine(line, 'a:') + renderShapeArrows(arrows, 'a:');
   const lineXml = line.kind === 'none'
     ? `<a:ln>${lineContents}</a:ln>`
-    : `<a:ln w="${points(line.width)}">${lineContents}</a:ln>`;
+    : `<a:ln w="${points(line.width)}"${renderSimpleLineAttributes(line)}>${lineContents}</a:ln>`;
   const effectXml = shadow === undefined
     ? ''
     : `<a:effectLst>${renderSimpleShadow(shadow, 'a:')}</a:effectLst>`;

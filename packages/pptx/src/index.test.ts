@@ -1477,7 +1477,7 @@ describe('@jiayunxie/pptx stable exports', () => {
       const slide = document.addSlide();
       const series = type === 'scatter'
         ? [{ name: 'Points', xValues: [1, 2, 3], values: [4, 6, 5] }]
-        : type === 'bubble'
+        : type === 'bubble' || type === 'bubble3D'
           ? [{ name: 'Bubbles', xValues: [1, 2, 3], values: [4, 6, 5], sizes: [8, 12, 10] }]
           : [{ name: 'Revenue', categories: ['North', 'South', 'West'], values: [120, 150, 135] }];
       charts.push(await slide.addChart(type, series, {
@@ -1533,7 +1533,7 @@ describe('@jiayunxie/pptx stable exports', () => {
     const reopenedCharts = reopened.slides.flatMap(({ shapes }) => shapes).filter(
       (shape): shape is ChartModel => shape instanceof ChartModel,
     );
-    expect(reopenedCharts).toHaveLength(10);
+    expect(reopenedCharts).toHaveLength(CHART_TYPES.length + 1);
     expect(new Set(reopenedCharts.flatMap(({ definition }) =>
       definition?.groups.map(({ type }) => type) ?? []))).toEqual(new Set(CHART_TYPES));
     for (const chart of reopenedCharts) {

@@ -63,7 +63,11 @@ function normalizeGroup(value: unknown, groupIndex: number): Readonly<ChartGroup
   if ((type === 'pie' || type === 'doughnut') && axis !== undefined) {
     throw new TypeError(`${context} ${type} charts do not use an axis assignment`);
   }
-  const options = normalizeChartGroupOptions(type, group.options, series.length);
+  const options = normalizeChartGroupOptions(
+    type,
+    group.options,
+    series.map(({ values }) => values.length),
+  );
   return Object.freeze({
     type,
     series: Object.freeze(series),
@@ -113,7 +117,7 @@ function normalizeSeries(
     if (type === 'scatter' && sizes !== undefined) {
       throw new TypeError(`${context} sizes are not supported for scatter`);
     }
-    if (type === 'bubble') {
+    if (type === 'bubble' || type === 'bubble3D') {
       if (!sizes) throw new TypeError(`${context} sizes are required for bubble`);
       if (sizes.length !== values.length) {
         throw new RangeError(`${context} sizes and values must have equal lengths`);

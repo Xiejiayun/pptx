@@ -12,6 +12,10 @@ async (page) => {
     `${chartPresentationWorkspace}/scripts/chart-presentation-91-lifecycle-probe.mjs`,
     'utf8',
   );
+  const chartResidual23ProbeSource = await readFile(
+    `${chartPresentationWorkspace}/scripts/chart-residual-23-lifecycle-probe.mjs`,
+    'utf8',
+  );
   const imageIdentityEffects5ProbeSource = await readFile(
     `${chartPresentationWorkspace}/scripts/image-identity-effects-5-lifecycle-probe.mjs`,
     'utf8',
@@ -36,6 +40,8 @@ async (page) => {
     .from(chartPresentationFixtureBytes).toString('base64');
   const chartPresentationProbeBase64 = Buffer
     .from(chartPresentationProbeSource).toString('base64');
+  const chartResidual23ProbeBase64 = Buffer
+    .from(chartResidual23ProbeSource).toString('base64');
   const imageIdentityEffects5ProbeBase64 = Buffer
     .from(imageIdentityEffects5ProbeSource).toString('base64');
   const shapeTextTransformIdentity13ProbeBase64 = Buffer
@@ -67,6 +73,7 @@ async (page) => {
       base64,
       chartPresentationFixtureBase64: presentationFixtureBase64,
       chartPresentationProbeBase64: presentationProbeBase64,
+      chartResidual23ProbeBase64: chartResidualProbeBase64,
       imageIdentityEffects5ProbeBase64: imageEffectsProbeBase64,
       shapeTextTransformIdentity13ProbeBase64: shapeTextIdentityProbeBase64,
       coreContentPrimitiveInputs14ProbeBase64: coreContentProbeBase64,
@@ -76,6 +83,18 @@ async (page) => {
       const binary = atob(base64);
       const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
       const api = await import(moduleUrl);
+      const chartResidual23ProbeModule = await import(
+        `data:text/javascript;base64,${chartResidualProbeBase64}`
+      );
+      const chartResidual23Probe = await chartResidual23ProbeModule
+        .runChartResidual23LifecycleProbe(api);
+      const chartResidual23 = chartResidual23Probe.ok;
+      const chartResidual23State = chartResidual23Probe.state;
+      const chartResidual23Atoms = chartResidual23Probe.atoms;
+      globalThis.__pptxChartResidual23EvidenceBlob = new Blob(
+        [chartResidual23Probe.explicitOutputBytes],
+        { type: chartResidual23Probe.mime },
+      );
       const imageIdentityEffects5ProbeModule = await import(
         `data:text/javascript;base64,${imageEffectsProbeBase64}`
       );
@@ -7521,7 +7540,7 @@ async (page) => {
         const slide = chartDocument.addSlide();
         const series = type === 'scatter'
           ? [{ name: 'Forecast', xValues: [1, 2, 3], values: [120, 150, 135] }]
-          : type === 'bubble'
+          : type === 'bubble' || type === 'bubble3D'
             ? [{ name: 'Portfolio', xValues: [1, 2, 3], values: [120, 150, 135], sizes: [8, 12, 10] }]
             : [{ name: 'Revenue', categories: ['North', 'South', 'West'], values: [120, 150, 135] }];
         const chart = await slide.addChart(type, series, {
@@ -7799,7 +7818,8 @@ async (page) => {
         && reopenedAreaChart.transform.y === api.inches(0.5)
         && reopenedAreaChart.transform.width === api.inches(9)
         && reopenedAreaChart.transform.height === api.inches(6.5);
-      const nativeCharts = reopenedCharts.length === 19
+      const nativeCharts = reopenedCharts.length ===
+          api.CHART_TYPES.length + 1 + chartAxisAdvancedDisplayUnits.length
         && api.CHART_TYPES.every((type) => reopenedChartTypes.has(type))
         && chartWorkbookResults.every(Boolean)
         && chartPresentationFrame
@@ -8106,6 +8126,9 @@ async (page) => {
         timingDiagnostics,
         nativeMediaTiming,
         nativeCharts,
+        chartResidual23,
+        chartResidual23State,
+        chartResidual23Atoms,
         imageIdentityEffects5,
         imageIdentityEffects5State,
         shapeTextTransformIdentity13,
@@ -8132,6 +8155,7 @@ async (page) => {
       moduleUrl: 'http://127.0.0.1:4173/packages/pptx/dist/browser.js',
       chartPresentationFixtureBase64,
       chartPresentationProbeBase64,
+      chartResidual23ProbeBase64,
       imageIdentityEffects5ProbeBase64,
       shapeTextTransformIdentity13ProbeBase64,
       coreContentPrimitiveInputs14ProbeBase64,
@@ -8230,6 +8254,22 @@ async (page) => {
     await writeFile(
       hyperlinkOwners6EvidenceOutput,
       Uint8Array.from(hyperlinkOwners6EvidenceBytes),
+    );
+  }
+  result.chartResidual23EvidenceFileName = 'browser-chart-residual-23.pptx';
+  const chartResidual23EvidenceOutput = typeof process !== 'undefined'
+    ? process.env.PPTX_BROWSER_CHART_RESIDUAL_23_OUT
+      ?? globalThis.__pptxBrowserChartResidual23Output
+    : globalThis.__pptxBrowserChartResidual23Output;
+  if (typeof chartResidual23EvidenceOutput === 'string') {
+    const chartResidual23EvidenceBytes = await page.evaluate(async () => {
+      const blob = globalThis.__pptxChartResidual23EvidenceBlob;
+      if (!(blob instanceof Blob)) throw new Error('Missing Chart Residual 23 evidence Blob');
+      return Array.from(new Uint8Array(await blob.arrayBuffer()));
+    });
+    await writeFile(
+      chartResidual23EvidenceOutput,
+      Uint8Array.from(chartResidual23EvidenceBytes),
     );
   }
   result.chartPresentation91EvidenceFileName = 'browser-chart-presentation-91.pptx';
@@ -9971,6 +10011,67 @@ async (page) => {
     timingDiagnostics: [],
     nativeMediaTiming: true,
     nativeCharts: true,
+    chartResidual23: true,
+    chartResidual23State: {
+      catalog: true,
+      titlePosition: true,
+      bar3DShapes: true,
+      effectiveLanguage: true,
+      plotLayout: true,
+      titleAlignment: true,
+      bubble3D: true,
+      nestedCategories: true,
+      seriesLineCap: true,
+      axisLineCap: true,
+      gridLineCap: true,
+      lineCapTokens: true,
+      pointBorders: true,
+      dataLabelFills: true,
+      dataNoEffects: true,
+      invertedPointFills: true,
+      seriesShadow: true,
+      scatterXY: true,
+      scatterCustom: true,
+      scatterCustomXY: true,
+      callerDetached: true,
+      noOp: true,
+      invalidIsolation: true,
+      rollback: true,
+      copyOnWrite: true,
+      selectedPointIsolation: true,
+      reopen: true,
+      allFormats: true,
+      packageGraph: true,
+      workbookCacheMatch: true,
+      byteIsolation: true,
+      exactOoxml: true,
+      diagnostics: true,
+    },
+    chartResidual23Atoms: [
+      { id: 'class:PptxGenJS@property:ChartType', status: 'deliberate-difference' },
+      { id: 'inline:interface:IChartOpts@property:titlePos@property:titlePos.x', status: 'deliberate-difference' },
+      { id: 'inline:interface:IChartOpts@property:titlePos@property:titlePos.y', status: 'deliberate-difference' },
+      { id: 'interface:IChartOpts@property:bar3DShape', status: 'deliberate-difference' },
+      { id: 'interface:IChartOpts@property:dataBorder', status: 'deliberate-difference' },
+      { id: 'interface:IChartOpts@property:dataLabelBkgrdColors', status: 'deliberate-difference' },
+      { id: 'interface:IChartOpts@property:dataLabelFormatScatter', status: 'deliberate-difference' },
+      { id: 'interface:IChartOpts@property:dataNoEffects', status: 'deliberate-difference' },
+      { id: 'interface:IChartOpts@property:invertedColors', status: 'deliberate-difference' },
+      { id: 'interface:IChartOpts@property:lang', status: 'deliberate-difference' },
+      { id: 'interface:IChartOpts@property:layout', status: 'deliberate-difference' },
+      { id: 'interface:IChartOpts@property:lineCap', status: 'deliberate-difference' },
+      { id: 'interface:IChartOpts@property:shadow', status: 'deliberate-difference' },
+      { id: 'interface:IChartOpts@property:titleAlign', status: 'deliberate-difference' },
+      { id: 'interface:OptsChartGridLine@property:cap', status: 'deliberate-difference' },
+      { id: 'union:ChartLineCap#flat', status: 'supported' },
+      { id: 'union:ChartLineCap#round', status: 'supported' },
+      { id: 'union:ChartLineCap#square', status: 'supported' },
+      { id: 'union:ChartType#bubble3D', status: 'supported' },
+      { id: 'union:interface:IChartOpts@property:dataLabelFormatScatter#XY', status: 'deliberate-difference' },
+      { id: 'union:interface:IChartOpts@property:dataLabelFormatScatter#custom', status: 'deliberate-difference' },
+      { id: 'union:interface:IChartOpts@property:dataLabelFormatScatter#customXY', status: 'deliberate-difference' },
+      { id: 'union:interface:OptsChartData@property:labels#string[][]', status: 'deliberate-difference' },
+    ],
     imageIdentityEffects5: true,
     imageIdentityEffects5State: {
       noOp: true,
@@ -10068,6 +10169,7 @@ async (page) => {
     placeholderTextStyle4EvidenceFileName:
       'browser-placeholder-text-style-4.pptx',
     hyperlinkOwners6EvidenceFileName: 'browser-hyperlink-owners-6.pptx',
+    chartResidual23EvidenceFileName: 'browser-chart-residual-23.pptx',
     chartPresentation91EvidenceFileName: 'browser-chart-presentation-91.pptx',
     chartPresentationEvidenceFileName: 'browser-chart-presentation-91.pptx',
     textBoxFitEvidenceFileName: 'browser-text-box-fit.pptx',

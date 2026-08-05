@@ -10,6 +10,10 @@ const tarball = resolve(process.argv[2] ?? '');
 if (!tarball.endsWith('.tgz')) throw new Error('Usage: node scripts/smoke-npm-package.mjs <package.tgz>');
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const placeholderTypes = ['title', 'body', 'pic', 'chart', 'tbl', 'media'];
+const CHART_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.drawingml.chart+xml';
+const WORKBOOK_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 const directory = await mkdtemp(join(tmpdir(), 'jiayunxie-pptx-smoke-'));
 try {
@@ -25,6 +29,13 @@ try {
     join(directory, 'chart-presentation-91-lifecycle-probe.mjs'),
     await readFile(
       join(repositoryRoot, 'scripts/chart-presentation-91-lifecycle-probe.mjs'),
+      'utf8',
+    ),
+  );
+  await writeFile(
+    join(directory, 'chart-residual-23-lifecycle-probe.mjs'),
+    await readFile(
+      join(repositoryRoot, 'scripts/chart-residual-23-lifecycle-probe.mjs'),
       'utf8',
     ),
   );
@@ -155,6 +166,10 @@ try {
     'export interface ChartDataLabelOptions',
     'export interface ChartDataTableOptions',
     'export interface ChartMarkerOptions',
+    'export interface ChartLayoutOptions',
+    'export interface ChartPointOptions',
+    'export interface ChartPointDataLabelOptions',
+    'export interface ChartSeriesDataLabelOptions',
     'export interface ChartSeriesOptions',
     'export interface ChartBarGroupOptions',
     'export interface ChartBar3DGroupOptions',
@@ -485,12 +500,23 @@ try {
 import { Readable, Writable } from 'node:stream';
 import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, degrees, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, OUTPUT_TYPES, PLACEHOLDER_TYPES, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, SCHEME_COLORS, ShapeModel, SlideLayoutModel, SlideMasterModel, TableModel, TEXT_ALIGNMENTS, TEXT_VERTICAL_ALIGNMENTS, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 import { runChartPresentation91LifecycleProbe } from './chart-presentation-91-lifecycle-probe.mjs';
+import { runChartResidual23LifecycleProbe } from './chart-residual-23-lifecycle-probe.mjs';
 import { runImageIdentityEffects5LifecycleProbe } from './image-identity-effects-5-lifecycle-probe.mjs';
 import { runShapeTextTransformIdentity13LifecycleProbe } from './shape-text-transform-identity-13-lifecycle-probe.mjs';
 import { runCoreContentPrimitiveInputs14LifecycleProbe } from './core-content-primitive-inputs-14-lifecycle-probe.mjs';
 import { runHyperlinkOwners6LifecycleProbe } from './hyperlink-owners-6-lifecycle-probe.mjs';
 import { runPlaceholderTextStyle4LifecycleProbe } from './placeholder-text-style-4-lifecycle-probe.mjs';
 const installedManifestVersion = ${JSON.stringify(manifest.version)};
+const chartResidual23Probe = await runChartResidual23LifecycleProbe({
+  CHART_TYPES,
+  ChartModel,
+  PptxDocument,
+  chartWorkbookMatches,
+});
+const chartResidual23 = chartResidual23Probe.ok;
+const chartResidual23State = chartResidual23Probe.state;
+const chartResidual23Atoms = chartResidual23Probe.atoms;
+await writeFile('chart-residual-23-smoke.pptx', chartResidual23Probe.explicitOutputBytes);
 const chartPresentation91Probe = await runChartPresentation91LifecycleProbe(
   { ChartModel, PptxDocument, chartWorkbookMatches },
   await readFile(new URL('./chart-presentation-91-fixture.pptx', import.meta.url)),
@@ -8073,7 +8099,7 @@ for (const type of CHART_TYPES) {
   const slide = nativeChartDeck.addSlide();
   const series = type === 'scatter'
     ? [{ name: 'Forecast', xValues: [1, 2, 3], values: [120, 150, 135] }]
-    : type === 'bubble'
+    : type === 'bubble' || type === 'bubble3D'
       ? [{ name: 'Portfolio', xValues: [1, 2, 3], values: [120, 150, 135], sizes: [8, 12, 10] }]
       : [{ name: 'Revenue', categories: ['North', 'South', 'West'], values: [120, 150, 135] }];
   const chart = await slide.addChart(type, series, {
@@ -8364,7 +8390,8 @@ const chartPresentationFrame = reopenedAreaChart?.name === 'Packed area chart'
   && reopenedAreaChart.transform.y === inches(1)
   && reopenedAreaChart.transform.width === inches(8)
   && reopenedAreaChart.transform.height === inches(4.5);
-const nativeCharts = reopenedNativeChartModels.length === 19
+const nativeCharts = reopenedNativeChartModels.length ===
+    CHART_TYPES.length + 1 + chartAxisAdvancedDisplayUnits.length
   && CHART_TYPES.every((type) => nativeChartTypes.has(type))
   && nativeChartWorkbooksMatch
   && chartPresentationFrame
@@ -11087,6 +11114,11 @@ const checks = {
   stableMediaLifecycle,
   nativeMediaTiming,
   nativeCharts,
+  nativeChartCount: reopenedNativeChartModels.length,
+  nativeChartSlideCount: reopenedNativeCharts.slides.length,
+  chartResidual23,
+  chartResidual23State,
+  chartResidual23Atoms,
   imageIdentityEffects5,
   imageIdentityEffects5State,
   shapeTextTransformIdentity13,
@@ -16311,6 +16343,30 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
   if (!doctor.ok || doctor.data?.version !== manifest.version) {
     throw new Error(`CLI smoke failed: ${cliResult.stdout}`);
   }
+  const chartResidual23DeckPath = join(directory, 'chart-residual-23-smoke.pptx');
+  const chartResidual23Inspect = JSON.parse(run(
+    bin,
+    ['--json', 'package', 'inspect', chartResidual23DeckPath],
+    directory,
+  ).stdout);
+  const chartResidual23ContentTypes = chartResidual23Inspect.data?.contentTypes ?? {};
+  if (!chartResidual23Inspect.ok ||
+      chartResidual23ContentTypes[CHART_CONTENT_TYPE] !== 10 ||
+      chartResidual23ContentTypes[WORKBOOK_CONTENT_TYPE] !== 10) {
+    throw new Error(`CLI Chart Residual 23 inspect failed: ${JSON.stringify(chartResidual23Inspect)}`);
+  }
+  const chartResidual23Validate = JSON.parse(run(
+    bin,
+    [
+      '--json', 'package', 'validate', chartResidual23DeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  ).stdout);
+  if (!chartResidual23Validate.ok || chartResidual23Validate.data?.errorCount !== 0 ||
+      chartResidual23Validate.data?.warningCount !== 0) {
+    throw new Error(`CLI Chart Residual 23 validation failed: ${JSON.stringify(chartResidual23Validate)}`);
+  }
   const presentationVersionState = {
     ...apiChecks.presentationVersionState,
     cli: doctor.data.version,
@@ -18227,8 +18283,8 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
   const nativeChartInspected = JSON.parse(nativeChartInspectResult.stdout);
   const nativeChartContentTypes = nativeChartInspected.data?.contentTypes ?? {};
   if (!nativeChartInspected.ok ||
-      nativeChartContentTypes['application/vnd.openxmlformats-officedocument.drawingml.chart+xml'] !== 19 ||
-      nativeChartContentTypes['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'] !== 19) {
+      nativeChartContentTypes[CHART_CONTENT_TYPE] !== apiChecks.nativeChartCount ||
+      nativeChartContentTypes[WORKBOOK_CONTENT_TYPE] !== apiChecks.nativeChartCount) {
     throw new Error(`CLI native chart inspect failed: ${nativeChartInspectResult.stdout}`);
   }
   const nativeChartValidateResult = run(
@@ -18247,8 +18303,9 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
     directory,
   );
   const nativeChartSlides = JSON.parse(nativeChartSlidesResult.stdout);
-  if (!nativeChartSlides.ok || nativeChartSlides.data?.length !== 20 ||
-      nativeChartSlides.data[19]?.shapeCount !== 1) {
+  if (!nativeChartSlides.ok ||
+      nativeChartSlides.data?.length !== apiChecks.nativeChartSlideCount ||
+      nativeChartSlides.data.at(-1)?.shapeCount !== 1) {
     throw new Error(`CLI native chart slide listing failed: ${nativeChartSlidesResult.stdout}`);
   }
   const nativeChartPartResult = run(
@@ -19938,6 +19995,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
       await readFile(chartPresentation91DeckPath),
     );
   }
+  if (process.env.PPTX_CHART_RESIDUAL_23_OUT) {
+    const chartResidual23Output = resolve(process.env.PPTX_CHART_RESIDUAL_23_OUT);
+    await mkdir(dirname(chartResidual23Output), { recursive: true });
+    await writeFile(chartResidual23Output, await readFile(chartResidual23DeckPath));
+  }
   if (process.env.PPTX_SLIDE_NUMBER_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_SLIDE_NUMBER_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -20003,6 +20065,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
     const summary = JSON.parse(serialized);
     summary.textRunScalarFamily = apiChecks.textRunScalarFamily;
     summary.textRunScalarFamilyState = apiChecks.textRunScalarFamilyState;
+    summary.chartResidual23 = apiChecks.chartResidual23;
+    summary.chartResidual23State = apiChecks.chartResidual23State;
+    summary.chartResidual23Atoms = apiChecks.chartResidual23Atoms;
+    summary.chartResidual23Inspect = true;
+    summary.chartResidual23Validate = true;
     summary.chartPresentation91 = apiChecks.chartPresentation91;
     summary.chartPresentation91State = apiChecks.chartPresentation91State;
     summary.chartPresentation91Inspect = true;
