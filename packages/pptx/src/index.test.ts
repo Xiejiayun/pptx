@@ -95,7 +95,7 @@ describe('@jiayunxie/pptx stable exports', () => {
     const current: PptxVersion = PPTX_VERSION;
     const document = PptxDocument.create();
 
-    expect(current).toBe('0.1.0');
+    expect(current).toBe('0.1.1');
     expect(document.version).toBe(current);
     expect((await PptxDocument.open(await document.write())).version).toBe(current);
 

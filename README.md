@@ -700,14 +700,14 @@ import {
   type PptxVersion,
 } from '@jiayunxie/pptx';
 
-const current: PptxVersion = PPTX_VERSION; // '0.1.0'
+const current: PptxVersion = PPTX_VERSION; // '0.1.1'
 const document = PptxDocument.create();
 console.log(document.version === current); // true
 ```
 
-`PPTX_VERSION` 是 browser-safe 的编译期字面量常量，`PptxVersion` 是对应字面量类型；只读 `PptxDocument.version` 在 create/open/write/reopen 全生命周期始终返回同一当前库版本，不读取 package 路径，也不修改 presentation。它不是 OOXML extended-properties 中的 `AppVersion`，也不表示输入文件的 producer 或 PowerPoint 版本。
+`PPTX_VERSION` 是 browser-safe 的编译期字面量常量，`PptxVersion` 是对应字面量类型；只读 `PptxDocument.version` 在 create/open/write/reopen 全生命周期始终返回同一当前库版本，不读取 package 路径，也不修改 presentation。当前版本是 `'0.1.1'`。它不是 OOXML extended-properties 中的 `AppVersion`，也不表示输入文件的 producer 或 PowerPoint 版本。
 
-PptxGenJS 4.0.1 实例返回它自己的 `'4.0.1'`，本库当前返回自己的 `'0.1.0'`；两个值不相等是正确行为，对等点是公开可读、稳定且各自与 manifest 同步。三份 manifest 由测试防漂移，CLI `--version` 与 JSON doctor 共用同一常量。最终 release gates 为 1354 passed / 1 skipped，performance 1/1（617ms），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 58-file tarball 的 SHA-256 为 `ce300d3c5da10a8fbdb9910b10497d02af496532b99329e18a314c9604e6f9a8`；installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `presentationVersion: true`，Chrome validation/console/page/network errors 为 0。
+PptxGenJS 4.0.1 实例返回它自己的 `'4.0.1'`，本库当前返回自己的 `'0.1.1'`；两个值不相等是正确行为，对等点是公开可读、稳定且各自与 manifest 同步。全部 workspace manifest 由测试和版本脚本防漂移，CLI `--version` 与 JSON doctor 共用同一常量。
 
 该历史检查点仍不声明完整 PptxGenJS 对等；`OutputType` runtime catalog 已在后续专项完成，仍待六种实际 `write({ outputType })` 返回语义、stream、compression、其余 runtime helper constants、advanced text/table、`tableToSlides` 与最终 peer/client audit。
 

@@ -17,7 +17,7 @@ adapter 不读取 `_slides` 等私有字段。后续 peer-range conformance test
 | PptxGenJS 4.x surface | 原生 API | 状态 |
 | --- | --- | --- |
 | `new PptxGenJS()` | `PptxDocument.create()` | 已支持 |
-| presentation `pptx.version` | `PPTX_VERSION` / `PptxVersion` / readonly `PptxDocument.version` | 已支持 compile-time constant、literal type、create/open/write/reopen 稳定值、三 manifest/CLI/browser 同步；PptxGenJS 4.0.1 与 native 0.1.0 各自返回自身版本，不要求字符串相等 |
+| presentation `pptx.version` | `PPTX_VERSION` / `PptxVersion` / readonly `PptxDocument.version` | 已支持 compile-time constant、literal type、create/open/write/reopen 稳定值、全 workspace manifest/CLI/browser 同步；PptxGenJS 4.0.1 与 native 0.1.1 各自返回自身版本，不要求字符串相等 |
 | presentation `pptx.rtlMode` | `CreatePresentationOptions.rtlMode` / `document.rtlMode` | 已支持 |
 | presentation `pptx.theme.headFontFace/bodyFontFace` | `CreatePresentationOptions.theme` / `document.theme` / `ThemeModel.setFonts()` | 已支持 native strict 创建、presentation-direct theme 读取/整组编辑、具体 theme partial 编辑；zero-input native 保留 Aptos，explicit partial 使用 PptxGenJS Calibri fallback |
 | presentation `pptx.title` | `CreatePresentationOptions.title` / `document.title` | 已支持 strict string 创建、direct core-property 读取/编辑/empty/clear；native omitted 不写 PptxGenJS 品牌默认值 |
@@ -382,9 +382,9 @@ PptxGenJS 4.0.1 合法 boolean public input 与 native final semantics 对等；
 
 ### Presentation runtime `version`
 
-`PPTX_VERSION` 公开 browser-safe compile-time literal `'0.1.0'`，`PptxVersion` 是对应 literal type，`PptxDocument.version` 是无 setter 的实例 getter。Create/open/write/reopen、六种 presentation format、root/SDK declarations 与 browser bundle 均返回同一 native runtime 值且不改变 package。该值不读取 OOXML `AppVersion`、输入文件 producer 或 PowerPoint compatibility metadata。
+`PPTX_VERSION` 公开 browser-safe compile-time literal `'0.1.1'`，`PptxVersion` 是对应 literal type，`PptxDocument.version` 是无 setter 的实例 getter。Create/open/write/reopen、六种 presentation format、root/SDK declarations 与 browser bundle 均返回同一 native runtime 值且不改变 package。该值不读取 OOXML `AppVersion`、输入文件 producer 或 PowerPoint compatibility metadata。
 
-PptxGenJS 4.0.1 public instance 的 `version` 为 `'4.0.1'`，native 为 `'0.1.0'`；跨库字符串不同是正确结果，conformance 锁定的是公开可用、readonly/stable 行为与各自 manifest 同步。三份 native manifest 由 drift test 锁定，CLI `--version` 和 JSON doctor 共用同一常量。最终全量为 1354 passed / 1 skipped，performance 1/1（617ms），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。Actual 58-file tarball SHA-256 为 `ce300d3c5da10a8fbdb9910b10497d02af496532b99329e18a314c9604e6f9a8`；installed Node/types/browser conditional export/CLI 与真实 Google Chrome 均报告 `presentationVersion: true`，Chrome validation/console/page/network errors 为 0。
+PptxGenJS 4.0.1 public instance 的 `version` 为 `'4.0.1'`，native 为 `'0.1.1'`；跨库字符串不同是正确结果，conformance 锁定的是公开可用、readonly/stable 行为与各自 manifest 同步。全部 workspace manifest 由 drift test 和版本脚本锁定，CLI `--version` 和 JSON doctor 共用同一常量。
 
 本段是 version/`presLayout` 完成时的历史 checkpoint：`OutputType` runtime catalog 已在后续专项完成；当时仍待六种实际 `write({ outputType })` 返回语义、stream、compression、其余 runtime constants、advanced text/table、`tableToSlides` 与最终 peer/client audit，因此未声明完整 parity。`presLayout` 的 custom registry name 不写入 PPTX，native reopen 使用 canonical `custom`；未声明的 `_sizeW` / `_sizeH` 与 mutable internal alias 不属于对等范围。
 

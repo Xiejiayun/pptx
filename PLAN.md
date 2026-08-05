@@ -1,6 +1,6 @@
 # PPTX 双向编辑库实施方案
 
-> 状态：WP0–WP6 已实现；`0.1.0` 技术预览构建就绪，正式发布仍受私有客户端门禁约束
+> 状态：WP0–WP6 已实现；`0.1.1` `next` 技术预览发布中，stable 仍受独立客户端认证门禁约束
 >
 > 实施记录：[docs/implementation-progress.md](./docs/implementation-progress.md)
 >

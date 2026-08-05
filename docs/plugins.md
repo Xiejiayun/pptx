@@ -1,6 +1,6 @@
 # Optional feature plugins
 
-Plugins are independent `0.1.0` packages. Core never imports them; without installation their OOXML and related parts remain opaque and losslessly preserved.
+Plugins are internal `0.1.1` workspace packages bundled into the public aggregate package. Core never imports them; when unused, their OOXML and related parts remain opaque and losslessly preserved.
 
 ```ts
 import { PptxDocument } from '@pptx/sdk';

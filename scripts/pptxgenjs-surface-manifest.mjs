@@ -7682,7 +7682,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     supported(
       'class:PptxGenJS@property:version',
       ['PPTX_VERSION', 'PptxDocument.version'],
-      { path: 'packages/sdk/src/version.ts', pattern: "export const PPTX_VERSION = '0.1.0' as const;" },
+      { path: 'packages/sdk/src/version.ts', pattern: "export const PPTX_VERSION = '0.1.1' as const;" },
       { path: 'packages/pptxgenjs-adapter/src/index.test.ts', title: 'reports each library runtime version through its public instance' },
       { path: 'scripts/smoke-npm-package.mjs', pattern: 'const version: PptxVersion = PPTX_VERSION;' },
       'Native exposes one immutable library version through constants, instances, declarations, and packed consumers.',

@@ -286,7 +286,7 @@ describe('PptxDocument vertical slice', () => {
     const document = PptxDocument.create();
     const before = await sdkPackageSnapshot(document);
 
-    expect(current).toBe('0.1.0');
+    expect(current).toBe('0.1.1');
     expect(document.version).toBe(current);
     expect(document.version).toBe(document.version);
     expect(typeof PptxDocument.prototype.tableToSlides).toBe('function');

@@ -1,6 +1,6 @@
 {
   "name": "pptx-ooxml",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.9.0",
@@ -16,6 +16,8 @@
     "check": "pnpm typecheck && pnpm test",
     "audit:pptxgenjs": "node scripts/pptxgenjs-surface-audit.mjs --check",
     "audit:pptxgenjs:write": "node scripts/pptxgenjs-surface-audit.mjs --write",
+    "version:check": "node scripts/set-version.mjs --check",
+    "version:set": "node scripts/set-version.mjs",
     "cli": "node packages/cli/dist/main.js"
   },
   "devDependencies": {

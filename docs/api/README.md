@@ -85,14 +85,14 @@ Inputs: `Uint8Array`, `ArrayBuffer`, `Blob`/`File`, Web `ReadableStream`, or asy
 ```ts
 import { PPTX_VERSION, PptxDocument, type PptxVersion } from '@pptx/sdk';
 
-const current: PptxVersion = PPTX_VERSION; // '0.1.0'
+const current: PptxVersion = PPTX_VERSION; // '0.1.1'
 const document = PptxDocument.create();
 document.version satisfies PptxVersion;
 ```
 
 `PPTX_VERSION` is the browser-safe compile-time package version, `PptxVersion` is its literal type, and `PptxDocument.version` is getter-only. Created and opened documents retain that value before and after write/reopen without reading a manifest at runtime or changing OPC state. This value identifies the current library runtime; it is not OOXML `AppVersion`, file-producer metadata, or a PowerPoint compatibility version.
 
-PptxGenJS 4.0.1 reports `'4.0.1'` and native 0.1.0 reports `'0.1.0'`; those values should differ because each instance identifies its own library. Repository tests synchronize the constant with the root, SDK, and aggregate manifests, while CLI `--version` and JSON doctor reuse the same constant. The actual 58-file package (SHA-256 `ce300d3c5da10a8fbdb9910b10497d02af496532b99329e18a314c9604e6f9a8`) passes installed Node, declaration, browser-conditional, CLI, and real-Google-Chrome create/writeBlob/reopen coverage with `presentationVersion: true` and zero Chrome validation/console/page/network errors. Final gates are 1354 passed / 1 skipped tests, performance 1/1 at 617ms, both TypeScript checks, both bundles, and declaration generation.
+PptxGenJS 4.0.1 reports `'4.0.1'` and native 0.1.1 reports `'0.1.1'`; those values should differ because each instance identifies its own library. Repository tests synchronize the constant with every workspace manifest, while CLI `--version` and JSON doctor reuse the same constant.
 
 This historical checkpoint does not complete PptxGenJS parity. The `OutputType` runtime catalog is completed in a later section; six actual `write({ outputType })` return semantics, stream, compression, remaining runtime constants, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 

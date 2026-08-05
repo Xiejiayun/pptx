@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.1 - 2026-08-05
+
+- Certified complete PptxGenJS 4.0.1 public-surface parity across 1,774 audited atoms and prepared the aggregate `@jiayunxie/pptx` package for the npm `next` channel.
+- Added lockstep workspace version tooling and explicit private-package boundaries so only the self-contained aggregate package can be published.
+- Hardened trusted publishing with tag/version/commit identity checks plus post-publication dist-tag, integrity, provenance, and fresh-registry tarball verification.
+- Windows PowerPoint, macOS Keynote, and controlled Google Slides remain independent client-certification gates and are not claimed by this technical preview.
+
 - Added strict browser-DOM `PptxDocument.tableToSlides()` with detached `thead`/multi-`tbody`/`tfoot` snapshots, computed cell CSS mapping, exact EMU column solving, fixed/minimum HTML width constraints, measured pagination, repeated headers, named layouts, sections, and transactional rollback.
 - Added per-page image → shape → table → text templates, resolve-once raster/SVG image preparation, page-local relationships, exact content-type-and-byte media deduplication, placeholder-aware sizing, nested-additional-table result isolation, and clone-on-write replacement preservation.
 - Exported all `TableToSlides*` public types through SDK/root declarations and verified editable output across all six presentation formats plus PptxGenJS 4.0.1 legal semantics and deliberate strict differences. Public capability coverage is 100%; final full-parity certification remains gated only on the independent client/peer audit described below.

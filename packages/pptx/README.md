@@ -820,14 +820,14 @@ import {
   type PptxVersion,
 } from '@jiayunxie/pptx';
 
-const current: PptxVersion = PPTX_VERSION; // '0.1.0'
+const current: PptxVersion = PPTX_VERSION; // '0.1.1'
 const document = PptxDocument.create();
 console.log(document.version === current); // true
 ```
 
 `PPTX_VERSION` is a browser-safe compile-time literal and `PptxVersion` is its literal type. Read-only `PptxDocument.version` remains the same through create/open/write/reopen, performs no package lookup, and does not mutate the presentation. It is unrelated to OOXML extended-properties `AppVersion` or the producer/version of an input file.
 
-A PptxGenJS 4.0.1 instance correctly reports its own `'4.0.1'`, while this runtime reports its own `'0.1.0'`; parity means public availability, stability, and manifest synchronization, not equal cross-library strings. Manifest drift tests cover all three manifests, and CLI `--version` plus JSON doctor consume the same constant. Final release gates are 1354 passed / 1 skipped tests and performance 1/1 at 617ms. Both TypeScript checks, both bundles, and declaration generation pass. The actual 58-file tarball has SHA-256 `ce300d3c5da10a8fbdb9910b10497d02af496532b99329e18a314c9604e6f9a8`; installed Node/types/browser/CLI and real Google Chrome report `presentationVersion: true`, with zero Chrome validation, console, page, or network errors.
+A PptxGenJS 4.0.1 instance correctly reports its own `'4.0.1'`, while this runtime reports its own `'0.1.1'`; parity means public availability, stability, and manifest synchronization, not equal cross-library strings. Manifest drift tests and the release version script cover every workspace manifest, while CLI `--version` plus JSON doctor consume the same constant.
 
 Full PptxGenJS parity is not yet claimed at this historical checkpoint. The `OutputType` runtime catalog is completed in a later section; six actual `write({ outputType })` return semantics, stream, compression, remaining runtime constants, advanced text/table, `tableToSlides`, and the final peer/client audit remain pending.
 

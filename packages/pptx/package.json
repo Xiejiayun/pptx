@@ -1,6 +1,6 @@
 {
   "name": "@jiayunxie/pptx",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Lossless bidirectional PPTX OOXML editing for Node.js and modern browsers",
   "type": "module",
   "main": "./dist/index.js",
