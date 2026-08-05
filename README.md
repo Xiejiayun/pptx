@@ -134,7 +134,7 @@ PptxGenJS 4.0.1 的 data-contain、path-cover、data-crop 3 个公开 case 已�
 
 实际 tarball 的 Node/browser/declaration/CLI smoke 通过，两次 clean build 的 38 个 dist 文件 SHA-256 完全一致。5 页 gallery 含 13 个 shapes、8 张 SVG picture、7 个 SVG parts、7 个 PNG fallbacks 和 16 条 image relationships；原件和 LibreOffice 回存件均 strict reopen，PowerPoint 2010 validation 为 0 errors / 0 warnings。LibreOffice 保留 shape order、名称、alt text、SVG hashes、关系角色和 7+7 targets，将 MIME 从 `image/svg+xml` 规范化为 `image/svg`；最大 position/size 量化 360 EMU、最大 `srcRect` 量化 0.003%，flip/rotation 采用等价规范化。它回存后可能选择 PNG fallback 渲染，所以旧客户端视觉仍以 fallback 质量为准。
 
-当前仍未提供 external SVG relationship、SVG DOM 局部编辑、图片 hyperlink 与高级 placeholder 样式，以及单图片删除与 media GC。嵌入媒体创建能力见下一节。
+图片 hyperlink 已支持创建、读取、编辑、复制、回滚与重开。External SVG relationship、SVG DOM 局部编辑与更广泛的高级 SVG 操作属于 Native 扩展边界，不是 PptxGenJS 4.0.1 公开表面的未闭合项。嵌入媒体创建能力见下一节。
 
 ## 创建嵌入式音频与视频
 
@@ -204,7 +204,7 @@ PptxGenJS 4.0.1 的 4/4 个公开有效 data/path、audio/video、cover、`extn`
 
 LibreOffice 26.8 当前会在 save/reopen 时保留 9 页顺序与文案，但删除全部媒体、poster、media relationships 和 timing；回存件仍可 strict reopen 且为 0 errors / 0 warnings。这是已记录的客户端降级，不是 native 写出或 round-trip 保留承诺。本机 PowerPoint 16.112 自动打开对 gallery、LibreOffice 回存件与最小控制文件都返回同一 `-9074`，因此没有把该环境的 PowerPoint 往返误记为通过。
 
-PptxGenJS 风格的 external online link 已由 `addVideo(HTTP(S) URL)` 覆盖：它保留 external video relationship、内嵌 poster 与 reopen 语义，并额外写入 native playback/timing。仍待 provider-specific online metadata、remote-fetch embedding、trim/bookmarks、有限重复、narration/cross-slide audio、captions/subtitles、crop/rounding/shadow/hyperlink 与高级 placeholder 样式、内建转码引擎及更广泛 PowerPoint/Keynote/Google Slides 认证。
+PptxGenJS 风格的 external online link 已由 `addVideo(HTTP(S) URL)` 覆盖：它保留 external video relationship、内嵌 poster 与 reopen 语义，并额外写入 native playback/timing。Provider-specific online metadata、remote-fetch embedding、trim/bookmarks、narration/cross-slide audio、captions/subtitles、内建转码引擎与更广泛 PowerPoint/Keynote/Google Slides 认证属于 Native 扩展或独立客户端认证边界。
 
 ## 创建和语义编辑原生图表
 
@@ -257,15 +257,15 @@ console.log(chart.definition, await chart.diagnostics());
 await document.writeFile('native-charts.pptx');
 ```
 
-`CHART_TYPES` 覆盖 `area`、`bar`、`bar3D`、`bubble`、`doughnut`、`line`、`pie`、`radar`、`scatter`。分类图使用 `categories`/`values`，scatter 使用 `xValues`/`values`，bubble 另带正数 `sizes`；bar/area/line 可组成主轴/次轴组合图。每个原生图表都同步创建内嵌 XLSX、A1 formulas 和 display caches，workbook bytes 在同步 OPC transaction 前生成。
+`CHART_TYPES` 覆盖 `area`、`bar`、`bar3D`、`bubble`、`bubble3D`、`doughnut`、`line`、`pie`、`radar`、`scatter`。分类图使用 `categories`/`values`，scatter 使用 `xValues`/`values`，bubble 与 bubble3D 另带正数 `sizes`；bar/area/line 可组成主轴/次轴组合图。每个原生图表都同步创建内嵌 XLSX、A1 formulas 和 display caches，workbook bytes 在同步 OPC transaction 前生成。
 
 `ChartModel.definition` 是 detached frozen 语义快照；`replaceDefinition()` 可替换类型、组合、数据和受支持选项，`replaceSeries()` 更新单组图表数据，`remove()` / `slide.deleteChart()` 删除并按引用回收 chart/workbook/style/color 子图。导入的共享目标在首次编辑时采用 clone-on-write；`setXml()` 保留为显式 raw escape hatch。标题、图例、chart/plot area、主/次轴、gridlines、labels、data table、series fill/line/marker、颜色以及各类型 grouping/gap/hole/angle/radar/scatter/bubble/3D 选项均有 strict read/create/edit。Diagnostics 区分关系、结构、cache、axis、workbook 缺失/分歧和 modern chart。
 
-PptxGenJS 4.0.1 的九种公开图表和 bar+line 主/次轴组合已通过真实输出导入、编辑、公式/cache/XLSX/relationship 和选项对照。实际 npm tarball 的 Node、real-Chrome、declaration 与 installed CLI smoke 均报告 `nativeCharts: true`；11 页 gallery 包含 10 个 chart parts、10 个 XLSX、零孤儿，PowerPoint 2010 profile 为 0 errors / 0 warnings，180 DPI overflow 为 0，并已逐页检查。
+PptxGenJS 4.0.1 的十种公开图表和 bar+line 主/次轴组合已通过真实输出导入、编辑、公式/cache/XLSX/relationship 和选项对照。最终 actual npm aggregate 为 21 slides / 20 native charts，Node、persistent Chrome、declaration 与 installed CLI 全部通过，PowerPoint 2010 validation 为 0 errors / 0 warnings。早期 11 页 / 10 charts 可视 gallery 的 180 DPI overflow 为 0 并已逐页检查；该历史 gallery 不代替最终 `bubble3D`/Chart Residual aggregate 证据。
 
 LibreOffice 26.8 能显示八种 2D 图表及组合图；`bar3D` 在 native 与独立 PptxGenJS 控制文件中都只显示标题。保存时 LibreOffice 保留全部 10 个图表的类型和 cache 数据，但移除内嵌 workbook 并把公式改成客户端占位符；reader 将其识别为可编辑的 `cache-only` 状态并报告 `CHART_WORKBOOK_MISSING` warning，首次语义替换会重新生成同步 XLSX。本机 PowerPoint 16.112 对 gallery 与独立控制文件自动打开均返回同一 `-9074`，本轮不声明 PowerPoint 往返通过。
 
-仍未支持 Office 2016 `cx:*` modern chart 创建/语义编辑、external workbook 编辑、chart animations、内建趋势线/error bar 创建以及更广泛 Keynote/Google Slides 认证；高级插件继续处理 modern inspection、trendline、error bar 与显式 fallback。Slide background、slide number、default text color 与 master/layout/placeholder 均已完成；PptxGenJS 全功能对等的下一项是 advanced text。
+Office 2016 `cx:*` modern chart 语义创建、external workbook 编辑、chart animations 与更广泛的跨客户端认证属于 Native 扩展或外部认证边界；高级插件继续处理 modern inspection、trendline、error bar 与显式 fallback。这些边界不构成 PptxGenJS 4.0.1 公开表面缺口，该表面已全部闭合。
 
 ## 创建和编辑页面背景
 
@@ -400,7 +400,7 @@ PptxGenJS 的 `masterName` 拼写在这里保持兼容，但它严格选择的�
 
 2 页 native gallery 含 32 parts / 29 relationships / 2 layouts / 1 master，PowerPoint 2010 profile 为 0 errors / 0 warnings；2 页 PptxGenJS control 为 36 parts / 34 relationships。原件与 LibreOffice 回存件共 8 页均以 2400×1350、180 DPI 渲染并逐页检查；全幅背景使 minimum non-white margin 按预期为 0px。Fixture 的 background 和 image 是 1×1 黑色 PNG，native 第二页按测试意图重定向空白 default layout，黑/空白输出不代表丢失继承。LibreOffice 26.8 保留两页、两个 layouts 和一个 master，但会改写 placeholder identity/slide-number cache，并移除 audio 与内嵌 chart workbooks；这是降级记录，不声明完整 round-trip。PowerPoint 16.112 对 native 与 control 均返回 `-9074` 且没有产生 PPTX/PDF，因此不声明 PowerPoint 往返通过。
 
-尚未实现完整 theme text cascade、高级 text/table/media/chart 样式和更广泛客户端认证。Ordinary shape/text 的 percentage coordinates、shared editable `name`、rotation 与 horizontal/vertical flip 已闭合；advanced text 已完成文本框 direct fill、simple line、begin/end arrows、simple shadow、outer hyperlink、per-run rich-text hyperlink、preset geometry、`roundRect` 绝对圆角半径、direct `isTextBox` 状态与 rich-text `breakLine` 段落拆分。
+Theme text cascade、更广泛的高级 text/table/media/chart 语义 API 与跨客户端认证仍可作为 Native 扩展继续深化，但不是 PptxGenJS 4.0.1 公开表面的未闭合项。Ordinary shape/text 的 percentage coordinates、shared editable `name`、rotation 与 horizontal/vertical flip 已闭合；advanced text 已完成文本框 direct fill、simple line、begin/end arrows、simple shadow、outer hyperlink、per-run rich-text hyperlink、preset geometry、`roundRect` 绝对圆角半径、direct `isTextBox` 状态与 rich-text `breakLine` 段落拆分。
 
 ## 创建和编辑文本框填充
 
@@ -465,14 +465,14 @@ const placeholder = slide.addPlaceholder('No outline', {
 
 outlined.line = { kind: 'line', color: { kind: 'scheme', value: 'accent3' } };
 outlined.line = { kind: 'none' };
-outlined.line = undefined; // 只清除 direct width/fill/dash
+outlined.line = undefined; // 只清除 direct width/fill/dash/cap
 ```
 
-`AddTextOptions.line` 复用 strict `ShapeLine`。值只能是 `{ kind: 'none' }`，或 `{ kind: 'line', color, transparency?, width?, dash? }`；color 支持合法六位 sRGB/theme，transparency 是量化到 `0.001%` 的 finite `0..100`，width 是量化到 1 EMU 的 finite `0..1584` point，dash 是 `solid/dash/dashDot/lgDash/lgDashDot/lgDashDotDot/sysDash/sysDot`。省略 width/dash 会物化为 1pt/solid，zero width 与 explicit zero transparency 都保留 direct intent。省略、runtime `undefined` 与 explicit none 创建保持既有 canonical `<a:ln><a:noFill/></a:ln>`。
+`AddTextOptions.line` 复用 strict `ShapeLine`。值只能是 `{ kind: 'none' }`，或 `{ kind: 'line', color, transparency?, width?, dash?, cap? }`；color 支持合法六位 sRGB/theme，transparency 是量化到 `0.001%` 的 finite `0..100`，width 是量化到 1 EMU 的 finite `0..1584` point，dash 是 `solid/dash/dashDot/lgDash/lgDashDot/lgDashDotDot/sysDash/sysDot`，cap 是 `flat/round/square`。省略 width/dash 会物化为 1pt/solid，zero width 与 explicit zero transparency 都保留 direct intent。省略、runtime `undefined` 与 explicit none 创建保持既有 canonical `<a:ln><a:noFill/></a:ln>`。
 
 Plain/rich text、`addPlaceholder()`、placeholder population、layout/master wrappers 与 declarative `defineSlideMaster()` text/placeholder objects 共用同一 normalizer/renderer。创建结果可立即通过 live `ShapeModel.line` read/replace/clear；caller detachment、same-value bytes/journal no-op、duplicate isolation、outer rollback、stable identity、六格式 write/reopen 与 placeholder-source isolation 均已覆盖。PptxGenJS-shaped `type`/`dashType`/`alpha`/`lineDash`、missing color、invalid dash/range、unknown/accessor/symbol/class input 会在 mutation 前拒绝。
 
-PptxGenJS 4.0.1 的 omitted/none/empty/missing-color text line 都输出 empty `a:ln`，省略 width/dash 时依赖隐式 1pt/solid，width zero 和 transparency zero 也被 falsy collapse；native 写明确可逆的 no-fill、默认 width/dash 与 zero direct state。合法 sRGB/theme、非零 transparency、正 width 和全部八种 dash 的 final semantics 对等。Nested deprecated `alpha` 在 PptxGenJS text line 中仍生效而 `lineDash` 被忽略；native 不接受两者。Gradient/pattern/picture/group line fill、custom dash 与 cap/compound/alignment/join 仍待后续；text arrows、simple shadow、hyperlink 与 preset geometry 已在后续小节支持。
+PptxGenJS 4.0.1 的 omitted/none/empty/missing-color text line 都输出 empty `a:ln`，省略 width/dash 时依赖隐式 1pt/solid，width zero 和 transparency zero 也被 falsy collapse；native 写明确可逆的 no-fill、默认 width/dash 与 zero direct state。合法 sRGB/theme、非零 transparency、正 width、全部八种 dash 与 flat/round/square cap 的 final semantics 对等。Nested deprecated `alpha` 在 PptxGenJS text line 中仍生效而 `lineDash` 被忽略；native 不接受两者。Gradient/pattern/picture/group line fill、custom dash 与更广泛的 line 结构化编辑属于 Native 扩展边界；text arrows、simple shadow、hyperlink 与 preset geometry 已在后续小节支持。
 
 本项跨 package focused gate 为 5/5，model、SDK、root 与 adapter suites 分别为 189/189、182/182、9/9、77/77。最终全量为 1268 passed / 1 skipped，独立 performance 为 1/1（553ms），两种 TypeScript build 与两套 package build 通过。Actual 57-file tarball 的 Node、declarations、browser export 与 CLI 均报告 `textShapeLines: true`；真实 Chrome immediate/detached/reopen state 完全匹配且 console/page/network 为 0，CLI PowerPoint 2010 profile 为 0 errors / 0 warnings。
 
@@ -795,7 +795,7 @@ PptxGenJS 4.0.1 的实例 `OutputType` 公开相同六个 keys/values。Native �
 
 最终 release gates 为 73 passed / 1 skipped test files、1378 passed / 1 skipped tests，performance 1/1（1.10s），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 60-file tarball 的 SHA-256 为 `31a38643c8c851ae24a381a68cd225972b76dbf7b37758c16efd2fe27248df0d`；installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `outputTypes: true`。Chrome 六值、frozen catalog 和 mutation isolation 检查通过，页面、bundle 与 blob 请求均为 200，console/page/network errors 为 0。
 
-总体 PptxGenJS 对等进度仍约 97%。六值 `write({ outputType })` 返回语义已在下一节完成。
+该历史 checkpoint 的总体 PptxGenJS 对等进度约 97%。六值 `write({ outputType })` 返回语义已在下一节完成。
 
 ## 选择 `write()` 输出类型
 
@@ -829,7 +829,7 @@ async function encode<T extends OutputType>(
 
 最终 clean gates 为 74 passed / 1 skipped test files、1383 passed / 1 skipped tests，performance 1/1（966ms），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 61-file tarball 的 SHA-256 为 `26bbc7eb7c33eb194388576db2c2eaab33c80d0d99b19ed7a9b4a7375c3f9f37`；installed Node/types/browser/CLI 与真实 Google Chrome 均报告 `writeOutputTypes: true`。六种 Node 输出和五种浏览器输出均 byte-identical、可重开；Chrome validation/console/page/network errors 为 0。
 
-总体 PptxGenJS 对等进度约 97%。Node readable stream 已在下一节完成。
+该历史 checkpoint 的总体 PptxGenJS 对等进度约 97%。Node readable stream 已在下一节完成。
 
 ## 输出 Node Readable stream
 
@@ -855,7 +855,7 @@ const file = createWriteStream('output.pptx');
 
 PptxGenJS 4.0.1 的 public `stream()` 实际返回 Buffer，而不是真正的 Readable；该 byte-result 已由 `write({ outputType: 'nodebuffer' })` 对等。本库把 `stream()` 用于真实 Node stream，并保留 `STREAM` 不进入 `OUTPUT_TYPES`。最终 clean gates 为 75 passed / 1 skipped test files、1390 passed / 1 skipped tests，performance 1/1（682ms）。实际 61-file tarball SHA-256 为 `37b1d6bec7b5a144d577c57b61c0777f2aad8515015e9cbee05abd55f8e067d2`；installed Node/types/browser/CLI 与真实 Chrome 均报告 `nodeReadableStream: true`，Chrome validation/console/page/network errors 为 0。
 
-总体 PptxGenJS 对等进度约 97%。Compression policy 已在下一节完成。
+该历史 checkpoint 的总体 PptxGenJS 对等进度约 97%。Compression policy 已在下一节完成。
 
 ## 控制演示文稿 ZIP 压缩
 
@@ -880,7 +880,7 @@ const uncompressedBlob = await document.writeBlob({ compression: false }); // br
 
 最终 clean gates 为 1400 passed / 1 skipped tests，performance 1/1（749.5ms），两种 TypeScript check、Node/browser bundle 与 declaration build 全部通过。实际 61-file tarball SHA-256 为 `4bbaa25b83a0d20dd3d2239708c628afec79bcff19c69faca6fe67b03e3bd990`；packed Node 的代表性 STORE/DEFLATE 输出为 149,598/9,347 bytes，真实 Chrome 为 84,062/9,270 bytes。Installed Node/types/browser/CLI 与 Chrome 均报告 `compressionPolicy: true`，Chrome download 使用 ZIP method 8、可重开，console/page/network errors 为 0。
 
-总体 PptxGenJS 对等进度仍约 97%。`SchemeColor` runtime helper 已在下一节完成。
+该历史 checkpoint 的总体 PptxGenJS 对等进度约 97%。`SchemeColor` runtime helper 已在下一节完成。
 
 ## 使用 PptxGenJS 对等的主题色 helper
 
@@ -1427,13 +1427,13 @@ shape.hyperlink = undefined;
 
 `ShapeModel.fill` 支持 direct solid/no-fill 的创建、读取、编辑与清除。`{ kind: 'none' }` 写入明确的 direct no-fill，`undefined` 只清除 direct fill state；gradient、pattern、picture 和 group fill 不属于这个 simple-fill API。
 
-`ShapeModel.line` 支持 direct none/solid line 的创建、读取、编辑与清除，包括 sRGB/theme color、0–100% transparency、0–1584pt width 和 8 种 preset dash。省略 width/dash 默认 1pt/solid；`undefined` 只清除 line 的 width/fill/dash，同时保留 line 容器、箭头、join 和扩展节点。
+`ShapeModel.line` 支持 direct none/solid line 的创建、读取、编辑与清除，包括 sRGB/theme color、0–100% transparency、0–1584pt width、8 种 preset dash 和 `flat | round | square` cap。省略 width/dash 默认 1pt/solid；`undefined` 只清除 line 的 width/fill/dash/cap，同时保留 line 容器、箭头、join 和扩展节点。
 
 `AddShapeOptions.arrows` 与 `ShapeModel.arrows` 支持 begin/end 的 `none | arrow | diamond | oval | stealth | triangle`。快照与输入脱离；赋值采用 whole replacement，缺失的一端会被清除，显式 `none` 则保留对应 direct endpoint。`undefined` 只清除两端而保留 line，反向的 `shape.line = undefined` 也保留 arrows。只创建 arrows 不会隐式生成颜色、宽度或 dash；已有合法 `w` / `len` size 会在类型编辑中无损保留，但 size 创建/读取/编辑尚未公开。
 
-`AddShapeOptions.shadow`、`AddTextOptions.shadow` 与 `ShapeModel.shadow` 支持 preset/text shape direct outer/inner shadow 的创建、读取、whole replacement 与清除，包括 sRGB/theme color、`0..1` opacity、`0..100pt` blur、`0..<360°` angle、`0..200pt` distance，以及 outer-only `rotateWithShape`。默认值为 black、0.75、8pt、270°、4pt 和 outer rotate false；显式 zero 会保留。输入在 mutation 前深度脱离，getter 的嵌套快照会 deep-freeze；同值赋值是 exact no-op，`undefined` 只移除 direct shadow 并保留 `effectLst` 与 glow/reflection 等 sibling effects。Image 使用同一个 strict shadow contract；generic/advanced effects、custom shadow transforms，以及 table/chart/media 等其他 owner 的 shadow API 仍待后续小项。
+`AddShapeOptions.shadow`、`AddTextOptions.shadow` 与 `ShapeModel.shadow` 支持 preset/text shape direct outer/inner shadow 的创建、读取、whole replacement 与清除，包括 sRGB/theme color、`0..1` opacity、`0..100pt` blur、`0..<360°` angle、`0..200pt` distance，以及 outer-only `rotateWithShape`。默认值为 black、0.75、8pt、270°、4pt 和 outer rotate false；显式 zero 会保留。输入在 mutation 前深度脱离，getter 的嵌套快照会 deep-freeze；同值赋值是 exact no-op，`undefined` 只移除 direct shadow 并保留 `effectLst` 与 glow/reflection 等 sibling effects。Image 使用同一个 strict shadow contract；generic/advanced effects、custom shadow transforms，以及 table/chart/media 等其他 owner 的 shadow API 属于 Native 扩展边界。
 
-`AddShapeOptions.hyperlink`、`AddTextOptions.hyperlink` 与 `ShapeModel.hyperlink` 支持整个 preset/text shape 的 click URL 或内部页链接。输入必须恰好包含一个非空 `url` 或一个当前文稿内的一基 `slide`；`tooltip` 可省略，也可显式为空。Getter 返回 detached frozen snapshot，setter 采用 whole replacement，同值赋值为 exact no-op，`undefined` 清除 click link。内部关系按目标页 identity 保存，移动或在目标前插删页面只更新 getter ordinal；复制 self-link 会指向副本自身，删除目标页会清理相关 click/hover，shared relationship 则按引用 clone-on-write 与回收。Text outer 与 `RichTextRunStyle.hyperlink` 分别管理 whole-shape/default run 和显式 run-local 链接，ownership 相互独立；run hyperlink 可与 `RichTextRun.breakLine` 组合并按规范段落重新索引。外部链接产生 validator 的预期可移植性 warning。Plain single-run table-cell scalar hyperlink API 与 rich/multi-paragraph cell default/local run links 均已支持；ordinary shape/text percentage positions 与 transform identity 已闭合，hover、table graphic-frame/image/chart/media 链接、action navigation、advanced line fill/custom dash 仍待后续小项；`isTextBox` 与 rich-text `breakLine` 已完成。
+`AddShapeOptions.hyperlink`、`AddTextOptions.hyperlink` 与 `ShapeModel.hyperlink` 支持整个 preset/text shape 的 click URL 或内部页链接。输入必须恰好包含一个非空 `url` 或一个当前文稿内的一基 `slide`；`tooltip` 可省略，也可显式为空。Getter 返回 detached frozen snapshot，setter 采用 whole replacement，同值赋值为 exact no-op，`undefined` 清除 click link。内部关系按目标页 identity 保存，移动或在目标前插删页面只更新 getter ordinal；复制 self-link 会指向副本自身，删除目标页会清理相关 click/hover，shared relationship 则按引用 clone-on-write 与回收。Text outer 与 `RichTextRunStyle.hyperlink` 分别管理 whole-shape/default run 和显式 run-local 链接，ownership 相互独立；run hyperlink 可与 `RichTextRun.breakLine` 组合并按规范段落重新索引。外部链接产生 validator 的预期可移植性 warning。Plain single-run table-cell scalar hyperlink API、rich/multi-paragraph cell default/local run links 以及 raster/SVG `ImageModel.hyperlink` 均已支持；ordinary shape/text percentage positions 与 transform identity 已闭合。Hover、table graphic-frame/chart/media 链接、action navigation 与 advanced line fill/custom dash 属于 Native 扩展边界；`isTextBox` 与 rich-text `breakLine` 已完成。
 
 ### 创建和编辑自定义几何路径
 
@@ -1581,15 +1581,9 @@ Node evidence deck 为 93,142 bytes、29 parts / 41 relationships、5 slides / 4
 
 ## 当前 PptxGenJS 4.0.1 表面审计
 
-逐声明原子矩阵当前闭合 1,740/1,774（98.08%），剩余 34 项；supported 757、deliberate-difference 518、deprecated-alias 94、defect-excluded 371，unsupported/stale 与 diagnostics 均为 0。最新 Hyperlink Owners 能力族一次关闭 6 项：URL、页内目标、tooltip、shape 与 image owner 共 5 项直接支持；rich-text outer hyperlink 为 deliberate difference，因为 Native 保持合法 whole-shape/run 关系所有权，不复制 PptxGenJS 4.0.1 的 dangling `rIdundefined` 输出。Raster/SVG image 现均支持严格、可编辑、可复制、可回滚并可重开的 hyperlink 生命周期。
+逐声明原子矩阵已闭合 1,774/1,774（100%）：supported 764、deliberate-difference 542、deprecated-alias 94、defect-excluded 374，unsupported、unverified、stale 与 diagnostics 均为 0。最后的 Chart Residual 能力族一次关闭 23 个原子；Native、actual npm tarball 与持久 Chrome 共用 23-atom / 33-state probe，六种 presentation format、10 charts / 10 workbooks、exact OOXML 与 PowerPoint 2010 validation 全部通过。
 
-Fresh 66-entry actual tarball 为 726,424 bytes，SHA-256 `cf8ff70e932f11b2fe830d06d33cd4edae7a3fc50fbe127498a2ddd7757b22f1`。Node 与 persistent browser evidence deck 均为 24,776 bytes、26 parts、31 relationships、4 slides、4 shapes，SHA-256 分别为 `bc774ec41fa69707a5403bfff3af3dc968de90c3cb9f52358aa65631bb284052` 与 `addb86cf1e7e0559d449b1eceba54e6289bcae34c2a7a1d9e0d5301fa9764588`；26/26 解压部件 byte-identical。Installed Node/CLI、browser、owner-bound OOXML 与 PowerPoint 2010 profile 均通过，validation 为 0 errors / 1 条预期 external-link warning；异步图片源 target move、target/owner delete+same-URI replacement、invalid pre-I/O 也全部通过。完整逐项状态见 [PptxGenJS public-surface audit](./docs/compatibility/pptxgenjs-surface-audit.md)。
-
-Data/Path Inheritance 能力族一次关闭 4 项，矩阵现为 1,744/1,774（98.31%），剩余 30：supported 757、deliberate-difference 520、deprecated-alias 94、defect-excluded 373，unsupported/stale 与 diagnostics 均为 0。PptxGenJS 的真实 image/media owner 支持合法 `data` 或 `path`，同时给出时以 `data` 为准；Native 有意保持单一 typed `ImageSource` / `MediaSource`。`TextPropsOptions.data/path` 在 PptxGenJS plain/rich writer 中完全无效，Native 不增加 inert aliases。本族无产品实现改动，复用上一批 actual npm、persistent browser 与 OOXML source-owner 证据。
-
-Placeholder Text Style 能力族批量关闭 4 项：`align`、`transparency`、`valign` 为 supported，`margin` 因 PptxGenJS 非对称 tuple 顺序与 Native 文档化 TRBL 顺序不同归为 deliberate-difference。共享 lifecycle probe 覆盖 layout/master/direct/populated/duplicate owner、strict invalid isolation、rollback、relationship stability、精确 OOXML 5/5、六格式和 reopen；actual npm 与持久 Chrome 均通过。矩阵现为 1,748/1,774（98.53%），剩余 26：supported 760、deliberate-difference 521、deprecated-alias 94、defect-excluded 373，unsupported/stale 与 diagnostics 均为 0。
-
-Shape Geometry Residual 能力族关闭 3 项：PptxGenJS `ShapeProps.align` 对 `addShape()` 完全无效，归为 defect-excluded；`angleRange` 与 `arcThicknessRatio` 通过 Native strict ordered `ShapeAdjustment[]` 表达相同最终 `adj1`/`adj2`/`adj3`，归为 deliberate-difference。该 evidence-only 族复用现有 npm、Chrome、六格式与 PowerPoint 2010 adjustment 证据。矩阵现为 1,751/1,774（98.70%），剩余 23 项，全部属于 Chart Residual。
+审计 JSON/Markdown 两次生成 byte-identical 且 `complete=true`；完整逐项状态与证据见 [PptxGenJS public-surface audit](./docs/compatibility/pptxgenjs-surface-audit.md)。Windows PowerPoint、macOS Keynote 与受控 Google Slides 导入仍是独立客户端认证工作，不影响 PptxGenJS 4.0.1 公开表面已完成的结论。
 
 ## 开发
 

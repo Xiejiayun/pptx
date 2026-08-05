@@ -1,6 +1,6 @@
 # 从 PptxGenJS 接入双向内核
 
-现有 PptxGenJS 创建代码无需迁移到新的对象模型。继续用公开 API 生成演示文稿，再把实例交给 adapter：
+新项目可直接使用 `PptxDocument.create()` 从零创建并持续语义编辑。现有 PptxGenJS 代码无需立即迁移：继续用其公开 API 生成演示文稿，再把实例交给 adapter：
 
 ```ts
 import PptxGenJS from 'pptxgenjs';
@@ -21,7 +21,7 @@ await document.writeFile('output.pptx');
 
 ## 选择入口
 
-- 从代码新建：PptxGenJS → `importPptxGenJS()` → 双向内核。
+- 新代码从零创建：直接 `PptxDocument.create()`。
+- 复用现有 PptxGenJS 创建代码：PptxGenJS → `importPptxGenJS()` → 双向内核。
 - 修改已有文件：直接 `PptxDocument.open()`，不要先导入 PptxGenJS。
 - 只需新建且不需要后处理：可继续单独使用 PptxGenJS。
-

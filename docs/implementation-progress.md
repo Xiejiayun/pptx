@@ -1,6 +1,6 @@
 # PPTX 双向编辑库实施进度
 
-最后更新：2026-08-04
+最后更新：2026-08-05
 
 ## WP0：基线与技术验证
 
@@ -1199,24 +1199,24 @@ $ pptx-inspect --json package inspect output.pptx
 - 全部 12 页 evidence 以 2400×1350 渲染并逐页检查，overflow 为 0。LibreOffice 26.8 能打开、保存、重开和渲染两份文件；回存 Node/Chrome 文件仍为 0 errors，分别只有 24/34 条 external-link、placeholder-owner 与 slide-number-cache normalization warnings。本机 PowerPoint 16.112 自动化仍返回统一 `-9074` 且没有产生 PPTX/PDF，因此不把该环境记为 PowerPoint round-trip 通过。
 - 实现与证明 commit chain 为 `b22a065`、`8b7cca2`、`434129c`、`ab57e13`、`0dfe5c3`、`63fb2f2`、`63ecd98`、`00ca3c7`、`4df0839`、`0242491`、`efec32b`；完整证据位于 `/tmp/pptx-table-to-slides-artifacts.2sH8Fw`。
 
-### 对等结论与后续认证
+### 对等结论与后续认证（历史 checkpoint）
 
 - 旧人工 capability checklist 在本专项范围内达到 100%，`tableToSlides` 本身 10/10 完成；该数字是历史 checkpoint，不再代表整个 PptxGenJS 4.0.1 声明表面。
-- 当前完成性结论以逐原子的 [PptxGenJS 全表面审计](./compatibility/pptxgenjs-surface-audit.md) 为准；客户端 corpus 仍是最终认证门禁。
+- 当前完成性结论以逐原子的 [PptxGenJS 全表面审计](./compatibility/pptxgenjs-surface-audit.md) 为准；该矩阵已在文末闭合 1,774/1,774。
 
-## PptxGenJS 4.0.1 全表面完成性审计
+## PptxGenJS 4.0.1 全表面完成性审计（初始历史 checkpoint）
 
-状态：审计基础设施完成；首批 8 个原子已直接分类
+当时状态：审计基础设施完成；首批 8 个原子已直接分类。该段保留为历史证据，当前结论见文末 Chart Residual 终稿。
 
-### 当前可信矩阵
+### 当时可信矩阵
 
 - 从锁定 `types/index.d.ts` 解析出 1,774 个可达公开能力原子，声明 SHA-256 为 `0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5`。
-- 当前状态为 `supported = 7`、`defect-excluded = 1`、`unsupported = 0`、`unverified = 1,766`、`stale = 0`；证据闭合进度为 8/1,774（约 0.45%）。该百分比衡量逐原子认证，不等于已有实现功能只有 0.45%。
+- 当时状态为 `supported = 7`、`defect-excluded = 1`、`unsupported = 0`、`unverified = 1,766`、`stale = 0`；证据闭合进度为 8/1,774（约 0.45%）。该百分比衡量逐原子认证，不等于已有实现功能只有 0.45%。
 - 首批关闭 `version`、`presLayout`、`AlignH`、`AlignV`、`OutputType`、`SchemeColor`、`ShapeType`；真实 PptxGenJS 4.0.1 缺少声明中的实例 `PlaceholderType`，因此该声明原子以直接运行时对照归入 `defect-excluded`。
 - 运行时入口 SHA-256 为 `873d182a8e2e1c0b5e522ef146117936b96b9b2024667bd4c1de59e2b031d27a`，稳定探针 SHA-256 为 `fe342796785d4b14e88757a0a28b56cb1cd76457de83e67b241a6a3d3bb06b64`。探针同时锁定 runtime `ShapeType.custGeom` 这一声明外目录项。
-- 显式 `pnpm audit:pptxgenjs` 会在任何 `unsupported`、`unverified`、`stale`、证据失效或制品漂移时失败；当前按设计失败于 1,766 个 `unverified` 原子。
+- 显式 `pnpm audit:pptxgenjs` 会在任何 `unsupported`、`unverified`、`stale`、证据失效或制品漂移时失败；当时按设计失败于 1,766 个 `unverified` 原子。
 
-### 后续队列
+### 当时后续队列
 
 1. shared coordinates、sizing、object metadata 与 hyperlink/action；
 2. presentation/slide lifecycle 与完整 theme cascade；
