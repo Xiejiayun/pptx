@@ -109,7 +109,7 @@ jobs:
             NEXT=$(npm view @jiayunxie/pptx dist-tags.next 2>/dev/null || true)
             DIST_OK=false
             if npm view "@jiayunxie/pptx@$PACKAGE_VERSION" dist --json > artifacts/npm/registry-dist.json 2>/dev/null; then
-              DIST_OK=$(node -e "const d=require('./artifacts/npm/registry-dist.json'); process.stdout.write(String(d.integrity===process.env.LOCAL_INTEGRITY && Boolean(d.attestations?.url)))")
+              DIST_OK=$(node -e "const value=require('./artifacts/npm/registry-dist.json'); const d=Array.isArray(value)?value[0]:value; process.stdout.write(String(d?.integrity===process.env.LOCAL_INTEGRITY && Boolean(d?.attestations?.url)))")
             fi
             if test "$PUBLISHED" = "$PACKAGE_VERSION" && test "$NEXT" = "$PACKAGE_VERSION" && test "$DIST_OK" = true; then
               READY=true
