@@ -618,6 +618,12 @@ describe('raster image document options', () => {
   it('detaches image fields, optional content type, and AbortSignal', () => {
     const controller = new AbortController();
     const fallback = pngHeader(1, 1);
+    const shadow = {
+      kind: 'outer' as const,
+      color: { kind: 'srgb' as const, value: '123456' },
+      opacity: 0.5,
+      rotateWithShape: true,
+    };
     const options = {
       contentType: 'image/svg+xml' as const,
       fallback,
@@ -631,9 +637,13 @@ describe('raster image document options', () => {
       rotation: 5,
       flipHorizontal: true,
       flipVertical: false,
+      rounding: true,
+      shadow,
+      transparency: 25,
     };
     const normalized = normalizeAddImageSourceOptions(options);
     options.name = 'Changed';
+    shadow.color.value = 'FFFFFF';
     fallback.fill(0);
 
     expect(normalized.contentType).toBe('image/svg+xml');
@@ -650,9 +660,19 @@ describe('raster image document options', () => {
       rotation: 5,
       flipHorizontal: true,
       flipVertical: false,
+      rounding: true,
+      shadow: {
+        kind: 'outer',
+        color: { kind: 'srgb', value: '123456' },
+        opacity: 0.5,
+        rotateWithShape: true,
+      },
+      transparency: 25,
     });
     expect(Object.getPrototypeOf(normalized.imageOptions)).toBeNull();
     expect(Object.isFrozen(normalized.imageOptions)).toBe(true);
+    expect(Object.isFrozen(normalized.imageOptions.shadow)).toBe(true);
+    expect(Object.isFrozen(normalized.imageOptions.shadow?.color)).toBe(true);
     expect(Object.isFrozen(normalized)).toBe(true);
   });
 

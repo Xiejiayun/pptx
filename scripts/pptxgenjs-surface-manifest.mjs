@@ -4805,6 +4805,138 @@ const IMAGE_SOURCE_SIZING_TRANSFORM_FAMILY_ENTRIES = Object.freeze(
   IMAGE_SOURCE_SIZING_TRANSFORM_IDS.map((id) => imageSourceSizingTransformEntry(id)),
 );
 
+const IMAGE_IDENTITY_EFFECTS_CONTROL_TITLE =
+  'matches PptxGenJS image identity and visual effects through create edit reopen';
+const IMAGE_IDENTITY_EFFECTS_IDS = Object.freeze(
+  ['altText', 'objectName', 'rounding', 'shadow', 'transparency']
+    .map((property) => linePropertyId('ImageProps', property)),
+);
+
+function imageIdentityEffectsNative(id) {
+  if (id.endsWith('@property:altText')) {
+    return [
+      'AddImageOptions.altText',
+      'AddSvgImageOptions.altText',
+      'AddImageSourceOptions.altText',
+      'ImageModel.altText',
+    ];
+  }
+  if (id.endsWith('@property:objectName')) {
+    return [
+      'AddImageOptions.name',
+      'AddSvgImageOptions.name',
+      'AddImageSourceOptions.name',
+      'ImageModel.name',
+    ];
+  }
+  if (id.endsWith('@property:rounding')) {
+    return [
+      'AddImageOptions.rounding',
+      'AddSvgImageOptions.rounding',
+      'AddImageSourceOptions.rounding',
+      'ImageModel.rounding',
+    ];
+  }
+  if (id.endsWith('@property:shadow')) {
+    return [
+      'AddImageOptions.shadow',
+      'AddSvgImageOptions.shadow',
+      'AddImageSourceOptions.shadow',
+      'ImageModel.shadow',
+      'ShapeShadow',
+    ];
+  }
+  return [
+    'AddImageOptions.transparency',
+    'AddSvgImageOptions.transparency',
+    'AddImageSourceOptions.transparency',
+    'ImageModel.transparency',
+  ];
+}
+
+function imageIdentityEffectsCode(id) {
+  if (id.endsWith('@property:objectName')) {
+    return { path: 'packages/model/src/image-appearance.internal.ts', pattern: 'export function replaceShapeName(' };
+  }
+  if (id.endsWith('@property:altText')) {
+    return { path: 'packages/model/src/image-appearance.internal.ts', pattern: 'export function replaceImageAltText(' };
+  }
+  if (id.endsWith('@property:rounding')) {
+    return { path: 'packages/model/src/image-appearance.internal.ts', pattern: 'export function replaceImageRounding(' };
+  }
+  if (id.endsWith('@property:shadow')) {
+    return {
+      path: 'packages/model/src/shape-shadow.internal.ts',
+      pattern: "(shape.localName !== 'sp' && shape.localName !== 'pic')",
+    };
+  }
+  return {
+    path: 'packages/model/src/image-appearance.internal.ts',
+    pattern: 'export function replaceImageTransparency(',
+  };
+}
+
+function imageIdentityEffectsNote(id) {
+  if (id.endsWith('@property:objectName')) {
+    return 'Native exposes the same XML-safe picture identity through the common editable name property instead of the PptxGenJS-specific objectName spelling.';
+  }
+  if (id.endsWith('@property:shadow')) {
+    return 'Native uses the strict detached ShapeShadow contract, preserves legal explicit zero and rotate-with-shape state, and writes valid editable outer/inner OOXML instead of PptxGenJS permissive fallbacks.';
+  }
+  if (id.endsWith('@property:altText')) {
+    return 'Native supports the same picture description through strict XML-safe creation and direct lossless ImageModel.altText editing.';
+  }
+  if (id.endsWith('@property:rounding')) {
+    return 'Native supports the same rectangular or elliptical image geometry through strict boolean creation and direct lossless ImageModel.rounding editing.';
+  }
+  return 'Native supports the same 0–100 image transparency intent through quantized alphaModFix creation and direct lossless ImageModel.transparency editing.';
+}
+
+function imageIdentityEffectsEntry(id) {
+  const deliberate = id.endsWith('@property:objectName') || id.endsWith('@property:shadow');
+  return {
+    id,
+    status: deliberate ? 'deliberate-difference' : 'supported',
+    native: imageIdentityEffectsNative(id),
+    evidence: {
+      code: [imageIdentityEffectsCode(id), {
+        path: 'packages/model/src/shapes.ts',
+        pattern: 'export class ImageModel extends BaseShapeModel {',
+      }],
+      tests: [{
+        path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+        title: IMAGE_IDENTITY_EFFECTS_CONTROL_TITLE,
+      }, {
+        path: 'packages/model/src/model.test.ts',
+        title: 'creates, edits, duplicates, rolls back, and reopens image identity and visual effects',
+      }],
+      package: [{
+        path: 'scripts/smoke-npm-package.mjs',
+        pattern: 'const imageIdentityEffects5Probe =',
+      }],
+      ooxml: [{
+        path: 'scripts/image-identity-effects-5-lifecycle-probe.mjs',
+        pattern: 'const exactOoxml = {',
+      }],
+      clients: [{
+        path: 'scripts/playwright-browser-smoke.js',
+        pattern: 'const imageIdentityEffects5State = {',
+      }],
+    },
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: IMAGE_IDENTITY_EFFECTS_CONTROL_TITLE,
+    },
+    serialization: true,
+    client: true,
+    note: imageIdentityEffectsNote(id),
+  };
+}
+
+const IMAGE_IDENTITY_EFFECTS_FAMILY_ENTRIES = Object.freeze(
+  IMAGE_IDENTITY_EFFECTS_IDS.map((id) => imageIdentityEffectsEntry(id)),
+);
+
 const MEDIA_CORE_CONTROL_TITLE =
   'locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1';
 const MEDIA_VALID_CONTROL_TITLE =
@@ -5569,6 +5701,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...MASTER_BACKGROUND_SLIDE_NUMBER_FAMILY_ENTRIES,
     ...SHAPE_TEXT_SHADOW_FAMILY_ENTRIES,
     ...IMAGE_SOURCE_SIZING_TRANSFORM_FAMILY_ENTRIES,
+    ...IMAGE_IDENTITY_EFFECTS_FAMILY_ENTRIES,
     ...MEDIA_CORE_FAMILY_ENTRIES,
     ...PLACEHOLDER_CORE_FAMILY_ENTRIES,
     ...SHAPE_CUSTOM_PATH_FAMILY_ENTRIES,

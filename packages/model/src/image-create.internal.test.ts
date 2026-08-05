@@ -42,6 +42,8 @@ describe('embedded raster image normalization', () => {
       rotation: 0,
       flipHorizontal: false,
       flipVertical: false,
+      rounding: false,
+      transparency: 0,
     });
     expect(normalized.bytes).not.toBe(bytes);
     expect(Object.isFrozen(normalized)).toBe(true);
@@ -76,6 +78,17 @@ describe('embedded raster image normalization', () => {
     options.rotation = -2_700_000;
     options.flipHorizontal = true;
     options.flipVertical = true;
+    options.rounding = true;
+    options.transparency = 25.0004;
+    options.shadow = {
+      kind: 'outer',
+      color: { kind: 'srgb', value: '123456' },
+      opacity: 0.5,
+      blur: 3,
+      angle: 30,
+      distance: 2,
+      rotateWithShape: true,
+    };
     const sourceRectangle = {
       left: 25.0004,
       top: -10.0004,
@@ -103,6 +116,17 @@ describe('embedded raster image normalization', () => {
       rotation: -2_700_000,
       flipHorizontal: true,
       flipVertical: true,
+      rounding: true,
+      shadow: {
+        kind: 'outer',
+        color: { kind: 'srgb', value: '123456' },
+        opacity: 0.5,
+        blur: 3,
+        angle: 30,
+        distance: 2,
+        rotateWithShape: true,
+      },
+      transparency: 25,
       sourceRectangle: {
         left: 25,
         top: -10,
@@ -111,6 +135,8 @@ describe('embedded raster image normalization', () => {
       },
     });
     expect(Object.isFrozen(normalized.sourceRectangle)).toBe(true);
+    expect(Object.isFrozen(normalized.shadow)).toBe(true);
+    expect(Object.isFrozen(normalized.shadow?.color)).toBe(true);
   });
 
   it('accepts ergonomic converter output through the public options type', () => {
@@ -266,6 +292,11 @@ describe('embedded raster image normalization', () => {
       ['rotation', 0.5],
       ['flipHorizontal', 1],
       ['flipVertical', 'false'],
+      ['rounding', 1],
+      ['transparency', Number.NaN],
+      ['transparency', -1],
+      ['transparency', 101],
+      ['shadow', { kind: 'outer', opacity: 2 }],
     ];
     for (const [property, value] of invalid) {
       expect(() => normalizeEmbeddedRasterImage(
@@ -313,6 +344,17 @@ describe('embedded raster picture rendering', () => {
       rotation: 2_700_000,
       flipHorizontal: true,
       flipVertical: true,
+      rounding: true,
+      transparency: 25,
+      shadow: {
+        kind: 'outer',
+        color: { kind: 'srgb', value: '123456' },
+        opacity: 0.5,
+        blur: 3,
+        angle: 30,
+        distance: 2,
+        rotateWithShape: true,
+      },
       sourceRectangle: {
         left: 25,
         top: -10,
@@ -328,7 +370,10 @@ describe('embedded raster picture rendering', () => {
     expect(source).toContain('descr="Quarterly &quot;result&quot; &amp; &lt;trend&gt;"');
     expect(source).toContain('r:embed="rId4"');
     expect(source).toContain('rot="2700000" flipH="1" flipV="1"');
-    expect(source).toContain('<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>');
+    expect(source).toContain('<a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>');
+    expect(source).toContain('<a:alphaModFix amt="75000"/>');
+    expect(source).toContain('<a:effectLst><a:outerShdw');
+    expect(source).toContain('rotWithShape="1"');
 
     expect(directChildren(picture).map(({ localName }) => localName)).toEqual([
       'nvPicPr',

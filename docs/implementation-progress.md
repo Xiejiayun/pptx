@@ -280,7 +280,7 @@ $ pptx-inspect --json package inspect output.pptx
 - 新增 pure `calculateRasterImageSizing()`，覆盖 intrinsic-aware `contain`、`cover` 与 source-pixel `crop`；frame 使用 EMU，结果和嵌套 rectangle frozen，不读取 source、不修改 package。
 - 新增 `PptxDocument.addImage(..., { sizing })`；`sizing` 与 top-level `width`/`height` 互斥，高层拒绝 direct `sourceRectangle`。Options/sizing 在异步 source I/O 前脱离 caller，placement 在 package mutation 前计算，invalid source/MIME/sizing 保持零变化。
 - 锁定 PptxGenJS 4.0.1 的 contain/cover/equal-ratio/crop 6 个 public case，最终 transform 与 direct `srcRect` integer percentages 全部精确对等；native 对 ambiguous dimensions、truthy fallback、out-of-bounds crop 与 unsafe numeric state 保持严格拒绝。
-- 后续 SVG lifecycle 已在下一节完成；rounding/transparency、alt-text 编辑、hyperlink/shadow/advanced placeholder style、单图片删除与 media GC 继续保留在后续列表。Picture placeholder population 已在 master/layout 专项完成。
+- 后续 SVG lifecycle 与 image identity/effects 已完成；hyperlink/advanced placeholder style、单图片删除与 media GC 继续保留在后续列表。Picture placeholder population 已在 master/layout 专项完成。
 
 ### 验证结果
 
@@ -301,7 +301,7 @@ $ pptx-inspect --json package inspect output.pptx
 - 统一 `ImageSource` / `ImageContentType` / `ImageInfo` 与 `inspectImage()`、`inspectSvgImage()`、`calculateImageSizing()`；高层 `PptxDocument.addImage()` 覆盖 path、HTTP/HTTPS、browser-relative URL、strict data URI、bytes/ArrayBuffer、Blob/File、Web stream 与 async iterable 的 SVG，支持 optional MIME assertion、AbortSignal、contain/cover/crop 和 source-rectangle edit。
 - 高层 fallback 优先级固定为 explicit signature-valid PNG、browser Canvas rasterization、built-in transparent PNG；release evidence 中所有 `.png` part 都有真实 PNG signature。同步底层 API 只复制 non-empty bytes，由调用方保证 payload 正确。需要 fallback-only client 保持完整视觉时，调用方必须显式提供高质量 PNG。
 - PptxGenJS 4.0.1 data-contain、path-cover、data-crop 3/3 public conformance case 已匹配 picture order、transform、direct `srcRect`、extension URI/namespace、relationship roles、SVG payload 与 metadata；native 不复制其 path SVG 把 SVG bytes 写入 `.png` fallback 的缺陷。
-- external SVG relationship、SVG DOM 局部编辑、script execution、external-resource fetching、任意 SVG rasterization fidelity、image rounding/transparency、alt-text 编辑、hyperlink/shadow/advanced placeholder style、单图片删除与 media GC 保留在后续列表；picture placeholder population 与 strict embedded media creation 已完成。
+- external SVG relationship、SVG DOM 局部编辑、script execution、external-resource fetching、任意 SVG rasterization fidelity、image hyperlink/advanced placeholder style、单图片删除与 media GC 保留在后续列表；image identity/effects、picture placeholder population 与 strict embedded media creation 已完成。
 
 ### 验证结果
 
@@ -580,7 +580,7 @@ $ pptx-inspect --json package inspect output.pptx
 
 ### 剩余文本与全功能路线
 
-- Text simple shadow、outer hyperlink、per-run rich-text hyperlink、preset geometry、`rectRadius`、`isTextBox` 与 rich-text `breakLine` 已从缺口移入支持项。仍待完成 advanced line/effect，以及 image/table/chart/media 等其他 owner 的 shadow/hyperlink/style 能力。
+- Text simple shadow、image simple shadow、outer hyperlink、per-run rich-text hyperlink、preset geometry、`rectRadius`、`isTextBox` 与 rich-text `breakLine` 已从缺口移入支持项。仍待完成 advanced line/effect，以及 table/chart/media 等其他 owner 的 shadow/hyperlink/style 能力。
 - 之后继续其余 advanced text，再进入 advanced table/`tableToSlides`、output/runtime helpers 与 peer-range full-suite audit。
 
 ## PptxGenJS 全功能对等：Text shape outer hyperlink creation
@@ -1238,3 +1238,13 @@ $ pptx-inspect --json package inspect output.pptx
 - 计划审计：WP0–WP6 的代码、测试、文档、截图、CLI、CI 与可选插件交付物均已落库。
 
 正式 npm 发布仍按 [0.1.0 release checklist](./release/0.1.0.md) 保持 gated：Windows PowerPoint corpus、macOS Keynote corpus 与受控 Google Slides 导入需要在专用环境完成。本机 PowerPoint 16.112 的统一 `-9074` 结果未被误记为通过。
+
+## PptxGenJS 全表面：Image Identity & Visual Effects
+
+状态：能力族 5/5 完成
+
+- `ImageProps.altText`、`rounding`、`transparency` 归为 supported；`objectName` 通过 native `name`、`shadow` 通过 strict `ShapeShadow` 归为 deliberate-difference。
+- Raster/SVG 的低层与高层创建 options 统一支持 name/alt text/rounding/transparency/shadow；live `ImageModel` 支持 direct read/edit、exact no-op、rollback、duplicate isolation 与 write/reopen。
+- Owner-aware codec 只编辑唯一 namespace-correct `cNvPr`、rect/ellipse geometry、`alphaModFix` 和 direct inner/outer shadow。Malformed、ambiguous、wrong-namespace 或 unsafe ordering 在 mutation 前拒绝；关系、media part 与 payload bytes 保持。
+- PptxGenJS 4.0.1 control、native model/SDK、统一 npm/Chrome lifecycle probe、PowerPoint 2010 write/validate 与 exact OOXML 共用一次能力族门禁。
+- 权威矩阵更新为 1,707/1,774（96.22%）：supported 745、deliberate-difference 498、deprecated-alias 94、defect-excluded 370、unverified 67、unsupported/stale 0，diagnostics 0。

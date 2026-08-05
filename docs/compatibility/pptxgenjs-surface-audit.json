@@ -26450,28 +26450,70 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS image identity and visual effects through create edit reopen"
+      },
       "declaredIn": "ImageProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageIdentityEffects5State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/image-appearance.internal.ts",
+            "pattern": "export function replaceImageAltText("
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "export class ImageModel extends BaseShapeModel {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/image-identity-effects-5-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const imageIdentityEffects5Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS image identity and visual effects through create edit reopen"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens image identity and visual effects"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:altText",
       "kind": "property",
       "name": "altText",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddImageOptions.altText",
+        "AddImageSourceOptions.altText",
+        "AddSvgImageOptions.altText",
+        "ImageModel.altText"
+      ],
+      "note": "Native supports the same picture description through strict XML-safe creation and direct lossless ImageModel.altText editing.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "string"
     },
     {
@@ -26759,28 +26801,70 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS image identity and visual effects through create edit reopen"
+      },
       "declaredIn": "ObjectNameProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageIdentityEffects5State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/image-appearance.internal.ts",
+            "pattern": "export function replaceShapeName("
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "export class ImageModel extends BaseShapeModel {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/image-identity-effects-5-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const imageIdentityEffects5Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS image identity and visual effects through create edit reopen"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens image identity and visual effects"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:objectName",
       "kind": "property",
       "name": "objectName",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddImageOptions.name",
+        "AddImageSourceOptions.name",
+        "AddSvgImageOptions.name",
+        "ImageModel.name"
+      ],
+      "note": "Native exposes the same XML-safe picture identity through the common editable name property instead of the PptxGenJS-specific objectName spelling.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "string"
     },
     {
@@ -26997,54 +27081,139 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS image identity and visual effects through create edit reopen"
+      },
       "declaredIn": "ImageProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageIdentityEffects5State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/image-appearance.internal.ts",
+            "pattern": "export function replaceImageRounding("
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "export class ImageModel extends BaseShapeModel {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/image-identity-effects-5-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const imageIdentityEffects5Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS image identity and visual effects through create edit reopen"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens image identity and visual effects"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:rounding",
       "kind": "property",
       "name": "rounding",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddImageOptions.rounding",
+        "AddImageSourceOptions.rounding",
+        "AddSvgImageOptions.rounding",
+        "ImageModel.rounding"
+      ],
+      "note": "Native supports the same rectangular or elliptical image geometry through strict boolean creation and direct lossless ImageModel.rounding editing.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "boolean"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS image identity and visual effects through create edit reopen"
+      },
       "declaredIn": "ImageProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageIdentityEffects5State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/shape-shadow.internal.ts",
+            "pattern": "(shape.localName !== 'sp' && shape.localName !== 'pic')"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "export class ImageModel extends BaseShapeModel {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/image-identity-effects-5-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const imageIdentityEffects5Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS image identity and visual effects through create edit reopen"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens image identity and visual effects"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:shadow",
       "kind": "property",
       "name": "shadow",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddImageOptions.shadow",
+        "AddImageSourceOptions.shadow",
+        "AddSvgImageOptions.shadow",
+        "ImageModel.shadow",
+        "ShapeShadow"
+      ],
+      "note": "Native uses the strict detached ShapeShadow contract, preserves legal explicit zero and rotate-with-shape state, and writes valid editable outer/inner OOXML instead of PptxGenJS permissive fallbacks.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "ShadowProps"
     },
     {
@@ -27117,28 +27286,70 @@
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "matches PptxGenJS image identity and visual effects through create edit reopen"
+      },
       "declaredIn": "ImageProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const imageIdentityEffects5State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/image-appearance.internal.ts",
+            "pattern": "export function replaceImageTransparency("
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "export class ImageModel extends BaseShapeModel {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/image-identity-effects-5-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const imageIdentityEffects5Probe ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS image identity and visual effects through create edit reopen"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates, edits, duplicates, rolls back, and reopens image identity and visual effects"
+          }
+        ]
       },
       "id": "interface:ImageProps@property:transparency",
       "kind": "property",
       "name": "transparency",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddImageOptions.transparency",
+        "AddImageSourceOptions.transparency",
+        "AddSvgImageOptions.transparency",
+        "ImageModel.transparency"
+      ],
+      "note": "Native supports the same 0–100 image transparency intent through quantized alphaModFix creation and direct lossless ImageModel.transparency editing.",
       "optional": true,
       "owner": "ImageProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "supported",
       "typeText": "number"
     },
     {
@@ -99681,12 +99892,12 @@
   "complete": false,
   "counts": {
     "defect-excluded": 370,
-    "deliberate-difference": 496,
+    "deliberate-difference": 498,
     "deprecated-alias": 94,
     "stale": 0,
-    "supported": 742,
+    "supported": 745,
     "unsupported": 0,
-    "unverified": 72
+    "unverified": 67
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -99712,12 +99923,7 @@
     "interface:IChartOpts@property:lineCap",
     "interface:IChartOpts@property:shadow",
     "interface:IChartOpts@property:titleAlign",
-    "interface:ImageProps@property:altText",
     "interface:ImageProps@property:hyperlink",
-    "interface:ImageProps@property:objectName",
-    "interface:ImageProps@property:rounding",
-    "interface:ImageProps@property:shadow",
-    "interface:ImageProps@property:transparency",
     "interface:OptsChartGridLine@property:cap",
     "interface:PlaceholderProps@property:align",
     "interface:PlaceholderProps@property:margin",

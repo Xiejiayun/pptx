@@ -30,6 +30,9 @@ const MODEL_IMAGE_OPTION_KEYS = new Set([
   'rotation',
   'flipHorizontal',
   'flipVertical',
+  'rounding',
+  'shadow',
+  'transparency',
 ]);
 const ADD_IMAGE_SOURCE_OPTION_KEYS = new Set([
   'contentType',
@@ -186,7 +189,11 @@ export function normalizeAddImageSourceOptions(
   }
   const imageOptions = Object.create(null) as Record<string, unknown>;
   for (const key of MODEL_IMAGE_OPTION_KEYS) {
-    if (Object.hasOwn(values, key)) imageOptions[key] = values[key];
+    if (Object.hasOwn(values, key)) {
+      imageOptions[key] = key === 'shadow'
+        ? detachDataObject(values[key], 'Raster image shadow')
+        : values[key];
+    }
   }
   Object.freeze(imageOptions);
   return Object.freeze({
@@ -196,6 +203,29 @@ export function normalizeAddImageSourceOptions(
     ...(signal === undefined ? {} : { signal }),
     ...(sizing === undefined ? {} : { sizing }),
   });
+}
+
+function detachDataObject(value: unknown, context: string): unknown {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`${context} must be an object`);
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError(`${context} must be an ordinary object`);
+  }
+  const result = Object.create(null) as Record<PropertyKey, unknown>;
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !Object.hasOwn(descriptor, 'value')) {
+      throw new TypeError(`${context} property ${String(key)} must be a data property`);
+    }
+    const entry = descriptor.value;
+    result[key] = entry && typeof entry === 'object'
+      ? detachDataObject(entry, `${context} ${String(key)}`)
+      : entry;
+  }
+  return Object.freeze(result);
 }
 
 export function assertRasterImageContentType(

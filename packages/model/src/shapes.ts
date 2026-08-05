@@ -253,6 +253,10 @@ export abstract class BaseShapeModel {
     return properties ? xml.attribute(properties, 'name')?.value ?? this.initialName : this.initialName;
   }
 
+  set name(value: string) {
+    this.slide.setShapeName(this.id, value);
+  }
+
   get transform(): Transform {
     const { xml, element } = this.resolve();
     const xfrm = xml.descendants(element, 'xfrm')[0];
@@ -510,6 +514,38 @@ export class MediaModel extends BaseShapeModel {
 }
 
 export class ImageModel extends BaseShapeModel {
+  get altText(): string | undefined {
+    return this.slide.getImageAltText(this.id);
+  }
+
+  set altText(value: string | undefined) {
+    this.slide.setImageAltText(this.id, value);
+  }
+
+  get rounding(): boolean | undefined {
+    return this.slide.getImageRounding(this.id);
+  }
+
+  set rounding(value: boolean) {
+    this.slide.setImageRounding(this.id, value);
+  }
+
+  get shadow(): ShapeShadow | undefined {
+    return this.slide.getShapeShadow(this.id);
+  }
+
+  set shadow(value: ShapeShadow | undefined) {
+    this.slide.setShapeShadow(this.id, value);
+  }
+
+  get transparency(): number | undefined {
+    return this.slide.getImageTransparency(this.id);
+  }
+
+  set transparency(value: number) {
+    this.slide.setImageTransparency(this.id, value);
+  }
+
   get sourceRectangle(): Readonly<ImageSourceRectangle> | undefined {
     return this.slide.getImageSourceRectangle(this.id);
   }

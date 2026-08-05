@@ -42,6 +42,9 @@ const options: AddImageSourceOptions = {
   y: inches(1.5),
   sizing,
   rotation: degrees(10),
+  rounding: true,
+  transparency: 25,
+  shadow: { kind: 'outer', color: { kind: 'srgb', value: '123456' } },
 };
 
 const document = PptxDocument.create();
@@ -53,6 +56,11 @@ console.log(calculateRasterImageSizing(info, sizing));
 image.setTransform({ x: inches(1.5) });
 image.sourceRectangle = { left: 10, top: -5, right: 5, bottom: 0 };
 image.sourceRectangle = undefined;
+image.name = 'Quarterly chart edited';
+image.altText = 'Updated accessible description';
+image.rounding = false;
+image.transparency = 40;
+image.shadow = { kind: 'inner', opacity: 0.4 };
 image.replaceData(new Uint8Array(await readFile('chart-updated.png')), 'image/png');
 await document.writeFile('images.pptx');
 ```
@@ -64,6 +72,8 @@ await document.writeFile('images.pptx');
 底层同步 `SlideModel.addImage(bytes, { contentType, sourceRectangle, ... })` 用于调用方已持有 bytes 的严格原子创建。`ImageSourceRectangle` 的 `left/top/right/bottom` 单位为百分比，`1` 表示 1%，精度为 0.001%；负值用于 contain 扩展可见源区域。`ImageModel.sourceRectangle` 返回 detached frozen snapshot，可 whole-replace，赋 `undefined` 清除 direct `a:srcRect`。高层 `PptxDocument.addImage()` 不接受 direct `sourceRectangle`，调用方应使用 `sizing`；options/sizing 会在任何异步 source I/O 前脱离 caller，计算也在 package mutation 前完成。
 
 每次创建原子地拥有一个唯一 media part、一个 internal image relationship 和一个 canonical rectangular picture；任何验证或写入失败都会回滚 package、关系、slide XML 与 mutation journal。复制页面先共享图片 part，`ImageModel.replaceData()` 对独占 target 原位更新，对共享 target clone-on-write；六种 presentation format 都可创建、写出和重开。
+
+Raster 与 SVG 创建统一支持 `name`、`altText`、`rounding`、`transparency` 和 strict `ShapeShadow`。Live `ImageModel` 可直接编辑同名属性：rounding 在 rectangular/ellipse geometry 间切换，transparency 使用量化到 0.001% 的 `0..100`，shadow 支持合法 outer/inner whole replacement。相同值是 exact no-op；rollback、duplicate isolation、write/reopen 都不会改变图片关系或 media bytes。PptxGenJS `objectName` 对应 native `name`；native shadow 保留合法 explicit zero 与 `rotateWithShape: true`，不复制 PptxGenJS 的 falsy/rotate 缺陷。
 
 锁定 PptxGenJS 4.0.1 的公开 path/data PNG/JPEG/GIF loader 语义，并对 contain/cover/equal-ratio/crop 的 6 个 sizing case 精确匹配最终 transform 与 direct `srcRect`。实际 npm tarball 的 Node/browser/types/CLI smoke 通过，连续两次构建的 38 个 dist 文件 SHA-256 完全一致。4 页、40 shapes、12 图片 sizing gallery 的原件和 LibreOffice 回存件均可严格重开，PowerPoint 2010 validation 为 0 errors / 0 warnings，overflow 为 0，并已逐页检查。
 
@@ -124,7 +134,7 @@ PptxGenJS 4.0.1 的 data-contain、path-cover、data-crop 3 个公开 case 已�
 
 实际 tarball 的 Node/browser/declaration/CLI smoke 通过，两次 clean build 的 38 个 dist 文件 SHA-256 完全一致。5 页 gallery 含 13 个 shapes、8 张 SVG picture、7 个 SVG parts、7 个 PNG fallbacks 和 16 条 image relationships；原件和 LibreOffice 回存件均 strict reopen，PowerPoint 2010 validation 为 0 errors / 0 warnings。LibreOffice 保留 shape order、名称、alt text、SVG hashes、关系角色和 7+7 targets，将 MIME 从 `image/svg+xml` 规范化为 `image/svg`；最大 position/size 量化 360 EMU、最大 `srcRect` 量化 0.003%，flip/rotation 采用等价规范化。它回存后可能选择 PNG fallback 渲染，所以旧客户端视觉仍以 fallback 质量为准。
 
-当前仍未提供 external SVG relationship、SVG DOM 局部编辑、rounding/transparency、alt-text 编辑、图片 hyperlink/shadow 与高级 placeholder 样式，以及单图片删除与 media GC。嵌入媒体创建能力见下一节。
+当前仍未提供 external SVG relationship、SVG DOM 局部编辑、图片 hyperlink 与高级 placeholder 样式，以及单图片删除与 media GC。嵌入媒体创建能力见下一节。
 
 ## 创建嵌入式音频与视频
 
@@ -1417,7 +1427,7 @@ shape.hyperlink = undefined;
 
 `AddShapeOptions.arrows` 与 `ShapeModel.arrows` 支持 begin/end 的 `none | arrow | diamond | oval | stealth | triangle`。快照与输入脱离；赋值采用 whole replacement，缺失的一端会被清除，显式 `none` 则保留对应 direct endpoint。`undefined` 只清除两端而保留 line，反向的 `shape.line = undefined` 也保留 arrows。只创建 arrows 不会隐式生成颜色、宽度或 dash；已有合法 `w` / `len` size 会在类型编辑中无损保留，但 size 创建/读取/编辑尚未公开。
 
-`AddShapeOptions.shadow`、`AddTextOptions.shadow` 与 `ShapeModel.shadow` 支持 preset/text shape direct outer/inner shadow 的创建、读取、whole replacement 与清除，包括 sRGB/theme color、`0..1` opacity、`0..100pt` blur、`0..<360°` angle、`0..200pt` distance，以及 outer-only `rotateWithShape`。默认值为 black、0.75、8pt、270°、4pt 和 outer rotate false；显式 zero 会保留。输入在 mutation 前深度脱离，getter 的嵌套快照会 deep-freeze；同值赋值是 exact no-op，`undefined` 只移除 direct shadow 并保留 `effectLst` 与 glow/reflection 等 sibling effects。Generic/advanced effects、custom shadow transforms，以及 image/table/chart/media 等其他 owner 的 shadow API 仍待后续小项。
+`AddShapeOptions.shadow`、`AddTextOptions.shadow` 与 `ShapeModel.shadow` 支持 preset/text shape direct outer/inner shadow 的创建、读取、whole replacement 与清除，包括 sRGB/theme color、`0..1` opacity、`0..100pt` blur、`0..<360°` angle、`0..200pt` distance，以及 outer-only `rotateWithShape`。默认值为 black、0.75、8pt、270°、4pt 和 outer rotate false；显式 zero 会保留。输入在 mutation 前深度脱离，getter 的嵌套快照会 deep-freeze；同值赋值是 exact no-op，`undefined` 只移除 direct shadow 并保留 `effectLst` 与 glow/reflection 等 sibling effects。Image 使用同一个 strict shadow contract；generic/advanced effects、custom shadow transforms，以及 table/chart/media 等其他 owner 的 shadow API 仍待后续小项。
 
 `AddShapeOptions.hyperlink`、`AddTextOptions.hyperlink` 与 `ShapeModel.hyperlink` 支持整个 preset/text shape 的 click URL 或内部页链接。输入必须恰好包含一个非空 `url` 或一个当前文稿内的一基 `slide`；`tooltip` 可省略，也可显式为空。Getter 返回 detached frozen snapshot，setter 采用 whole replacement，同值赋值为 exact no-op，`undefined` 清除 click link。内部关系按目标页 identity 保存，移动或在目标前插删页面只更新 getter ordinal；复制 self-link 会指向副本自身，删除目标页会清理相关 click/hover，shared relationship 则按引用 clone-on-write 与回收。Text outer 与 `RichTextRunStyle.hyperlink` 分别管理 whole-shape/default run 和显式 run-local 链接，ownership 相互独立；run hyperlink 可与 `RichTextRun.breakLine` 组合并按规范段落重新索引。外部链接产生 validator 的预期可移植性 warning。Plain single-run table-cell scalar hyperlink API 与 rich/multi-paragraph cell default/local run links 均已支持；hover、table graphic-frame/image/chart/media 链接、action navigation、advanced line fill/custom dash 和 percentage positions 仍待后续小项；`isTextBox` 与 rich-text `breakLine` 已完成。
 

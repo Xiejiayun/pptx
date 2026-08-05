@@ -7,6 +7,11 @@ import {
   renderImageSourceRectangle,
   type NormalizedImageSourceRectangle,
 } from './image-source-rectangle.internal.js';
+import {
+  normalizeShapeShadow,
+  renderSimpleShadow,
+  type NormalizedShapeShadow,
+} from './simple-shadow.internal.js';
 import { resolveSlideCoordinate } from './slide-coordinate.internal.js';
 import { EMU_PER_INCH, type Emu, type SlideSize } from './units.js';
 
@@ -24,6 +29,9 @@ const OPTION_KEYS = new Set([
   'flipHorizontal',
   'flipVertical',
   'sourceRectangle',
+  'rounding',
+  'shadow',
+  'transparency',
 ]);
 
 export interface NormalizedEmbeddedImageAppearance {
@@ -38,6 +46,9 @@ export interface NormalizedEmbeddedImageAppearance {
   readonly flipHorizontal: boolean;
   readonly flipVertical: boolean;
   readonly sourceRectangle?: Readonly<NormalizedImageSourceRectangle>;
+  readonly rounding: boolean;
+  readonly shadow?: Readonly<NormalizedShapeShadow>;
+  readonly transparency: number;
 }
 
 export interface NormalizedEmbeddedRasterImage
@@ -96,6 +107,9 @@ export function normalizeEmbeddedRasterImage(
         values.sourceRectangle,
         'Embedded raster image sourceRectangle',
       );
+  const shadow = values.shadow === undefined
+    ? undefined
+    : normalizeShapeShadow(values.shadow, 'Embedded raster image shadow');
 
   return Object.freeze({
     bytes: new Uint8Array(bytes),
@@ -112,6 +126,9 @@ export function normalizeEmbeddedRasterImage(
     flipHorizontal: normalizeBoolean(values.flipHorizontal, false, 'flipHorizontal'),
     flipVertical: normalizeBoolean(values.flipVertical, false, 'flipVertical'),
     ...(sourceRectangle === undefined ? {} : { sourceRectangle }),
+    rounding: normalizeBoolean(values.rounding, false, 'rounding'),
+    ...(shadow === undefined ? {} : { shadow }),
+    transparency: normalizeTransparency(values.transparency),
   });
 }
 
@@ -149,6 +166,11 @@ export function renderEmbeddedImageXml(
   const sourceRectangle = definition.sourceRectangle
     ? renderImageSourceRectangle(definition.sourceRectangle)
     : '';
+  const blip = renderImageBlip(blipXml, definition.transparency);
+  const geometry = definition.rounding ? 'ellipse' : 'rect';
+  const shadow = definition.shadow === undefined
+    ? ''
+    : `<a:effectLst>${renderSimpleShadow(definition.shadow, 'a:')}</a:effectLst>`;
   const applicationProperties = placeholder === undefined
     ? '<p:nvPr/>'
     : `<p:nvPr><p:ph type="${placeholder.type}" idx="${placeholder.index}"/></p:nvPr>`;
@@ -157,13 +179,28 @@ export function renderEmbeddedImageXml(
     + `<p:nvPicPr><p:cNvPr id="${id}" name="${name}" descr="${altText}"/>`
     + `<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>${applicationProperties}`
     + '</p:nvPicPr>'
-    + `<p:blipFill>${blipXml}${sourceRectangle}`
+    + `<p:blipFill>${blip}${sourceRectangle}`
     + '<a:stretch><a:fillRect/></a:stretch></p:blipFill>'
     + `<p:spPr><a:xfrm${transformAttributes}>`
     + `<a:off x="${definition.x}" y="${definition.y}"/>`
     + `<a:ext cx="${definition.width}" cy="${definition.height}"/>`
-    + '</a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>'
+    + `</a:xfrm><a:prstGeom prst="${geometry}"><a:avLst/></a:prstGeom>${shadow}</p:spPr>`
     + '</p:pic>';
+}
+
+function renderImageBlip(blipXml: string, transparency: number): string {
+  if (transparency === 0) return blipXml;
+  const alpha = `<a:alphaModFix amt="${Math.round((100 - transparency) * 1000)}"/>`;
+  const extensionList = blipXml.indexOf('<a:extLst');
+  if (extensionList >= 0) {
+    return blipXml.slice(0, extensionList) + alpha + blipXml.slice(extensionList);
+  }
+  if (blipXml.endsWith('/>')) {
+    return `${blipXml.slice(0, -2)}>${alpha}</a:blip>`;
+  }
+  const closing = blipXml.lastIndexOf('</a:blip>');
+  if (closing < 0) throw new Error('Embedded image blip XML is malformed');
+  return blipXml.slice(0, closing) + alpha + blipXml.slice(closing);
 }
 
 function readOptions(value: unknown): Record<string, unknown> {
@@ -254,6 +291,18 @@ function normalizeBoolean(value: unknown, defaultValue: boolean, name: string): 
     throw new TypeError(`Embedded raster image ${name} must be a boolean`);
   }
   return value;
+}
+
+function normalizeTransparency(value: unknown): number {
+  if (value === undefined) return 0;
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError('Embedded raster image transparency must be finite');
+  }
+  if (value < 0 || value > 100) {
+    throw new RangeError('Embedded raster image transparency must be between 0 and 100');
+  }
+  const rounded = Math.round(value * 1000) / 1000;
+  return rounded === 0 ? 0 : rounded;
 }
 
 function isValidXmlString(value: string): boolean {

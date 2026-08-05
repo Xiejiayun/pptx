@@ -50,6 +50,19 @@ import {
   renderEmbeddedRasterImageXml,
 } from './image-create.internal.js';
 import {
+  normalizeImageAltText,
+  normalizeImageName,
+  normalizeImageRounding,
+  normalizeImageTransparency,
+  readImageAltText,
+  readImageRounding,
+  readImageTransparency,
+  replaceImageAltText,
+  replaceImageRounding,
+  replaceImageTransparency,
+  replaceShapeName,
+} from './image-appearance.internal.js';
+import {
   normalizeEmbeddedSvgImage,
   renderEmbeddedSvgImageXml,
 } from './svg-image-create.internal.js';
@@ -718,6 +731,16 @@ export class SlideModel {
     return { xml, element };
   }
 
+  setShapeName(id: number, value: string): void {
+    const name = normalizeImageName(value);
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      if (replaceShapeName(xml, element, name, this.partUri)) {
+        this.setXml(xml.serialize());
+      }
+    });
+  }
+
   setShapeText(id: number, value: string): void {
     this.presentation.opcPackage.transaction(() => {
       const { xml, element } = this.resolveShape(id);
@@ -1377,6 +1400,51 @@ export class SlideModel {
     this.presentation.opcPackage.transaction(() => {
       const { xml, element } = this.resolveShape(id);
       if (replaceImageSourceRectangle(xml, element, normalized, this.partUri)) {
+        this.setXml(xml.serialize());
+      }
+    });
+  }
+
+  getImageAltText(id: number): string | undefined {
+    const { xml, element } = this.resolveShape(id);
+    return readImageAltText(xml, element, this.partUri);
+  }
+
+  setImageAltText(id: number, value: string | undefined): void {
+    const altText = normalizeImageAltText(value);
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      if (replaceImageAltText(xml, element, altText, this.partUri)) {
+        this.setXml(xml.serialize());
+      }
+    });
+  }
+
+  getImageRounding(id: number): boolean | undefined {
+    const { element } = this.resolveShape(id);
+    return readImageRounding(element);
+  }
+
+  setImageRounding(id: number, value: boolean): void {
+    const rounding = normalizeImageRounding(value);
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      if (replaceImageRounding(xml, element, rounding, this.partUri)) {
+        this.setXml(xml.serialize());
+      }
+    });
+  }
+
+  getImageTransparency(id: number): number | undefined {
+    const { element } = this.resolveShape(id);
+    return readImageTransparency(element);
+  }
+
+  setImageTransparency(id: number, value: number): void {
+    const transparency = normalizeImageTransparency(value);
+    this.presentation.opcPackage.transaction(() => {
+      const { xml, element } = this.resolveShape(id);
+      if (replaceImageTransparency(xml, element, transparency, this.partUri)) {
         this.setXml(xml.serialize());
       }
     });

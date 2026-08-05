@@ -6655,6 +6655,17 @@ describe('PptxDocument vertical slice', () => {
       height: inches(2),
       rotation: degrees(45),
       flipHorizontal: true,
+      rounding: true,
+      transparency: 25,
+      shadow: {
+        kind: 'outer',
+        color: { kind: 'srgb', value: '123456' },
+        opacity: 0.5,
+        blur: 3,
+        angle: 30,
+        distance: 2,
+        rotateWithShape: true,
+      },
     };
     const pending: Promise<ImageModel> = document.addImage(0, source, options);
     source.fill(0);
@@ -6663,6 +6674,14 @@ describe('PptxDocument vertical slice', () => {
     expect(image).toBeInstanceOf(ImageModel);
     expect(slide.shapes[1]).toBe(image);
     expect(image.name).toBe('Loaded & image');
+    expect(image.altText).toBe('Detected source');
+    expect(image.rounding).toBe(true);
+    expect(image.transparency).toBe(25);
+    expect(image.shadow).toMatchObject({
+      kind: 'outer',
+      color: { kind: 'srgb', value: '123456' },
+      rotateWithShape: true,
+    });
     expect(image.transform).toEqual({
       x: inches(1),
       y: inches(2),
@@ -6694,6 +6713,14 @@ describe('PptxDocument vertical slice', () => {
     const reopenedImage = reopened.slides[0]!.shapes[1] as ImageModel;
     expect(reopenedImage).toBeInstanceOf(ImageModel);
     expect(reopenedImage.name).toBe('Loaded & image');
+    expect(reopenedImage.altText).toBe('Detected source');
+    expect(reopenedImage.rounding).toBe(true);
+    expect(reopenedImage.transparency).toBe(25);
+    expect(reopenedImage.shadow).toMatchObject({
+      kind: 'outer',
+      color: { kind: 'srgb', value: '123456' },
+      rotateWithShape: true,
+    });
     expect(reopened.opcPackage.requirePart(reopenedImage.sourcePartUri!).bytes).toEqual(expected);
   });
 

@@ -6391,6 +6391,145 @@ describe('importPptxGenJS', () => {
     }
   }, 20_000);
 
+  it('matches PptxGenJS image identity and visual effects through create edit reopen', async () => {
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const generatedSlide = generated.addSlide();
+    generatedSlide.addImage({
+      data: PNG_DATA_URI,
+      x: 1,
+      y: 1,
+      w: 2,
+      h: 2,
+      objectName: 'Data Image & Name',
+      altText: 'Data alt & <accessible>',
+      rounding: true,
+      transparency: 25,
+      shadow: {
+        type: 'outer',
+        color: '123456',
+        opacity: 0.5,
+        blur: 3,
+        angle: 30,
+        offset: 2,
+        rotateWithShape: true,
+      },
+    });
+    generatedSlide.addImage({
+      data: PNG_DATA_URI,
+      x: 4,
+      y: 1,
+      w: 2,
+      h: 2,
+      objectName: 'Baseline image',
+      altText: 'Baseline alt',
+      rounding: false,
+      transparency: 0,
+    });
+
+    const imported = await importPptxGenJS(generated);
+    const [styled, baseline] = imported.slides[0]!.shapes as readonly ImageModel[];
+    expect({
+      name: styled!.name,
+      altText: styled!.altText,
+      rounding: styled!.rounding,
+      transparency: styled!.transparency,
+      shadow: styled!.shadow,
+    }).toEqual({
+      name: 'Data Image & Name',
+      altText: 'Data alt & <accessible>',
+      rounding: true,
+      transparency: 25,
+      shadow: {
+        kind: 'outer',
+        color: { kind: 'srgb', value: '123456' },
+        opacity: 0.5,
+        blur: 3,
+        angle: 30,
+        distance: 2,
+        rotateWithShape: false,
+      },
+    });
+    expect({
+      rounding: baseline!.rounding,
+      transparency: baseline!.transparency,
+      shadow: baseline!.shadow,
+    }).toEqual({ rounding: false, transparency: 0, shadow: undefined });
+    const importedXml = pictureXml(imported, 0, styled!.id);
+    expect(importedXml).toContain('name="Data Image &amp; Name"');
+    expect(importedXml).toContain('descr="Data alt &amp; &lt;accessible&gt;"');
+    expect(importedXml).toContain('<a:prstGeom prst="ellipse">');
+    expect(importedXml).toContain('<a:alphaModFix amt="75000"/>');
+    expect(importedXml).toContain('rotWithShape="0"');
+
+    const sourcePartUri = styled!.sourcePartUri;
+    const relationshipSnapshot = imported.slides[0]!.relationships;
+    const mediaBytes = imported.opcPackage.requirePart(sourcePartUri!).bytes.slice();
+    const beforeNoop = packageState(imported);
+    styled!.name = styled!.name;
+    styled!.altText = styled!.altText;
+    styled!.rounding = styled!.rounding!;
+    styled!.transparency = styled!.transparency!;
+    styled!.shadow = styled!.shadow;
+    expect(packageState(imported)).toEqual(beforeNoop);
+
+    styled!.name = 'Edited image';
+    styled!.altText = 'Edited alt';
+    styled!.rounding = false;
+    styled!.transparency = 40;
+    styled!.shadow = {
+      kind: 'outer',
+      color: { kind: 'srgb', value: '654321' },
+      opacity: 0.75,
+      blur: 4,
+      angle: 45,
+      distance: 3,
+      rotateWithShape: true,
+    };
+    expect(imported.slides[0]!.relationships).toEqual(relationshipSnapshot);
+    expect(imported.opcPackage.requirePart(sourcePartUri!).bytes).toEqual(mediaBytes);
+
+    const duplicateSlide = imported.duplicateSlide(0);
+    const duplicate = duplicateSlide.shapes[0] as ImageModel;
+    duplicate.altText = undefined;
+    duplicate.transparency = 0;
+    duplicate.shadow = undefined;
+    expect(styled!.altText).toBe('Edited alt');
+    expect(styled!.transparency).toBe(40);
+    expect(styled!.shadow?.kind).toBe('outer');
+
+    const reopened = await PptxDocument.open(await imported.write());
+    const reopenedStyled = reopened.slides[0]!.shapes[0] as ImageModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as ImageModel;
+    expect({
+      name: reopenedStyled.name,
+      altText: reopenedStyled.altText,
+      rounding: reopenedStyled.rounding,
+      transparency: reopenedStyled.transparency,
+      shadow: reopenedStyled.shadow,
+    }).toEqual({
+      name: 'Edited image',
+      altText: 'Edited alt',
+      rounding: false,
+      transparency: 40,
+      shadow: {
+        kind: 'outer',
+        color: { kind: 'srgb', value: '654321' },
+        opacity: 0.75,
+        blur: 4,
+        angle: 45,
+        distance: 3,
+        rotateWithShape: true,
+      },
+    });
+    expect(reopenedDuplicate.altText).toBeUndefined();
+    expect(reopenedDuplicate.transparency).toBe(0);
+    expect(reopenedDuplicate.shadow).toBeUndefined();
+    expect(reopenedStyled.sourcePartUri).toBe(sourcePartUri);
+    expect(reopenedDuplicate.sourcePartUri).toBe(sourcePartUri);
+    expect(reopened.opcPackage.requirePart(sourcePartUri!).bytes).toEqual(mediaBytes);
+  }, 20_000);
+
   it('matches PptxGenJS path and data images through the document source loader', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'pptxgenjs-raster-source-'));
     try {

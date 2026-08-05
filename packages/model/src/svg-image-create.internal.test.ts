@@ -37,6 +37,8 @@ describe('embedded SVG image normalization', () => {
       rotation: 0,
       flipHorizontal: false,
       flipVertical: false,
+      rounding: false,
+      transparency: 0,
     });
     expect(normalized.svgBytes).not.toBe(svgBytes);
     expect(normalized.fallbackPngBytes).not.toBe(fallbackPngBytes);
@@ -68,6 +70,8 @@ describe('embedded SVG image normalization', () => {
     options.rotation = -2_700_000;
     options.flipHorizontal = true;
     options.flipVertical = true;
+    options.rounding = true;
+    options.transparency = 25;
     const sourceRectangle = { left: 25.0004, top: -10.0004, right: 5, bottom: 0 };
     options.sourceRectangle = sourceRectangle;
 
@@ -89,6 +93,8 @@ describe('embedded SVG image normalization', () => {
       rotation: -2_700_000,
       flipHorizontal: true,
       flipVertical: true,
+      rounding: true,
+      transparency: 25,
       sourceRectangle: { left: 25, top: -10, right: 5, bottom: 0 },
     });
     expect(Object.isFrozen(normalized.sourceRectangle)).toBe(true);
@@ -187,6 +193,10 @@ describe('embedded SVG image normalization', () => {
       { rotation: 21_600_001 },
       { flipHorizontal: 1 },
       { flipVertical: 'false' },
+      { rounding: 1 },
+      { transparency: -1 },
+      { transparency: 101 },
+      { shadow: { kind: 'inner', rotateWithShape: true } },
       { sourceRectangle: { left: 60, top: 0, right: 40, bottom: 0 } },
     ];
     for (const options of invalid) {
@@ -214,6 +224,17 @@ describe('embedded SVG picture rendering', () => {
         rotation: 2_700_000,
         flipHorizontal: true,
         flipVertical: true,
+        rounding: true,
+        transparency: 25,
+        shadow: {
+          kind: 'outer',
+          color: { kind: 'srgb', value: '123456' },
+          opacity: 0.5,
+          blur: 3,
+          angle: 30,
+          distance: 2,
+          rotateWithShape: true,
+        },
         sourceRectangle: { left: 25, top: -10, right: 5, bottom: 0 },
       },
     );
@@ -233,6 +254,9 @@ describe('embedded SVG picture rendering', () => {
     expect(source).toContain(`xmlns:asvg="${SVG_NAMESPACE}"`);
     expect(source).toContain('r:embed="rId&lt;svg"');
     expect(source).toContain('rot="2700000" flipH="1" flipV="1"');
+    expect(source).toContain('<a:alphaModFix amt="75000"/><a:extLst>');
+    expect(source).toContain('<a:prstGeom prst="ellipse">');
+    expect(source).toContain('<a:effectLst><a:outerShdw');
 
     expect(directChildren(picture).map(({ localName }) => localName)).toEqual([
       'nvPicPr',
@@ -247,8 +271,11 @@ describe('embedded SVG picture rendering', () => {
     ]);
     const blip = directChildren(blipFill)[0]!;
     expect(xml.attribute(blip, 'r:embed')?.value).toBe('rId&fallback');
-    expect(directChildren(blip).map(({ localName }) => localName)).toEqual(['extLst']);
-    const extensionList = directChildren(blip)[0]!;
+    expect(directChildren(blip).map(({ localName }) => localName)).toEqual([
+      'alphaModFix',
+      'extLst',
+    ]);
+    const extensionList = directChildren(blip)[1]!;
     const extension = directChildren(extensionList)[0]!;
     expect(extension.localName).toBe('ext');
     expect(xml.attribute(extension, 'uri')?.value).toBe(SVG_EXTENSION_URI);

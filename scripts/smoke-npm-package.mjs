@@ -28,6 +28,13 @@ try {
       'utf8',
     ),
   );
+  await writeFile(
+    join(directory, 'image-identity-effects-5-lifecycle-probe.mjs'),
+    await readFile(
+      join(repositoryRoot, 'scripts/image-identity-effects-5-lifecycle-probe.mjs'),
+      'utf8',
+    ),
+  );
   run('npm', [
     'install',
     '--ignore-scripts',
@@ -450,6 +457,7 @@ try {
 import { Readable, Writable } from 'node:stream';
 import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, OUTPUT_TYPES, PLACEHOLDER_TYPES, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, SCHEME_COLORS, ShapeModel, SlideLayoutModel, SlideMasterModel, TableModel, TEXT_ALIGNMENTS, TEXT_VERTICAL_ALIGNMENTS, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 import { runChartPresentation91LifecycleProbe } from './chart-presentation-91-lifecycle-probe.mjs';
+import { runImageIdentityEffects5LifecycleProbe } from './image-identity-effects-5-lifecycle-probe.mjs';
 const installedManifestVersion = ${JSON.stringify(manifest.version)};
 const chartPresentation91Probe = await runChartPresentation91LifecycleProbe(
   { ChartModel, PptxDocument, chartWorkbookMatches },
@@ -459,6 +467,26 @@ const chartPresentation91 = chartPresentation91Probe.ok;
 const chartPresentation91State = chartPresentation91Probe.state;
 await (await PptxDocument.open(chartPresentation91Probe.explicitOutputBytes))
   .writeFile('chart-presentation-91-smoke.pptx');
+const imageIdentityEffects5Probe = await runImageIdentityEffects5LifecycleProbe({ PptxDocument });
+const imageIdentityEffects5 = imageIdentityEffects5Probe.ok;
+const imageIdentityEffects5State = {
+  noOp: imageIdentityEffects5Probe.state.noOp,
+  rollback: imageIdentityEffects5Probe.state.rollback,
+  sourceIsolation: imageIdentityEffects5Probe.state.sourceIsolation,
+  sharedMedia: imageIdentityEffects5Probe.state.sharedMedia,
+  relationships: Object.values(imageIdentityEffects5Probe.state.relationshipState)
+    .every((count) => count === 1) &&
+    Object.values(imageIdentityEffects5Probe.state.reopenedRelationshipState)
+      .every((count) => count === 1),
+  media: imageIdentityEffects5Probe.state.mediaPartCount === 1 &&
+    imageIdentityEffects5Probe.state.mediaPreserved &&
+    imageIdentityEffects5Probe.state.reopenedMediaPreserved,
+  exactOoxml: Object.values(imageIdentityEffects5Probe.state.exactOoxml).every(Boolean),
+  diagnostics: Object.values(imageIdentityEffects5Probe.state.diagnostics)
+    .every((count) => count === 0),
+};
+await (await PptxDocument.open(imageIdentityEffects5Probe.explicitOutputBytes))
+  .writeFile('image-identity-effects-5-smoke.pptx');
 const created = PptxDocument.create({ rtlMode: true });
 const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });
 const packedNumberSource = slideNumberDeck.addSlide();
@@ -10936,6 +10964,8 @@ const checks = {
   stableMediaLifecycle,
   nativeMediaTiming,
   nativeCharts,
+  imageIdentityEffects5,
+  imageIdentityEffects5State,
   chartPresentation91,
   chartPresentation91State,
   chartAxisAdvanced,
@@ -18112,6 +18142,73 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
       !nativeChartAreaFillLineFragments.every((fragment) => nativeChartXml.includes(fragment))) {
     throw new Error(`CLI native chart part read failed: ${nativeChartPartResult.stdout}`);
   }
+  const imageIdentityEffects5DeckPath = join(
+    directory,
+    'image-identity-effects-5-smoke.pptx',
+  );
+  const imageIdentityEffects5InspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', imageIdentityEffects5DeckPath],
+    directory,
+  );
+  const imageIdentityEffects5Inspected = JSON.parse(
+    imageIdentityEffects5InspectResult.stdout,
+  );
+  if (!imageIdentityEffects5Inspected.ok ||
+      imageIdentityEffects5Inspected.data?.contentTypes?.['image/png'] !== 1) {
+    throw new Error(
+      `CLI image identity/effects inspect failed: ${imageIdentityEffects5InspectResult.stdout}`,
+    );
+  }
+  const imageIdentityEffects5ValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', imageIdentityEffects5DeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const imageIdentityEffects5Validated = JSON.parse(
+    imageIdentityEffects5ValidateResult.stdout,
+  );
+  if (!imageIdentityEffects5Validated.ok ||
+      !imageIdentityEffects5Validated.data?.valid ||
+      imageIdentityEffects5Validated.data.errorCount !== 0 ||
+      imageIdentityEffects5Validated.data.warningCount !== 0) {
+    throw new Error(
+      `CLI image identity/effects validation failed: ${imageIdentityEffects5ValidateResult.stdout}`,
+    );
+  }
+  const imageIdentityEffects5SourcePartResult = run(
+    bin,
+    ['--json', 'part', 'read', imageIdentityEffects5DeckPath, '/ppt/slides/slide1.xml'],
+    directory,
+  );
+  const imageIdentityEffects5DuplicatePartResult = run(
+    bin,
+    ['--json', 'part', 'read', imageIdentityEffects5DeckPath, '/ppt/slides/slide2.xml'],
+    directory,
+  );
+  const imageIdentityEffects5SourcePart = JSON.parse(
+    imageIdentityEffects5SourcePartResult.stdout,
+  );
+  const imageIdentityEffects5DuplicatePart = JSON.parse(
+    imageIdentityEffects5DuplicatePartResult.stdout,
+  );
+  const imageIdentityEffects5SourceXml = imageIdentityEffects5SourcePart.data?.content ?? '';
+  const imageIdentityEffects5DuplicateXml =
+    imageIdentityEffects5DuplicatePart.data?.content ?? '';
+  if (!imageIdentityEffects5SourcePart.ok || !imageIdentityEffects5DuplicatePart.ok ||
+      !imageIdentityEffects5SourceXml.includes('name="Created &amp; image"') ||
+      !imageIdentityEffects5SourceXml.includes('descr="Created &lt;alt&gt;"') ||
+      !imageIdentityEffects5SourceXml.includes('<a:prstGeom prst="ellipse">') ||
+      !imageIdentityEffects5SourceXml.includes('<a:alphaModFix amt="75000"/>') ||
+      !imageIdentityEffects5SourceXml.includes('<a:outerShdw') ||
+      !imageIdentityEffects5DuplicateXml.includes('<a:prstGeom prst="rect">') ||
+      imageIdentityEffects5DuplicateXml.includes('alphaModFix') ||
+      !imageIdentityEffects5DuplicateXml.includes('<a:innerShdw')) {
+    throw new Error('CLI image identity/effects OOXML inspection failed');
+  }
   const chartPresentation91DeckPath = join(directory, 'chart-presentation-91-smoke.pptx');
   const chartPresentation91InspectResult = run(
     bin,
@@ -19365,6 +19462,10 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
     summary.chartPresentation91State = apiChecks.chartPresentation91State;
     summary.chartPresentation91Inspect = true;
     summary.chartPresentation91Validate = true;
+    summary.imageIdentityEffects5 = apiChecks.imageIdentityEffects5;
+    summary.imageIdentityEffects5State = apiChecks.imageIdentityEffects5State;
+    summary.imageIdentityEffects5Inspect = true;
+    summary.imageIdentityEffects5Validate = true;
     summary.tableMargins = apiChecks.tableMargins;
     summary.tableMarginsState = apiChecks.tableMarginsState;
     summary.tableMarginsInspect = true;

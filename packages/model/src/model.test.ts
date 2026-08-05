@@ -3017,6 +3017,139 @@ describe('PresentationModel', () => {
     expect(part.bytes).toEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
   });
 
+  it('creates, edits, duplicates, rolls back, and reopens image identity and visual effects', async () => {
+    const { pkg, model } = emptyPresentationModel();
+    const slide = model.addSlide();
+    const image = slide.addImage(new Uint8Array([1, 2, 3]), {
+      contentType: 'image/png',
+      name: 'Created image',
+      altText: 'Created alt text',
+      rounding: true,
+      transparency: 25,
+      shadow: {
+        kind: 'outer',
+        color: { kind: 'srgb', value: '123456' },
+        opacity: 0.5,
+        blur: 3,
+        angle: 30,
+        distance: 2,
+        rotateWithShape: true,
+      },
+    });
+    const mediaPartUri = image.sourcePartUri!;
+    const relationshipSnapshot = slide.relationships;
+    const mediaBytes = pkg.requirePart(mediaPartUri).bytes.slice();
+
+    expect({
+      name: image.name,
+      altText: image.altText,
+      rounding: image.rounding,
+      transparency: image.transparency,
+      shadow: image.shadow,
+    }).toEqual({
+      name: 'Created image',
+      altText: 'Created alt text',
+      rounding: true,
+      transparency: 25,
+      shadow: {
+        kind: 'outer',
+        color: { kind: 'srgb', value: '123456' },
+        opacity: 0.5,
+        blur: 3,
+        angle: 30,
+        distance: 2,
+        rotateWithShape: true,
+      },
+    });
+
+    const beforeNoop = packageSnapshot(pkg);
+    image.name = 'Created image';
+    image.altText = 'Created alt text';
+    image.rounding = true;
+    image.transparency = 25;
+    image.shadow = image.shadow;
+    expect(packageSnapshot(pkg)).toEqual(beforeNoop);
+
+    expect(() => pkg.transaction(() => {
+      image.name = 'Rolled back name';
+      image.altText = undefined;
+      image.rounding = false;
+      image.transparency = 100;
+      image.shadow = undefined;
+      throw new Error('restore image appearance');
+    })).toThrow('restore image appearance');
+    expect(packageSnapshot(pkg)).toEqual(beforeNoop);
+    expect(image.name).toBe('Created image');
+
+    const duplicateSlide = model.duplicateSlide(model.slides.indexOf(slide));
+    const duplicate = duplicateSlide.shapes[0] as ImageModel;
+    expect(duplicate.sourcePartUri).toBe(mediaPartUri);
+    duplicate.name = '';
+    duplicate.altText = undefined;
+    duplicate.rounding = false;
+    duplicate.transparency = 100;
+    duplicate.shadow = undefined;
+
+    expect({
+      name: duplicate.name,
+      altText: duplicate.altText,
+      rounding: duplicate.rounding,
+      transparency: duplicate.transparency,
+      shadow: duplicate.shadow,
+    }).toEqual({
+      name: '',
+      altText: undefined,
+      rounding: false,
+      transparency: 100,
+      shadow: undefined,
+    });
+    expect(image.name).toBe('Created image');
+    expect(image.altText).toBe('Created alt text');
+    expect(image.rounding).toBe(true);
+    expect(image.transparency).toBe(25);
+    expect(image.shadow?.kind).toBe('outer');
+    expect(slide.relationships).toEqual(relationshipSnapshot);
+    expect(pkg.requirePart(mediaPartUri).bytes).toEqual(mediaBytes);
+
+    duplicate.transparency = 0;
+    expect(duplicate.transparency).toBe(0);
+    expect(new TextDecoder().decode(pkg.requirePart(duplicateSlide.partUri).bytes))
+      .not.toContain('alphaModFix');
+
+    const reopened = new PresentationModel(await OpcPackage.open(await pkg.write()));
+    const reopenedSource = reopened.slides[0]!.shapes[0] as ImageModel;
+    const reopenedDuplicate = reopened.slides[1]!.shapes[0] as ImageModel;
+    expect({
+      name: reopenedSource.name,
+      altText: reopenedSource.altText,
+      rounding: reopenedSource.rounding,
+      transparency: reopenedSource.transparency,
+      shadow: reopenedSource.shadow,
+    }).toEqual({
+      name: 'Created image',
+      altText: 'Created alt text',
+      rounding: true,
+      transparency: 25,
+      shadow: image.shadow,
+    });
+    expect({
+      name: reopenedDuplicate.name,
+      altText: reopenedDuplicate.altText,
+      rounding: reopenedDuplicate.rounding,
+      transparency: reopenedDuplicate.transparency,
+      shadow: reopenedDuplicate.shadow,
+    }).toEqual({
+      name: '',
+      altText: undefined,
+      rounding: false,
+      transparency: 0,
+      shadow: undefined,
+    });
+    expect(reopenedSource.sourcePartUri).toBe(mediaPartUri);
+    expect(reopenedDuplicate.sourcePartUri).toBe(mediaPartUri);
+    expect(reopened.opcPackage.requirePart(mediaPartUri).bytes).toEqual(mediaBytes);
+  });
+
   it('creates stable live media shapes and reconciles semantic kind changes', async () => {
     const { pkg, model } = emptyPresentationModel();
     const slide = model.addSlide();

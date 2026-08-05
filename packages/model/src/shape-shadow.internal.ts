@@ -136,7 +136,10 @@ export function replaceShapeShadow(
 }
 
 function inspectOwner(shape: XmlElement): ShapeShadowOwnerState | undefined {
-  if (shape.localName !== 'sp' || namespaceUri(shape) !== PRESENTATION_NAMESPACE) {
+  if (
+    (shape.localName !== 'sp' && shape.localName !== 'pic')
+    || namespaceUri(shape) !== PRESENTATION_NAMESPACE
+  ) {
     return undefined;
   }
   const propertyCandidates = directChildren(shape).filter(

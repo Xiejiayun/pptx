@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1702);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1707);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(370).fill('defect-excluded'),
-      ...Array(742).fill('supported'),
-      ...Array(496).fill('deliberate-difference'),
+      ...Array(745).fill('supported'),
+      ...Array(498).fill('deliberate-difference'),
       ...Array(94).fill('deprecated-alias'),
     ].sort(),
   );
@@ -1556,11 +1556,6 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
     })),
   );
   assert.equal(
-    PPTXGENJS_SURFACE_MANIFEST.entries
-      .some(({ id }) => id === addTablePropertyId('ImageProps', 'shadow')),
-    false,
-  );
-  assert.equal(
     shapeTextShadowEntries.every(({ native, serialization, client }) =>
       native.length > 0 && serialization === true && client === true),
     true,
@@ -1637,12 +1632,68 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
   );
   assert.equal(
     [
-      ...['altText', 'objectName', 'hyperlink', 'rounding', 'shadow', 'transparency',
-        'x', 'y', 'w', 'h', 'placeholder']
+      ...['hyperlink', 'x', 'y', 'w', 'h', 'placeholder']
         .map((property) => addTablePropertyId('ImageProps', property)),
       addTablePropertyId('DataOrPathProps', 'data'),
       addTablePropertyId('DataOrPathProps', 'path'),
     ].some((id) => imageSourceSizingTransformIds.has(id)),
+    false,
+  );
+  const imageIdentityEffectsExpected = [
+    ...['altText', 'rounding', 'transparency'].map((property) => ({
+      id: addTablePropertyId('ImageProps', property),
+      status: 'supported',
+    })),
+    ...['objectName', 'shadow'].map((property) => ({
+      id: addTablePropertyId('ImageProps', property),
+      status: 'deliberate-difference',
+    })),
+  ].sort((left, right) => left.id.localeCompare(right.id));
+  const imageIdentityEffectsIds = new Set(
+    imageIdentityEffectsExpected.map(({ id }) => id),
+  );
+  assert.equal(imageIdentityEffectsIds.size, 5);
+  const imageIdentityEffectsEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => imageIdentityEffectsIds.has(id))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  assert.deepEqual(
+    imageIdentityEffectsEntries.map(({ id, status }) => ({ id, status })),
+    imageIdentityEffectsExpected,
+  );
+  assert.equal(
+    imageIdentityEffectsEntries.every(({
+      native,
+      evidence,
+      control,
+      serialization,
+      client,
+    }) => native.length >= 3
+      && evidence.code.length === 2
+      && evidence.tests.length === 2
+      && evidence.package.some(
+        ({ pattern }) => pattern === 'const imageIdentityEffects5Probe =',
+      )
+      && evidence.ooxml.some(({ pattern }) => pattern === 'const exactOoxml = {')
+      && evidence.clients.some(
+        ({ pattern }) => pattern === 'const imageIdentityEffects5State = {',
+      )
+      && control.pattern ===
+        'matches PptxGenJS image identity and visual effects through create edit reopen'
+      && serialization === true
+      && client === true),
+    true,
+  );
+  assert.deepEqual(
+    Object.fromEntries(['supported', 'deliberate-difference'].map((status) => [
+      status,
+      imageIdentityEffectsEntries.filter((entry) => entry.status === status).length,
+    ])),
+    { supported: 3, 'deliberate-difference': 2 },
+  );
+  assert.equal(
+    PPTXGENJS_SURFACE_MANIFEST.entries.some(
+      ({ id }) => id === addTablePropertyId('ImageProps', 'hyperlink'),
+    ),
     false,
   );
   const mediaCoreExpected = [

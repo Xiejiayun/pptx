@@ -24,6 +24,9 @@ const OPTION_KEYS = new Set([
   'flipHorizontal',
   'flipVertical',
   'sourceRectangle',
+  'rounding',
+  'shadow',
+  'transparency',
 ]);
 
 export interface NormalizedEmbeddedSvgImage

@@ -12,10 +12,16 @@ async (page) => {
     `${chartPresentationWorkspace}/scripts/chart-presentation-91-lifecycle-probe.mjs`,
     'utf8',
   );
+  const imageIdentityEffects5ProbeSource = await readFile(
+    `${chartPresentationWorkspace}/scripts/image-identity-effects-5-lifecycle-probe.mjs`,
+    'utf8',
+  );
   const chartPresentationFixtureBase64 = Buffer
     .from(chartPresentationFixtureBytes).toString('base64');
   const chartPresentationProbeBase64 = Buffer
     .from(chartPresentationProbeSource).toString('base64');
+  const imageIdentityEffects5ProbeBase64 = Buffer
+    .from(imageIdentityEffects5ProbeSource).toString('base64');
   const consoleErrors = [];
   const pageErrors = [];
   const networkErrors = [];
@@ -37,10 +43,37 @@ async (page) => {
       base64,
       chartPresentationFixtureBase64: presentationFixtureBase64,
       chartPresentationProbeBase64: presentationProbeBase64,
+      imageIdentityEffects5ProbeBase64: imageEffectsProbeBase64,
     }) => {
       const binary = atob(base64);
       const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
       const api = await import(moduleUrl);
+      const imageIdentityEffects5ProbeModule = await import(
+        `data:text/javascript;base64,${imageEffectsProbeBase64}`
+      );
+      const imageIdentityEffects5Probe = await imageIdentityEffects5ProbeModule
+        .runImageIdentityEffects5LifecycleProbe(api);
+      const imageIdentityEffects5 = imageIdentityEffects5Probe.ok;
+      const imageIdentityEffects5State = {
+        noOp: imageIdentityEffects5Probe.state.noOp,
+        rollback: imageIdentityEffects5Probe.state.rollback,
+        sourceIsolation: imageIdentityEffects5Probe.state.sourceIsolation,
+        sharedMedia: imageIdentityEffects5Probe.state.sharedMedia,
+        relationships: Object.values(imageIdentityEffects5Probe.state.relationshipState)
+          .every((count) => count === 1) &&
+          Object.values(imageIdentityEffects5Probe.state.reopenedRelationshipState)
+            .every((count) => count === 1),
+        media: imageIdentityEffects5Probe.state.mediaPartCount === 1 &&
+          imageIdentityEffects5Probe.state.mediaPreserved &&
+          imageIdentityEffects5Probe.state.reopenedMediaPreserved,
+        exactOoxml: Object.values(imageIdentityEffects5Probe.state.exactOoxml).every(Boolean),
+        diagnostics: Object.values(imageIdentityEffects5Probe.state.diagnostics)
+          .every((count) => count === 0),
+      };
+      globalThis.__pptxImageIdentityEffects5EvidenceBlob = new Blob(
+        [imageIdentityEffects5Probe.explicitOutputBytes],
+        { type: imageIdentityEffects5Probe.mime },
+      );
       const chartPresentationProbeModule = await import(
         `data:text/javascript;base64,${presentationProbeBase64}`
       );
@@ -7934,6 +7967,8 @@ async (page) => {
         timingDiagnostics,
         nativeMediaTiming,
         nativeCharts,
+        imageIdentityEffects5,
+        imageIdentityEffects5State,
         chartPresentation91,
         chartPresentation91State,
         chartPresentation: chartPresentation91,
@@ -7950,9 +7985,29 @@ async (page) => {
       moduleUrl: 'http://127.0.0.1:4173/packages/pptx/dist/browser.js',
       chartPresentationFixtureBase64,
       chartPresentationProbeBase64,
+      imageIdentityEffects5ProbeBase64,
       base64: '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',
     },
   );
+  result.imageIdentityEffects5EvidenceFileName =
+    'browser-image-identity-effects-5.pptx';
+  const imageIdentityEffects5EvidenceOutput = typeof process !== 'undefined'
+    ? process.env.PPTX_BROWSER_IMAGE_IDENTITY_EFFECTS_OUT
+      ?? globalThis.__pptxBrowserImageIdentityEffectsOutput
+    : globalThis.__pptxBrowserImageIdentityEffectsOutput;
+  if (typeof imageIdentityEffects5EvidenceOutput === 'string') {
+    const imageIdentityEffects5EvidenceBytes = await page.evaluate(async () => {
+      const blob = globalThis.__pptxImageIdentityEffects5EvidenceBlob;
+      if (!(blob instanceof Blob)) {
+        throw new Error('Missing image identity/effects evidence Blob');
+      }
+      return Array.from(new Uint8Array(await blob.arrayBuffer()));
+    });
+    await writeFile(
+      imageIdentityEffects5EvidenceOutput,
+      Uint8Array.from(imageIdentityEffects5EvidenceBytes),
+    );
+  }
   result.chartPresentation91EvidenceFileName = 'browser-chart-presentation-91.pptx';
   result.chartPresentationEvidenceFileName = result.chartPresentation91EvidenceFileName;
   const chartPresentation91EvidenceOutput = typeof process !== 'undefined'
@@ -9692,6 +9747,17 @@ async (page) => {
     timingDiagnostics: [],
     nativeMediaTiming: true,
     nativeCharts: true,
+    imageIdentityEffects5: true,
+    imageIdentityEffects5State: {
+      noOp: true,
+      rollback: true,
+      sourceIsolation: true,
+      sharedMedia: true,
+      relationships: true,
+      media: true,
+      exactOoxml: true,
+      diagnostics: true,
+    },
     chartPresentation91: true,
     chartPresentation91State: {
       fixtureShape: true,
@@ -9718,6 +9784,8 @@ async (page) => {
     stableMediaLifecycle: true,
     mediaTargetIsolation: true,
     mediaOrphanCount: 0,
+    imageIdentityEffects5EvidenceFileName:
+      'browser-image-identity-effects-5.pptx',
     chartPresentation91EvidenceFileName: 'browser-chart-presentation-91.pptx',
     chartPresentationEvidenceFileName: 'browser-chart-presentation-91.pptx',
     textBoxFitEvidenceFileName: 'browser-text-box-fit.pptx',
