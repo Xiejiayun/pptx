@@ -1,0 +1,59 @@
+Amazon biodiversity presentation — sources
+Generated 2026-08-05
+
+FACTS AND CONTEXT
+
+WWF, “About the Amazon.” Biome extent (~6.7 million km²), roughly 10% of known species, and indicative species counts.
+https://wwf.panda.org/discover/knowledge_hub/where_we_work/amazon/about_the_amazon/
+
+ter Steege et al., “Hyperdominance in the Amazonian Tree Flora,” Science 342 (2013). Estimated ~390 billion trees and ~16,000 tree species.
+https://doi.org/10.1126/science.1243092
+
+NASA Earth Observatory, “The Amazon’s Vicious Cycles.” Forest moisture recycling, drought, fire, and land-use feedbacks.
+https://earthobservatory.nasa.gov/features/AmazonFire
+
+IPCC AR6 WGII, Chapter 12: Central and South America. Climate, land-use change, ecosystem risk, and adaptation context.
+https://www.ipcc.ch/report/ar6/wg2/chapter/chapter-12/
+
+WWF, “Jaguar.” Predator role, range, habitat connectivity, and conservation context.
+https://www.worldwildlife.org/species/jaguar
+
+WWF, “Amazon River Dolphin.” Flooded-forest habitat, echolocation, and conservation context.
+https://www.worldwildlife.org/species/amazon-river-dolphin
+
+Pauli et al., “A syndrome of mutualism reinforces the lifestyle of a sloth,” Proceedings of the Royal Society B (2014). Sloth fur, algae, moths, and the associated micro-ecosystem.
+https://doi.org/10.1098/rspb.2013.3006
+
+Smithsonian National Zoo, “Leafcutter Ant.” Fungus cultivation and colony ecology.
+https://nationalzoo.si.edu/animals/leafcutter-ant
+
+Global Forest Watch, “Brazil forest-change dashboard.” Forest-cover loss and monitoring context.
+https://www.globalforestwatch.org/dashboards/country/BRA/?category=forest-change
+
+IMAGE ASSETS
+
+All canonical file pages below are on Wikimedia Commons. Local copies were fetched through images.weserv.nl because the direct upload host was unavailable in the build environment. The proxy does not change the canonical attribution or license.
+
+canopy.jpg — “Aerial view of the Amazon Rainforest”; lubasi; CC BY-SA 2.0.
+https://commons.wikimedia.org/wiki/File:Aerial_view_of_the_Amazon_Rainforest.jpg
+https://creativecommons.org/licenses/by-sa/2.0/
+
+jaguar.jpg — “Jaguar (Panthera onca palustris) female Piquiri River 2”; Charles J. Sharp; CC BY-SA 4.0.
+https://commons.wikimedia.org/wiki/File:Jaguar_(Panthera_onca_palustris)_female_Piquiri_River_2.JPG
+https://creativecommons.org/licenses/by-sa/4.0/
+
+sloth.jpg — “Bradypus torquatus 47880976”; deboas; CC BY 4.0.
+https://commons.wikimedia.org/wiki/File:Bradypus_torquatus_47880976.jpg
+https://creativecommons.org/licenses/by/4.0/
+
+ants.jpg — “Leafcutter ant with leaf”; Matheysil; CC BY-SA 4.0.
+https://commons.wikimedia.org/wiki/File:Leafcutter_ant_with_leaf.jpg
+https://creativecommons.org/licenses/by-sa/4.0/
+
+plants.jpg — “Monstera dubia in Calanoa Reserve, Colombia”; Dick Culbert; CC BY 2.0.
+https://commons.wikimedia.org/wiki/File:Monstera_dubia_in_Calanoa_Reserve,_Colombia.jpg
+https://creativecommons.org/licenses/by/2.0/
+
+deforestation.jpg — “DeforestationinBrazil2”; NASA LANCE FIRMS / ESDIS; public domain.
+https://commons.wikimedia.org/wiki/File:DeforestationinBrazil2.jpg
+https://creativecommons.org/publicdomain/mark/1.0/
