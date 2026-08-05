@@ -7321,6 +7321,120 @@ const PLACEHOLDER_TEXT_STYLE_4_FAMILY_ENTRIES = Object.freeze(
   })),
 );
 
+const SHAPE_GEOMETRY_RESIDUAL_3_CONTROL_TITLE =
+  'closes residual PptxGenJS shape declarations against strict direct adjustment state';
+const SHAPE_GEOMETRY_RESIDUAL_3_IDS = Object.freeze([
+  'interface:ShapeProps@property:align',
+  'interface:ShapeProps@property:angleRange',
+  'interface:ShapeProps@property:arcThicknessRatio',
+]);
+
+function shapeGeometryResidual3Entry(id) {
+  const inertAlign = id.endsWith('@property:align');
+  return {
+    id,
+    status: inertAlign ? 'defect-excluded' : 'deliberate-difference',
+    native: inertAlign
+      ? []
+      : [
+          'AddShapeOptions.adjustments',
+          'ShapeAdjustment',
+          'ShapeModel.adjustments',
+        ],
+    evidence: {
+      code: inertAlign
+        ? []
+        : [
+            {
+              path: 'packages/model/src/preset-shape.ts',
+              pattern: 'readonly adjustments?: readonly ShapeAdjustment[];',
+            },
+            {
+              path: 'packages/model/src/shape-adjustments.internal.ts',
+              pattern: 'export function replaceShapeAdjustments(',
+            },
+            {
+              path: 'packages/model/src/shapes.ts',
+              pattern: 'get adjustments(): readonly ShapeAdjustment[] | undefined {',
+            },
+            {
+              path: 'packages/model/src/shapes.ts',
+              pattern: 'set adjustments(value: readonly ShapeAdjustment[]) {',
+            },
+          ],
+      tests: [
+        {
+          path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+          title: SHAPE_GEOMETRY_RESIDUAL_3_CONTROL_TITLE,
+        },
+        ...(!inertAlign
+          ? [
+              {
+                path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+                title: 'reads and round-trips PptxGenJS preset shape adjustment output',
+              },
+              {
+                path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+                title: 'records PptxGenJS adjustment shortcut divergences from native lists',
+              },
+              {
+                path: 'packages/sdk/src/index.test.ts',
+                title: 'edits preset shape adjustments across duplicate, rollback, type reset, reopen, and all formats',
+              },
+            ]
+          : []),
+      ],
+      package: inertAlign
+        ? []
+        : [
+            {
+              path: 'scripts/smoke-npm-package.mjs',
+              pattern: 'const shapeTextTransformIdentity13Probe =',
+            },
+            {
+              path: 'scripts/smoke-npm-package.mjs',
+              pattern: 'const shapeAdjustments =',
+            },
+          ],
+      ooxml: inertAlign
+        ? []
+        : [
+            {
+              path: 'scripts/shape-text-transform-identity-13-lifecycle-probe.mjs',
+              pattern: 'const exactOoxml = {',
+            },
+            {
+              path: 'packages/sdk/src/index.test.ts',
+              pattern: 'edits preset shape adjustments across duplicate, rollback, type reset, reopen, and all formats',
+            },
+          ],
+      clients: inertAlign
+        ? []
+        : [
+            {
+              path: 'scripts/playwright-browser-smoke.js',
+              pattern: 'const shapeTextTransformIdentity13State = {',
+            },
+          ],
+    },
+    control: {
+      path: 'packages/pptxgenjs-adapter/src/index.test.ts',
+      pattern: SHAPE_GEOMETRY_RESIDUAL_3_CONTROL_TITLE,
+    },
+    serialization: !inertAlign,
+    client: !inertAlign,
+    note: inertAlign
+      ? 'PptxGenJS 4.0.1 inherits ShapeProps.align from text options, but addShape emits byte-identical owner XML for omitted, left, center, right, and justify values and creates no text body; native excludes this inert declaration noise.'
+      : id.endsWith('@property:angleRange')
+        ? 'PptxGenJS converts the implicit-degree angleRange shortcut into adj1 and adj2 direct guide integers with permissive coercion and malformed out-of-range output; native preserves the same legal final guides through strict safe-integer ShapeAdjustment state.'
+        : 'PptxGenJS applies arcThicknessRatio only as an angleRange-dependent adj3 shortcut, drops explicit zero, and coerces strings; native preserves the same legal final adj3 guide through independent strict editable ShapeAdjustment state.',
+  };
+}
+
+const SHAPE_GEOMETRY_RESIDUAL_3_FAMILY_ENTRIES = Object.freeze(
+  SHAPE_GEOMETRY_RESIDUAL_3_IDS.map((id) => shapeGeometryResidual3Entry(id)),
+);
+
 function deepFreeze(value, seen = new Set()) {
   if (value === null || typeof value !== 'object' || seen.has(value)) return value;
   seen.add(value);
@@ -7424,6 +7538,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...HYPERLINK_OWNERS_6_FAMILY_ENTRIES,
     ...DATA_PATH_INHERITANCE_4_FAMILY_ENTRIES,
     ...PLACEHOLDER_TEXT_STYLE_4_FAMILY_ENTRIES,
+    ...SHAPE_GEOMETRY_RESIDUAL_3_FAMILY_ENTRIES,
     ...MEDIA_CORE_FAMILY_ENTRIES,
     ...PLACEHOLDER_CORE_FAMILY_ENTRIES,
     ...SHAPE_CUSTOM_PATH_FAMILY_ENTRIES,

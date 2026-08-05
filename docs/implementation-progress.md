@@ -1298,3 +1298,12 @@ $ pptx-inspect --json package inspect output.pptx
 - Focused gates 为 7/7，PptxGenJS runtime aggregate 为 17/17，surface/runtime audit 为 29/29，TypeScript 通过；最终 single-worker full Vitest 为 93 passed / 1 skipped files、1,843 passed / 1 skipped tests（245.19s）。Actual npm tarball 为 726,640 bytes、66 entries，SHA-256 `6d3cd89e2e1fcc25ffcd47c7fc95462bdc8dbda8cd4f7c40e61224339347bc58`；installed npm 与持久 Chrome shared probe 均为 10/10 lifecycle true、0 diagnostics，Chrome error log 为 0。
 - Node/browser evidence deck 均为 24,251 bytes、20 parts、2 slides，SHA-256 分别为 `595d39bdc3c727620bf689d1a2cefc5837cfafd61ae4cbc0f7737b99325afdf3` 与 `18c4d601e5026e95bb3bf50bdb596fab06c23503e1f6c50c2764a56ffc4f2393`。
 - 权威矩阵更新为 1,748/1,774（98.53%）：supported 760、deliberate-difference 521、deprecated-alias 94、defect-excluded 373、unverified 26、unsupported/stale 0，diagnostics 0。下一族为 Shape Geometry Residual（3 项）。
+
+## PptxGenJS 全表面：Shape Geometry Residual
+
+状态：能力族 3/3 完成
+
+- `ShapeProps.align` 归为 defect-excluded：PptxGenJS 4.0.1 `addShape()` 对 omitted、left、center、right、justify 均输出无 `txBody`/alignment 的同一 owner state；Native 不增加 inert alias。
+- `angleRange` 与 `arcThicknessRatio` 归为 deliberate-difference。PptxGenJS shortcuts 的合法最终 `adj1`/`adj2`/`adj3` 由 Native strict ordered `ShapeAdjustment[]` 直接表达；不复制 truthy-zero、coercion、shortcut precedence 或 malformed formula passthrough。
+- Aggregate 1/1 与既有 adjustment controls 2/2 通过；unified runtime 为 10/10，TypeScript 与 surface/runtime audit 29/29 通过，audit 两次生成 byte-stable。复用的 PowerPoint 2010 evidence 为 0 errors / 1 条预期 external-hyperlink warning。
+- 权威矩阵更新为 1,751/1,774（98.70%）：supported 760、deliberate-difference 523、deprecated-alias 94、defect-excluded 374、unverified 23、unsupported/stale 0，diagnostics 0。剩余唯一能力族为 Chart Residual（23 项）。

@@ -33868,6 +33868,10 @@
     {
       "catalogKey": "",
       "client": false,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes residual PptxGenJS shape declarations against strict direct adjustment state"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
@@ -33876,71 +33880,206 @@
         "code": [],
         "ooxml": [],
         "package": [],
-        "tests": []
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes residual PptxGenJS shape declarations against strict direct adjustment state"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:align",
       "kind": "property",
       "name": "align",
       "native": [],
-      "note": "",
+      "note": "PptxGenJS 4.0.1 inherits ShapeProps.align from text options, but addShape emits byte-identical owner XML for omitted, left, center, right, and justify values and creates no text body; native excludes this inert declaration noise.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
       "serialization": false,
       "signatures": [],
-      "status": "unverified",
+      "status": "defect-excluded",
       "typeText": "HAlign"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes residual PptxGenJS shape declarations against strict direct adjustment state"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeTextTransformIdentity13State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "readonly adjustments?: readonly ShapeAdjustment[];"
+          },
+          {
+            "path": "packages/model/src/shape-adjustments.internal.ts",
+            "pattern": "export function replaceShapeAdjustments("
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "get adjustments(): readonly ShapeAdjustment[] | undefined {"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "set adjustments(value: readonly ShapeAdjustment[]) {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/shape-text-transform-identity-13-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "edits preset shape adjustments across duplicate, rollback, type reset, reopen, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextTransformIdentity13Probe ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeAdjustments ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes residual PptxGenJS shape declarations against strict direct adjustment state"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "reads and round-trips PptxGenJS preset shape adjustment output"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records PptxGenJS adjustment shortcut divergences from native lists"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "edits preset shape adjustments across duplicate, rollback, type reset, reopen, and all formats"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:angleRange",
       "kind": "property",
       "name": "angleRange",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddShapeOptions.adjustments",
+        "ShapeAdjustment",
+        "ShapeModel.adjustments"
+      ],
+      "note": "PptxGenJS converts the implicit-degree angleRange shortcut into adj1 and adj2 direct guide integers with permissive coercion and malformed out-of-range output; native preserves the same legal final guides through strict safe-integer ShapeAdjustment state.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "[ number, number ]"
     },
     {
       "catalogKey": "",
-      "client": false,
+      "client": true,
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes residual PptxGenJS shape declarations against strict direct adjustment state"
+      },
       "declaredIn": "ShapeProps",
       "deprecated": false,
       "deprecatedSignatures": [],
       "evidence": {
-        "clients": [],
-        "code": [],
-        "ooxml": [],
-        "package": [],
-        "tests": []
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const shapeTextTransformIdentity13State = {"
+          }
+        ],
+        "code": [
+          {
+            "path": "packages/model/src/preset-shape.ts",
+            "pattern": "readonly adjustments?: readonly ShapeAdjustment[];"
+          },
+          {
+            "path": "packages/model/src/shape-adjustments.internal.ts",
+            "pattern": "export function replaceShapeAdjustments("
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "get adjustments(): readonly ShapeAdjustment[] | undefined {"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "set adjustments(value: readonly ShapeAdjustment[]) {"
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/shape-text-transform-identity-13-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "pattern": "edits preset shape adjustments across duplicate, rollback, type reset, reopen, and all formats"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeTextTransformIdentity13Probe ="
+          },
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const shapeAdjustments ="
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes residual PptxGenJS shape declarations against strict direct adjustment state"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "reads and round-trips PptxGenJS preset shape adjustment output"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "records PptxGenJS adjustment shortcut divergences from native lists"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "edits preset shape adjustments across duplicate, rollback, type reset, reopen, and all formats"
+          }
+        ]
       },
       "id": "interface:ShapeProps@property:arcThicknessRatio",
       "kind": "property",
       "name": "arcThicknessRatio",
-      "native": [],
-      "note": "",
+      "native": [
+        "AddShapeOptions.adjustments",
+        "ShapeAdjustment",
+        "ShapeModel.adjustments"
+      ],
+      "note": "PptxGenJS applies arcThicknessRatio only as an angleRange-dependent adj3 shortcut, drops explicit zero, and coerces strings; native preserves the same legal final adj3 guide through independent strict editable ShapeAdjustment state.",
       "optional": true,
       "owner": "ShapeProps",
       "readonly": false,
-      "serialization": false,
+      "serialization": true,
       "signatures": [],
-      "status": "unverified",
+      "status": "deliberate-difference",
       "typeText": "number"
     },
     {
@@ -102019,13 +102158,13 @@
   ],
   "complete": false,
   "counts": {
-    "defect-excluded": 373,
-    "deliberate-difference": 521,
+    "defect-excluded": 374,
+    "deliberate-difference": 523,
     "deprecated-alias": 94,
     "stale": 0,
     "supported": 760,
     "unsupported": 0,
-    "unverified": 26
+    "unverified": 23
   },
   "declarationSha256": "0726d015dbcb55ccfa75546cb2fd43fe13a0dfeb783d08572f1c62f59193bbe5",
   "declarationTotal": 1774,
@@ -102047,9 +102186,6 @@
     "interface:IChartOpts@property:shadow",
     "interface:IChartOpts@property:titleAlign",
     "interface:OptsChartGridLine@property:cap",
-    "interface:ShapeProps@property:align",
-    "interface:ShapeProps@property:angleRange",
-    "interface:ShapeProps@property:arcThicknessRatio",
     "union:ChartLineCap#flat",
     "union:ChartLineCap#round",
     "union:ChartLineCap#square",

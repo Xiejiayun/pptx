@@ -1763,4 +1763,11 @@ The matrix is now 1,748/1,774 (98.53%) classified with 26 remaining: 760
 supported, 521 deliberate differences, 94 deprecated aliases, and 373 defect
 exclusions, with zero unsupported, stale, or diagnostic entries.
 
+The Shape Geometry Residual family closes three atoms without adding shortcut
+aliases. PptxGenJS `ShapeProps.align` is inert on `addShape()` and is defect
+excluded. `angleRange` and `arcThicknessRatio` are deliberate differences:
+native exposes their final `adj1`/`adj2`/`adj3` state through strict ordered
+`ShapeAdjustment[]`. The matrix is now 1,751/1,774 (98.70%) with 23 chart
+atoms remaining and zero unsupported, stale, or diagnostic entries.
+
 Project documentation and source: [github.com/Xiejiayun/pptx](https://github.com/Xiejiayun/pptx)

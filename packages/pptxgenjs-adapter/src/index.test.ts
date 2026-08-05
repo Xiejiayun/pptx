@@ -8089,6 +8089,115 @@ describe('importPptxGenJS', () => {
     expect(reopened.diagnostics).toEqual([]);
   }, 30_000);
 
+  it('closes residual PptxGenJS shape declarations against strict direct adjustment state', async () => {
+    const classifications = [
+      { id: 'interface:ShapeProps@property:align', status: 'defect-excluded' },
+      { id: 'interface:ShapeProps@property:angleRange', status: 'deliberate-difference' },
+      { id: 'interface:ShapeProps@property:arcThicknessRatio', status: 'deliberate-difference' },
+    ].sort((left, right) => left.id.localeCompare(right.id));
+    expect(classifications).toHaveLength(3);
+    expect(new Set(classifications.map(({ id }) => id)).size).toBe(3);
+    expect(classifications.map(({ status }) => status).sort()).toEqual([
+      'defect-excluded',
+      'deliberate-difference',
+      'deliberate-difference',
+    ]);
+
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    const alignTokens = [
+      undefined,
+      'left',
+      'center',
+      'right',
+      'justify',
+      'runtime-invalid-align',
+    ] as const;
+    const alignInputs: (PptxGenJSShapeOptions & {
+      align?: string;
+      line?: { type: string };
+    })[] = alignTokens.map((align) => ({
+      objectName: 'Inert shape alignment',
+      x: 1,
+      y: 1,
+      w: 3,
+      h: 2,
+      ...(align === undefined ? {} : { align }),
+    }));
+    for (const options of alignInputs) {
+      generated.addSlide().addShape(generated.ShapeType.rect!, options);
+    }
+    const geometrySlide = generated.addSlide();
+    const fixtures = [
+      {
+        name: 'Residual pie angles',
+        type: 'pie',
+        options: { angleRange: [270, 0] },
+        expected: [
+          { name: 'adj1', value: 16_200_000 },
+          { name: 'adj2', value: 0 },
+        ],
+      },
+      {
+        name: 'Residual block arc thickness',
+        type: 'blockArc',
+        options: { angleRange: [270, 0], arcThicknessRatio: 0.5 },
+        expected: [
+          { name: 'adj1', value: 16_200_000 },
+          { name: 'adj2', value: 0 },
+          { name: 'adj3', value: 25_000 },
+        ],
+      },
+    ] as const;
+    for (const fixture of fixtures) {
+      geometrySlide.addShape(generated.ShapeType[fixture.type]!, {
+        objectName: fixture.name,
+        ...fixture.options,
+      });
+    }
+    expect(alignInputs.map(({ align, line }) => ({ align, line }))).toEqual([
+      { align: undefined, line: { type: 'none' } },
+      ...alignTokens.slice(1).map((align) => ({ align, line: { type: 'none' } })),
+    ]);
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const alignOwnerXml = imported.slides.slice(0, alignTokens.length).map(
+      (slide, index) => shapeXml(imported, index, slide.shapes[0]!.id),
+    );
+    expect(new Set(alignOwnerXml).size).toBe(1);
+    expect(alignOwnerXml[0]).not.toContain('<p:txBody>');
+    expect(alignOwnerXml[0]).not.toMatch(/\balgn="/);
+    const alignRelationshipKinds = imported.slides.slice(0, alignTokens.length)
+      .map((slide) => slide.relationships.map(({ type }) => type));
+    expect(alignRelationshipKinds.every((types) => JSON.stringify(types) === JSON.stringify([
+      'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout',
+      'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide',
+    ]))).toBe(true);
+
+    const importedShapes = new Map(imported.slides.at(-1)!.shapes.map((shape) => [
+      shape.name,
+      shape as ShapeModel,
+    ]));
+    const native = PptxDocument.create();
+    const nativeSlide = native.addSlide();
+    for (const fixture of fixtures) {
+      const importedShape = importedShapes.get(fixture.name)!;
+      expect(importedShape).toBeInstanceOf(ShapeModel);
+      expect(importedShape.adjustments, fixture.name).toEqual(fixture.expected);
+      expect(shapeXml(imported, alignTokens.length, importedShape.id), fixture.name)
+        .toContain('<a:avLst>');
+      expect(nativeSlide.addShape(fixture.type, {
+        name: fixture.name,
+        adjustments: fixture.expected,
+      }).adjustments).toEqual(fixture.expected);
+    }
+    expect(nativeSlide.shapes.every((shape) =>
+      !Object.hasOwn(shape, 'angleRange') && !Object.hasOwn(shape, 'arcThicknessRatio')))
+      .toBe(true);
+    expect(imported.diagnostics).toEqual([]);
+    expect(native.diagnostics).toEqual([]);
+  }, 20_000);
+
   it('closes PptxGenJS shape and text transform identity through strict native state', async () => {
     const classifications = [
       ...['flipH', 'flipV', 'objectName', 'rectRadius', 'rotate'].map((property) => ({

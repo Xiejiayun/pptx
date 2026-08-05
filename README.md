@@ -1589,6 +1589,8 @@ Data/Path Inheritance 能力族一次关闭 4 项，矩阵现为 1,744/1,774（9
 
 Placeholder Text Style 能力族批量关闭 4 项：`align`、`transparency`、`valign` 为 supported，`margin` 因 PptxGenJS 非对称 tuple 顺序与 Native 文档化 TRBL 顺序不同归为 deliberate-difference。共享 lifecycle probe 覆盖 layout/master/direct/populated/duplicate owner、strict invalid isolation、rollback、relationship stability、精确 OOXML 5/5、六格式和 reopen；actual npm 与持久 Chrome 均通过。矩阵现为 1,748/1,774（98.53%），剩余 26：supported 760、deliberate-difference 521、deprecated-alias 94、defect-excluded 373，unsupported/stale 与 diagnostics 均为 0。
 
+Shape Geometry Residual 能力族关闭 3 项：PptxGenJS `ShapeProps.align` 对 `addShape()` 完全无效，归为 defect-excluded；`angleRange` 与 `arcThicknessRatio` 通过 Native strict ordered `ShapeAdjustment[]` 表达相同最终 `adj1`/`adj2`/`adj3`，归为 deliberate-difference。该 evidence-only 族复用现有 npm、Chrome、六格式与 PowerPoint 2010 adjustment 证据。矩阵现为 1,751/1,774（98.70%），剩余 23 项，全部属于 Chart Residual。
+
 ## 开发
 
 ```sh

@@ -124,13 +124,13 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1748);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1751);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
-      ...Array(373).fill('defect-excluded'),
+      ...Array(374).fill('defect-excluded'),
       ...Array(760).fill('supported'),
-      ...Array(521).fill('deliberate-difference'),
+      ...Array(523).fill('deliberate-difference'),
       ...Array(94).fill('deprecated-alias'),
     ].sort(),
   );
@@ -261,6 +261,51 @@ test('exports an immutable evidence-backed initial manifest batch', () => {
     assert.equal(entry.evidence.clients[0].pattern, 'const placeholderTextStyle4State = {');
     assert.equal(entry.serialization, true);
     assert.equal(entry.client, true);
+  }
+  const shapeGeometryResidualIds = new Set([
+    'interface:ShapeProps@property:align',
+    'interface:ShapeProps@property:angleRange',
+    'interface:ShapeProps@property:arcThicknessRatio',
+  ]);
+  const shapeGeometryResidualEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => shapeGeometryResidualIds.has(id));
+  assert.deepEqual(
+    shapeGeometryResidualEntries.map(({ id, status }) => ({ id, status }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+    [
+      { id: 'interface:ShapeProps@property:align', status: 'defect-excluded' },
+      { id: 'interface:ShapeProps@property:angleRange', status: 'deliberate-difference' },
+      {
+        id: 'interface:ShapeProps@property:arcThicknessRatio',
+        status: 'deliberate-difference',
+      },
+    ],
+  );
+  for (const entry of shapeGeometryResidualEntries) {
+    assert.equal(
+      entry.control.pattern,
+      'closes residual PptxGenJS shape declarations against strict direct adjustment state',
+    );
+    if (entry.status === 'defect-excluded') {
+      assert.deepEqual(entry.native, []);
+      assert.deepEqual(entry.evidence.code, []);
+      assert.deepEqual(entry.evidence.package, []);
+      assert.deepEqual(entry.evidence.ooxml, []);
+      assert.deepEqual(entry.evidence.clients, []);
+      assert.equal(entry.serialization, false);
+      assert.equal(entry.client, false);
+    } else {
+      assert.deepEqual(entry.native, [
+        'AddShapeOptions.adjustments',
+        'ShapeAdjustment',
+        'ShapeModel.adjustments',
+      ]);
+      assert.equal(entry.evidence.package.length, 2);
+      assert.equal(entry.evidence.ooxml.length, 2);
+      assert.equal(entry.evidence.clients.length, 1);
+      assert.equal(entry.serialization, true);
+      assert.equal(entry.client, true);
+    }
   }
   const lineFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>
     /^(?:union:)?interface:(?:ShapeLineProps@property:(?:alpha|beginArrowType|color|dashType|endArrowType|lineDash|lineHead|lineTail|pt|size|transparency|type|width)|(?:ShapeProps|TextPropsOptions)@property:(?:line|lineDash|lineHead|lineSize|lineTail))(?:#.+)?$/u
