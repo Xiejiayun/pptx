@@ -1581,9 +1581,9 @@ Node evidence deck 为 93,142 bytes、29 parts / 41 relationships、5 slides / 4
 
 ## 当前 PptxGenJS 4.0.1 表面审计
 
-逐声明原子矩阵当前闭合 1,720/1,774（96.96%），剩余 54 项；supported 747、deliberate-difference 508、deprecated-alias 94、defect-excluded 371，unsupported/stale 与 diagnostics 均为 0。最新 Shape/Text Transform & Identity 能力族一次关闭 13 项：ordinary shape/text 的 shared editable `name`、rotation、horizontal/vertical flip、preset geometry、`rectRadius` 与 `isTextBox` 已由 PptxGenJS 4.0.1 runtime control、native lifecycle、actual npm tarball、持久 Chrome 150 和 exact OOXML 共同验证；声明但运行时无效的 `ShapeProps.shapeName` 不伪装为支持。
+逐声明原子矩阵当前闭合 1,734/1,774（97.75%），剩余 40 项；supported 752、deliberate-difference 517、deprecated-alias 94、defect-excluded 371，unsupported/stale 与 diagnostics 均为 0。最新 Core Content & Primitive Inputs 能力族一次关闭 14 项：plain text/table string、百分比坐标与 scalar margin 共 5 项直接支持；flat rich-text array、recursive table-cell array、permissive color string、implicit-inch number 与结构化 options 等 9 项通过 strict native state 明确投影。Native 继续使用 paragraph/run、sRGB/scheme color、显式 EMU/`inches()` 和文档化 TRBL margin，不复制 PptxGenJS 4.0.1 的宽松输入形状。
 
-Node/browser evidence deck 都包含 20 parts、2 slides 和每页精确 2 个 relationships，20/20 解压部件 byte-identical；PowerPoint 2010 profile 均为 0 errors，仅有两页各一个外链产生的 2 条预期 `OPC_EXTERNAL_RELATIONSHIP` warnings。完整逐项状态见 [PptxGenJS public-surface audit](./docs/compatibility/pptxgenjs-surface-audit.md)。
+Fresh 66-entry actual tarball 为 724,878 bytes，SHA-256 `e44030f6b4c0b2f55a5afa0ce14e5a92fda505ffb25cb946120bd7d9bc5afb01`。Node 与 persistent Chrome 150 evidence deck 均为 23,317 bytes、20 parts、17 relationships、2 slides、4 shapes、0 external relationships，SHA-256 分别为 `292eb8ecdb7e8c7309c5386a96458ae83b876ea15d9ca052f36f47ad5f9aeb78` 与 `f7a32f31af68d9a51f6f1e39cc6ad32860ae0d2636f8147cf7a28ce59f4c5674`；20/20 解压部件 byte-identical。Installed Node/CLI、Chrome、exact OOXML 与 PowerPoint 2010 profile 均通过，validation 为 0 errors / 0 warnings。PptxGenJS `[1,2,3,4]` margin 实际写成 TRBL `4/2/3/1`，native 有意保持文档化 `1/2/3/4`。完整逐项状态见 [PptxGenJS public-surface audit](./docs/compatibility/pptxgenjs-surface-audit.md)。
 
 ## 开发
 

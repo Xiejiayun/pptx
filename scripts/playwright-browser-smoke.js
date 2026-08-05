@@ -20,6 +20,10 @@ async (page) => {
     `${chartPresentationWorkspace}/scripts/shape-text-transform-identity-13-lifecycle-probe.mjs`,
     'utf8',
   );
+  const coreContentPrimitiveInputs14ProbeSource = await readFile(
+    `${chartPresentationWorkspace}/scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs`,
+    'utf8',
+  );
   const chartPresentationFixtureBase64 = Buffer
     .from(chartPresentationFixtureBytes).toString('base64');
   const chartPresentationProbeBase64 = Buffer
@@ -28,6 +32,8 @@ async (page) => {
     .from(imageIdentityEffects5ProbeSource).toString('base64');
   const shapeTextTransformIdentity13ProbeBase64 = Buffer
     .from(shapeTextTransformIdentity13ProbeSource).toString('base64');
+  const coreContentPrimitiveInputs14ProbeBase64 = Buffer
+    .from(coreContentPrimitiveInputs14ProbeSource).toString('base64');
   const consoleErrors = [];
   const pageErrors = [];
   const networkErrors = [];
@@ -51,6 +57,7 @@ async (page) => {
       chartPresentationProbeBase64: presentationProbeBase64,
       imageIdentityEffects5ProbeBase64: imageEffectsProbeBase64,
       shapeTextTransformIdentity13ProbeBase64: shapeTextIdentityProbeBase64,
+      coreContentPrimitiveInputs14ProbeBase64: coreContentProbeBase64,
     }) => {
       const binary = atob(base64);
       const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
@@ -108,6 +115,41 @@ async (page) => {
       globalThis.__pptxShapeTextTransformIdentity13EvidenceBlob = new Blob(
         [shapeTextTransformIdentity13Probe.explicitOutputBytes],
         { type: shapeTextTransformIdentity13Probe.mime },
+      );
+      const coreContentPrimitiveInputs14ProbeModule = await import(
+        `data:text/javascript;base64,${coreContentProbeBase64}`
+      );
+      const coreContentPrimitiveInputs14Probe =
+        await coreContentPrimitiveInputs14ProbeModule
+          .runCoreContentPrimitiveInputs14LifecycleProbe(api);
+      const coreContentPrimitiveInputs14 = coreContentPrimitiveInputs14Probe.ok;
+      const coreContentPrimitiveInputs14State = {
+        created: coreContentPrimitiveInputs14Probe.state.created.texts.join('|') ===
+          'Plain string|Hex run Theme run|Zero margin' &&
+          coreContentPrimitiveInputs14Probe.state.created.cells
+            .map(({ text }) => text).join('|') ===
+              'Bare string cell|Structured plain cell|Rich cell hex rich cell theme',
+        sourceIsolation: coreContentPrimitiveInputs14Probe.state.sourceIsolation,
+        noOp: coreContentPrimitiveInputs14Probe.state.noOp,
+        invalidIsolation: coreContentPrimitiveInputs14Probe.state.invalidIsolation,
+        rollback: coreContentPrimitiveInputs14Probe.state.rollback,
+        edited: coreContentPrimitiveInputs14Probe.state.edited.texts.join('|') ===
+          'Plain edited|Edited hex Edited theme|Zero margin' &&
+          coreContentPrimitiveInputs14Probe.state.edited.cells
+            .map(({ text }) => text).join('|') ===
+              'Bare edited|Structured plain cell|Edited table theme',
+        reopened: JSON.stringify(coreContentPrimitiveInputs14Probe.state.reopened) ===
+          JSON.stringify(coreContentPrimitiveInputs14Probe.state.edited),
+        relationshipStability:
+          coreContentPrimitiveInputs14Probe.state.relationshipStability,
+        exactOoxml: Object.values(coreContentPrimitiveInputs14Probe.state.exactOoxml)
+          .every(Boolean),
+        diagnostics: Object.values(coreContentPrimitiveInputs14Probe.state.diagnostics)
+          .every((count) => count === 0),
+      };
+      globalThis.__pptxCoreContentPrimitiveInputs14EvidenceBlob = new Blob(
+        [coreContentPrimitiveInputs14Probe.explicitOutputBytes],
+        { type: coreContentPrimitiveInputs14Probe.mime },
       );
       const chartPresentationProbeModule = await import(
         `data:text/javascript;base64,${presentationProbeBase64}`
@@ -8006,6 +8048,8 @@ async (page) => {
         imageIdentityEffects5State,
         shapeTextTransformIdentity13,
         shapeTextTransformIdentity13State,
+        coreContentPrimitiveInputs14,
+        coreContentPrimitiveInputs14State,
         chartPresentation91,
         chartPresentation91State,
         chartPresentation: chartPresentation91,
@@ -8024,6 +8068,7 @@ async (page) => {
       chartPresentationProbeBase64,
       imageIdentityEffects5ProbeBase64,
       shapeTextTransformIdentity13ProbeBase64,
+      coreContentPrimitiveInputs14ProbeBase64,
       base64: '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',
     },
   );
@@ -8063,6 +8108,25 @@ async (page) => {
     await writeFile(
       shapeTextTransformIdentity13EvidenceOutput,
       Uint8Array.from(shapeTextTransformIdentity13EvidenceBytes),
+    );
+  }
+  result.coreContentPrimitiveInputs14EvidenceFileName =
+    'browser-core-content-primitive-inputs-14.pptx';
+  const coreContentPrimitiveInputs14EvidenceOutput = typeof process !== 'undefined'
+    ? process.env.PPTX_BROWSER_CORE_CONTENT_PRIMITIVE_INPUTS_OUT
+      ?? globalThis.__pptxBrowserCoreContentPrimitiveInputs14Output
+    : globalThis.__pptxBrowserCoreContentPrimitiveInputs14Output;
+  if (typeof coreContentPrimitiveInputs14EvidenceOutput === 'string') {
+    const coreContentPrimitiveInputs14EvidenceBytes = await page.evaluate(async () => {
+      const blob = globalThis.__pptxCoreContentPrimitiveInputs14EvidenceBlob;
+      if (!(blob instanceof Blob)) {
+        throw new Error('Missing core content/primitive inputs evidence Blob');
+      }
+      return Array.from(new Uint8Array(await blob.arrayBuffer()));
+    });
+    await writeFile(
+      coreContentPrimitiveInputs14EvidenceOutput,
+      Uint8Array.from(coreContentPrimitiveInputs14EvidenceBytes),
     );
   }
   result.chartPresentation91EvidenceFileName = 'browser-chart-presentation-91.pptx';
@@ -9829,6 +9893,19 @@ async (page) => {
       exactOoxml: true,
       diagnostics: true,
     },
+    coreContentPrimitiveInputs14: true,
+    coreContentPrimitiveInputs14State: {
+      created: true,
+      sourceIsolation: true,
+      noOp: true,
+      invalidIsolation: true,
+      rollback: true,
+      edited: true,
+      reopened: true,
+      relationshipStability: true,
+      exactOoxml: true,
+      diagnostics: true,
+    },
     chartPresentation91: true,
     chartPresentation91State: {
       fixtureShape: true,
@@ -9859,6 +9936,8 @@ async (page) => {
       'browser-image-identity-effects-5.pptx',
     shapeTextTransformIdentity13EvidenceFileName:
       'browser-shape-text-transform-identity-13.pptx',
+    coreContentPrimitiveInputs14EvidenceFileName:
+      'browser-core-content-primitive-inputs-14.pptx',
     chartPresentation91EvidenceFileName: 'browser-chart-presentation-91.pptx',
     chartPresentationEvidenceFileName: 'browser-chart-presentation-91.pptx',
     textBoxFitEvidenceFileName: 'browser-text-box-fit.pptx',

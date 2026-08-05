@@ -525,3 +525,9 @@ Presentation RTL 通过 `CreatePresentationOptions.rtlMode` 创建，并可由 `
 段落 RTL 通过 `AddTextOptions.rtlMode` 提供 plain/rich 创建默认值，`RichTextParagraph.rtl` 可逐段覆盖。true/false 分别写 direct `pPr@rtl="1"` / `"0"`；setter 中省略字段会清除 direct override。getter 只接受 `1/true/on` 与 `0/false/off`，未知 token 返回 `undefined` 并在无关编辑中原样保留。该能力不读取或修改 `bodyPr@rtlCol` 或 presentation-level RTL，也不自动交换 alignment。PptxGenJS 4.0.1 的 valid outer true 多段输出可直接导入；其 run-level `rtlMode` 会在同一 paragraph 中插入重复且位置非法的 `pPr`，因此本库不公开 run-level RTL。
 
 原生创建会生成可重新打开和验证的 master/layout/theme 关系链，不通过 adapter，也不在运行时安装或调用 PptxGenJS。
+
+### Core content and primitive inputs
+
+PptxGenJS 4.0.1 的 plain `TextProps.text`、plain table-cell string、plain `addText()` string、percentage coordinate 与 scalar margin 五种原子输入可直接投影到相同最终状态。Native 继续用 `RichTextParagraph[]` / `RichTextRun`、discriminated sRGB/scheme `RichTextColor`、percentage 或显式 EMU/`inches()` coordinate，以及文档化 top/right/bottom/left margin；不会把 PptxGenJS flat `TextProps[]`、recursive `TableCell[]`、permissive color string、implicit-inch number 或宽松 structured options 复制成第二套 native API。
+
+Runtime control 还锁定了非对称 margin 差异：PptxGenJS `[1,2,3,4]` 最终写成 top/right/bottom/left `4/2/3/1`，native `[1,2,3,4]` 有意保持文档顺序 `1/2/3/4`。统一 lifecycle probe 对 create/edit/reopen、strict invalid isolation、rollback、relationship stability、owner-bound OOXML 与 0 error / 0 warning diagnostics 执行一次批量门禁。该能力族关闭 14 项后，权威逐声明原子矩阵为 1,734/1,774（97.75%），剩余 40 项。

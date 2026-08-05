@@ -42,6 +42,13 @@ try {
       'utf8',
     ),
   );
+  await writeFile(
+    join(directory, 'core-content-primitive-inputs-14-lifecycle-probe.mjs'),
+    await readFile(
+      join(repositoryRoot, 'scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs'),
+      'utf8',
+    ),
+  );
   run('npm', [
     'install',
     '--ignore-scripts',
@@ -460,12 +467,13 @@ try {
 
   await writeFile(
     join(directory, 'smoke.mjs'),
-    `import { readFile } from 'node:fs/promises';
+    `import { readFile, writeFile } from 'node:fs/promises';
 import { Readable, Writable } from 'node:stream';
 import { CHART_TYPES, ChartModel, calculateImageSizing, chartWorkbookMatches, CustomGeometryEvaluationError, degrees, evaluateCustomGeometry, ImageModel, inches, inspectImage, inspectRasterImage, inspectSvgImage, MediaCodec, MediaModel, OUTPUT_TYPES, PLACEHOLDER_TYPES, PRESET_SHAPE_TYPES, PPTX_VERSION, PptxDocument, SCHEME_COLORS, ShapeModel, SlideLayoutModel, SlideMasterModel, TableModel, TEXT_ALIGNMENTS, TEXT_VERTICAL_ALIGNMENTS, GradientCodec, importPptxGenJS, transitions, animations, advancedCharts, smartArt } from '@jiayunxie/pptx';
 import { runChartPresentation91LifecycleProbe } from './chart-presentation-91-lifecycle-probe.mjs';
 import { runImageIdentityEffects5LifecycleProbe } from './image-identity-effects-5-lifecycle-probe.mjs';
 import { runShapeTextTransformIdentity13LifecycleProbe } from './shape-text-transform-identity-13-lifecycle-probe.mjs';
+import { runCoreContentPrimitiveInputs14LifecycleProbe } from './core-content-primitive-inputs-14-lifecycle-probe.mjs';
 const installedManifestVersion = ${JSON.stringify(manifest.version)};
 const chartPresentation91Probe = await runChartPresentation91LifecycleProbe(
   { ChartModel, PptxDocument, chartWorkbookMatches },
@@ -516,6 +524,35 @@ const shapeTextTransformIdentity13State = {
 };
 await (await PptxDocument.open(shapeTextTransformIdentity13Probe.explicitOutputBytes))
   .writeFile('shape-text-transform-identity-13-smoke.pptx');
+const coreContentPrimitiveInputs14Probe =
+  await runCoreContentPrimitiveInputs14LifecycleProbe({ PptxDocument, inches });
+const coreContentPrimitiveInputs14 = coreContentPrimitiveInputs14Probe.ok;
+const coreContentPrimitiveInputs14State = {
+  created: coreContentPrimitiveInputs14Probe.state.created.texts.join('|') ===
+    'Plain string|Hex run Theme run|Zero margin' &&
+    coreContentPrimitiveInputs14Probe.state.created.cells.map(({ text }) => text).join('|') ===
+      'Bare string cell|Structured plain cell|Rich cell hex rich cell theme',
+  sourceIsolation: coreContentPrimitiveInputs14Probe.state.sourceIsolation,
+  noOp: coreContentPrimitiveInputs14Probe.state.noOp,
+  invalidIsolation: coreContentPrimitiveInputs14Probe.state.invalidIsolation,
+  rollback: coreContentPrimitiveInputs14Probe.state.rollback,
+  edited: coreContentPrimitiveInputs14Probe.state.edited.texts.join('|') ===
+    'Plain edited|Edited hex Edited theme|Zero margin' &&
+    coreContentPrimitiveInputs14Probe.state.edited.cells.map(({ text }) => text).join('|') ===
+      'Bare edited|Structured plain cell|Edited table theme',
+  reopened: JSON.stringify(coreContentPrimitiveInputs14Probe.state.reopened) ===
+    JSON.stringify(coreContentPrimitiveInputs14Probe.state.edited),
+  relationshipStability:
+    coreContentPrimitiveInputs14Probe.state.relationshipStability,
+  exactOoxml: Object.values(coreContentPrimitiveInputs14Probe.state.exactOoxml)
+    .every(Boolean),
+  diagnostics: Object.values(coreContentPrimitiveInputs14Probe.state.diagnostics)
+    .every((count) => count === 0),
+};
+await writeFile(
+  'core-content-primitive-inputs-14-smoke.pptx',
+  coreContentPrimitiveInputs14Probe.explicitOutputBytes,
+);
 const created = PptxDocument.create({ rtlMode: true });
 const slideNumberDeck = PptxDocument.create({ firstSlideNumber: 5 });
 const packedNumberSource = slideNumberDeck.addSlide();
@@ -10997,6 +11034,8 @@ const checks = {
   imageIdentityEffects5State,
   shapeTextTransformIdentity13,
   shapeTextTransformIdentity13State,
+  coreContentPrimitiveInputs14,
+  coreContentPrimitiveInputs14State,
   chartPresentation91,
   chartPresentation91State,
   chartAxisAdvanced,
@@ -18240,6 +18279,189 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
       !imageIdentityEffects5DuplicateXml.includes('<a:innerShdw')) {
     throw new Error('CLI image identity/effects OOXML inspection failed');
   }
+  const coreContentPrimitiveInputs14DeckPath = join(
+    directory,
+    'core-content-primitive-inputs-14-smoke.pptx',
+  );
+  const coreContentPrimitiveInputs14InspectResult = run(
+    bin,
+    ['--json', 'package', 'inspect', coreContentPrimitiveInputs14DeckPath],
+    directory,
+  );
+  const coreContentPrimitiveInputs14Inspected = JSON.parse(
+    coreContentPrimitiveInputs14InspectResult.stdout,
+  );
+  if (!coreContentPrimitiveInputs14Inspected.ok ||
+      coreContentPrimitiveInputs14Inspected.data?.partCount !== 20 ||
+      coreContentPrimitiveInputs14Inspected.data?.contentTypes?.[
+        'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+      ] !== 2 ||
+      Object.keys(coreContentPrimitiveInputs14Inspected.data?.contentTypes ?? {})
+        .some((contentType) => contentType.startsWith('image/'))) {
+    throw new Error(
+      'CLI core content/primitive inputs inspect failed: ' +
+      coreContentPrimitiveInputs14InspectResult.stdout,
+    );
+  }
+  const coreContentPrimitiveInputs14ValidateResult = run(
+    bin,
+    [
+      '--json', 'package', 'validate', coreContentPrimitiveInputs14DeckPath,
+      '--profile', 'powerpoint-2010',
+    ],
+    directory,
+  );
+  const coreContentPrimitiveInputs14Validated = JSON.parse(
+    coreContentPrimitiveInputs14ValidateResult.stdout,
+  );
+  if (!coreContentPrimitiveInputs14Validated.ok ||
+      !coreContentPrimitiveInputs14Validated.data?.valid ||
+      coreContentPrimitiveInputs14Validated.data.errorCount !== 0 ||
+      coreContentPrimitiveInputs14Validated.data.warningCount !== 0 ||
+      coreContentPrimitiveInputs14Validated.data.diagnostics?.length !== 0) {
+    throw new Error(
+      'CLI core content/primitive inputs validation failed: ' +
+      coreContentPrimitiveInputs14ValidateResult.stdout,
+    );
+  }
+  const coreContentPrimitiveInputs14SlidesResult = run(
+    bin,
+    ['--json', 'slides', 'list', coreContentPrimitiveInputs14DeckPath],
+    directory,
+  );
+  const coreContentPrimitiveInputs14Slides = JSON.parse(
+    coreContentPrimitiveInputs14SlidesResult.stdout,
+  );
+  if (!coreContentPrimitiveInputs14Slides.ok ||
+      coreContentPrimitiveInputs14Slides.data?.length !== 2 ||
+      coreContentPrimitiveInputs14Slides.data[0]?.shapeCount !== 3 ||
+      coreContentPrimitiveInputs14Slides.data[1]?.shapeCount !== 1) {
+    throw new Error(
+      'CLI core content/primitive inputs slides failed: ' +
+      coreContentPrimitiveInputs14SlidesResult.stdout,
+    );
+  }
+  const coreContentPrimitiveInputs14TextPartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', coreContentPrimitiveInputs14DeckPath,
+      '/ppt/slides/slide1.xml',
+    ],
+    directory,
+  );
+  const coreContentPrimitiveInputs14TablePartResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', coreContentPrimitiveInputs14DeckPath,
+      '/ppt/slides/slide2.xml',
+    ],
+    directory,
+  );
+  const coreContentPrimitiveInputs14TextRelationshipsResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', coreContentPrimitiveInputs14DeckPath,
+      '/ppt/slides/_rels/slide1.xml.rels',
+    ],
+    directory,
+  );
+  const coreContentPrimitiveInputs14TableRelationshipsResult = run(
+    bin,
+    [
+      '--json', 'part', 'read', coreContentPrimitiveInputs14DeckPath,
+      '/ppt/slides/_rels/slide2.xml.rels',
+    ],
+    directory,
+  );
+  const coreContentPrimitiveInputs14TextPart = JSON.parse(
+    coreContentPrimitiveInputs14TextPartResult.stdout,
+  );
+  const coreContentPrimitiveInputs14TablePart = JSON.parse(
+    coreContentPrimitiveInputs14TablePartResult.stdout,
+  );
+  const coreContentPrimitiveInputs14TextRelationships = JSON.parse(
+    coreContentPrimitiveInputs14TextRelationshipsResult.stdout,
+  );
+  const coreContentPrimitiveInputs14TableRelationships = JSON.parse(
+    coreContentPrimitiveInputs14TableRelationshipsResult.stdout,
+  );
+  const coreContentPrimitiveInputs14TextXml =
+    coreContentPrimitiveInputs14TextPart.data?.content ?? '';
+  const coreContentPrimitiveInputs14TableXml =
+    coreContentPrimitiveInputs14TablePart.data?.content ?? '';
+  const coreContentPrimitiveInputs14OwnerXml = (xml, name, tag) => {
+    const identityIndex = xml.indexOf(`name="${name}"`);
+    const start = xml.lastIndexOf(`<${tag}`, identityIndex);
+    const end = xml.indexOf(`</${tag}>`, identityIndex);
+    return identityIndex < 0 || start < 0 || end < 0
+      ? ''
+      : xml.slice(start, end + tag.length + 3);
+  };
+  const coreContentPrimitiveInputs14PlainXml =
+    coreContentPrimitiveInputs14OwnerXml(
+      coreContentPrimitiveInputs14TextXml,
+      'Core plain string',
+      'p:sp',
+    );
+  const coreContentPrimitiveInputs14RichXml =
+    coreContentPrimitiveInputs14OwnerXml(
+      coreContentPrimitiveInputs14TextXml,
+      'Core rich runs',
+      'p:sp',
+    );
+  const coreContentPrimitiveInputs14ZeroXml =
+    coreContentPrimitiveInputs14OwnerXml(
+      coreContentPrimitiveInputs14TextXml,
+      'Core zero margin',
+      'p:sp',
+    );
+  const coreContentPrimitiveInputs14TableOwnerXml =
+    coreContentPrimitiveInputs14OwnerXml(
+      coreContentPrimitiveInputs14TableXml,
+      'Core primitive table',
+      'p:graphicFrame',
+    );
+  const coreContentPrimitiveInputs14RelationshipXml = [
+    coreContentPrimitiveInputs14TextRelationships.data?.content ?? '',
+    coreContentPrimitiveInputs14TableRelationships.data?.content ?? '',
+  ];
+  if (!coreContentPrimitiveInputs14TextPart.ok ||
+      !coreContentPrimitiveInputs14TablePart.ok ||
+      !coreContentPrimitiveInputs14TextRelationships.ok ||
+      !coreContentPrimitiveInputs14TableRelationships.ok ||
+      !coreContentPrimitiveInputs14PlainXml.includes(
+        '<a:off x="914400" y="731520"/><a:ext cx="2743200" cy="914400"/>',
+      ) ||
+      !coreContentPrimitiveInputs14PlainXml.includes(
+        'lIns="127000" tIns="127000" rIns="127000" bIns="127000"',
+      ) ||
+      !coreContentPrimitiveInputs14RichXml.includes(
+        '<a:off x="914400" y="1828800"/><a:ext cx="4572000" cy="1463040"/>',
+      ) ||
+      !coreContentPrimitiveInputs14RichXml.includes(
+        'lIns="50800" tIns="12700" rIns="25400" bIns="38100"',
+      ) ||
+      !coreContentPrimitiveInputs14RichXml.includes('<a:srgbClr val="ABCDEF"/>') ||
+      !coreContentPrimitiveInputs14RichXml.includes('<a:schemeClr val="accent4"/>') ||
+      !coreContentPrimitiveInputs14ZeroXml.includes(
+        'lIns="0" tIns="0" rIns="0" bIns="0"',
+      ) ||
+      !coreContentPrimitiveInputs14TableOwnerXml.includes('Bare edited') ||
+      !coreContentPrimitiveInputs14TableOwnerXml.includes('Structured plain cell') ||
+      !coreContentPrimitiveInputs14TableOwnerXml.includes('Edited table') ||
+      !coreContentPrimitiveInputs14TableOwnerXml.includes(
+        '<a:srgbClr val="445566"/>',
+      ) ||
+      !coreContentPrimitiveInputs14TableOwnerXml.includes(
+        '<a:schemeClr val="accent5"/>',
+      ) ||
+      coreContentPrimitiveInputs14RelationshipXml.some((xml) =>
+        (xml.match(/<Relationship\b/gu) ?? []).length !== 1 ||
+        !xml.includes('/relationships/slideLayout"') ||
+        !xml.includes('Target="../slideLayouts/slideLayout1.xml"')
+      )) {
+    throw new Error('CLI core content/primitive inputs OOXML inspection failed');
+  }
   const shapeTextTransformIdentity13DeckPath = join(
     directory,
     'shape-text-transform-identity-13-smoke.pptx',
@@ -19624,6 +19846,11 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
     await mkdir(dirname(output), { recursive: true });
     await writeFile(output, await readFile(shapeTextTransformIdentity13DeckPath));
   }
+  if (process.env.PPTX_CORE_CONTENT_PRIMITIVE_INPUTS_OUT) {
+    const output = resolve(process.env.PPTX_CORE_CONTENT_PRIMITIVE_INPUTS_OUT);
+    await mkdir(dirname(output), { recursive: true });
+    await writeFile(output, await readFile(coreContentPrimitiveInputs14DeckPath));
+  }
   if (process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT) {
     const galleryOutput = resolve(process.env.PPTX_SLIDE_BACKGROUND_GALLERY_OUT);
     await mkdir(dirname(galleryOutput), { recursive: true });
@@ -19722,6 +19949,14 @@ void [documentPromise, createdDocument, typedMasterWrite, typedChartDefinition,
     summary.shapeTextTransformIdentity13Slides = true;
     summary.shapeTextTransformIdentity13PartRead = true;
     summary.shapeTextTransformIdentity13Relationships = true;
+    summary.coreContentPrimitiveInputs14 = apiChecks.coreContentPrimitiveInputs14;
+    summary.coreContentPrimitiveInputs14State =
+      apiChecks.coreContentPrimitiveInputs14State;
+    summary.coreContentPrimitiveInputs14Inspect = true;
+    summary.coreContentPrimitiveInputs14Validate = true;
+    summary.coreContentPrimitiveInputs14Slides = true;
+    summary.coreContentPrimitiveInputs14PartRead = true;
+    summary.coreContentPrimitiveInputs14Relationships = true;
     summary.tableMargins = apiChecks.tableMargins;
     summary.tableMarginsState = apiChecks.tableMarginsState;
     summary.tableMarginsInspect = true;

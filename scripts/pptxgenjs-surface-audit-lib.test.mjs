@@ -124,14 +124,40 @@ function assertDeepFrozen(value, seen = new Set()) {
 test('exports an immutable evidence-backed initial manifest batch', () => {
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.schemaVersion, 1);
   assert.equal(PPTXGENJS_SURFACE_MANIFEST.packageVersion, '4.0.1');
-  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1720);
+  assert.equal(PPTXGENJS_SURFACE_MANIFEST.entries.length, 1734);
   assert.deepEqual(
     PPTXGENJS_SURFACE_MANIFEST.entries.map(({ status }) => status).sort(),
     [
       ...Array(371).fill('defect-excluded'),
-      ...Array(747).fill('supported'),
-      ...Array(508).fill('deliberate-difference'),
+      ...Array(752).fill('supported'),
+      ...Array(517).fill('deliberate-difference'),
       ...Array(94).fill('deprecated-alias'),
+    ].sort(),
+  );
+  const coreContentPrimitiveInputsIds = new Set([
+    'interface:TableCell@property:options',
+    'interface:TableCell@property:text',
+    'interface:TextProps@property:options',
+    'interface:TextProps@property:text',
+    'union:interface:TableCell@property:text#TableCell[]',
+    'union:interface:TableCell@property:text#string',
+    'union:method:Slide#addText@path:text#TextProps[]',
+    'union:method:Slide#addText@path:text#string',
+    'union:Color#HexColor',
+    'union:Color#ThemeColor',
+    'union:Coord#${number}%',
+    'union:Coord#number',
+    'union:Margin#[number,number,number,number]',
+    'union:Margin#number',
+  ]);
+  const coreContentPrimitiveInputsEntries = PPTXGENJS_SURFACE_MANIFEST.entries
+    .filter(({ id }) => coreContentPrimitiveInputsIds.has(id));
+  assert.equal(coreContentPrimitiveInputsEntries.length, 14);
+  assert.deepEqual(
+    coreContentPrimitiveInputsEntries.map(({ status }) => status).sort(),
+    [
+      ...Array(5).fill('supported'),
+      ...Array(9).fill('deliberate-difference'),
     ].sort(),
   );
   const lineFamilyEntries = PPTXGENJS_SURFACE_MANIFEST.entries.filter(({ id }) =>

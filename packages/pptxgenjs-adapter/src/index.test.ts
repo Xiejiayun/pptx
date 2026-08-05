@@ -7295,6 +7295,245 @@ describe('importPptxGenJS', () => {
     }
   }, 20_000);
 
+  it('closes PptxGenJS core content and primitive inputs through strict native state', async () => {
+    const classifications = [
+      ...[
+        'interface:TextProps@property:text',
+        'union:interface:TableCell@property:text#string',
+        'union:method:Slide#addText@path:text#string',
+        'union:Coord#${number}%',
+        'union:Margin#number',
+      ].map((id) => ({ id, status: 'supported' })),
+      ...[
+        'interface:TableCell@property:options',
+        'interface:TableCell@property:text',
+        'interface:TextProps@property:options',
+        'union:interface:TableCell@property:text#TableCell[]',
+        'union:method:Slide#addText@path:text#TextProps[]',
+        'union:Color#HexColor',
+        'union:Color#ThemeColor',
+        'union:Coord#number',
+        'union:Margin#[number,number,number,number]',
+      ].map((id) => ({ id, status: 'deliberate-difference' })),
+    ].sort((left, right) => left.id.localeCompare(right.id));
+    expect(classifications).toHaveLength(14);
+    expect(new Set(classifications.map(({ id }) => id)).size).toBe(14);
+    expect({
+      supported: classifications.filter(({ status }) => status === 'supported').length,
+      deliberate: classifications.filter(
+        ({ status }) => status === 'deliberate-difference',
+      ).length,
+    }).toEqual({ supported: 5, deliberate: 9 });
+
+    const generated = new PptxGenJS();
+    expect(generated.version).toBe('4.0.1');
+    generated.defineLayout({ name: 'CORE_PRIMITIVES_10X8', width: 10, height: 8 });
+    generated.layout = 'CORE_PRIMITIVES_10X8';
+    const first = generated.addSlide();
+    first.addText('Plain string', {
+      objectName: 'Core plain string',
+      x: 1,
+      y: '10%',
+      w: '30%',
+      h: 1,
+      margin: 10,
+    });
+    first.addText([
+      { text: 'Hex run', options: { bold: true, color: '112233' } },
+      {
+        text: ' Theme run',
+        options: { italic: true, color: generated.SchemeColor.accent2 },
+      },
+    ], {
+      objectName: 'Core rich runs',
+      x: '10%',
+      y: 2,
+      w: 5,
+      h: '20%',
+      margin: [1, 2, 3, 4],
+    });
+    first.addText('Zero margin', {
+      objectName: 'Core zero margin',
+      x: 1,
+      y: 4,
+      w: 2,
+      h: 0.5,
+      margin: 0,
+    });
+    const second = generated.addSlide();
+    second.addTable([[
+      'Bare string cell',
+      {
+        text: 'Structured plain cell',
+        options: { bold: true, color: '445566', margin: 0 },
+      },
+      {
+        text: [
+          { text: 'Rich cell hex', options: { bold: true, color: 'AABBCC' } },
+          {
+            text: ' rich cell theme',
+            options: { italic: true, color: generated.SchemeColor.accent3 },
+          },
+        ],
+        options: { margin: [1, 2, 3, 4] },
+      },
+    ]], {
+      objectName: 'Core primitive table',
+      x: 1,
+      y: 1,
+      w: 8,
+      h: 1.5,
+      margin: 0,
+    });
+
+    const imported = await openPptxGenJSPublicOutput(generated);
+    const [plain, rich, zero] = imported.slides[0]!.shapes as readonly ShapeModel[];
+    const table = imported.slides[1]!.shapes[0] as TableModel;
+    expect([plain!.text, rich!.text, zero!.text]).toEqual([
+      'Plain string',
+      'Hex run Theme run',
+      'Zero margin',
+    ]);
+    expect(plain!.transform).toEqual({
+      x: 914_400,
+      y: 731_520,
+      width: 2_743_200,
+      height: 914_400,
+      rotation: 0,
+      flipHorizontal: false,
+      flipVertical: false,
+    });
+    expect(rich!.transform).toEqual({
+      x: 914_400,
+      y: 1_828_800,
+      width: 4_572_000,
+      height: 1_463_040,
+      rotation: 0,
+      flipHorizontal: false,
+      flipVertical: false,
+    });
+    expect(plain!.textMargins).toEqual({ top: 10, right: 10, bottom: 10, left: 10 });
+    expect(rich!.textMargins).toEqual({ top: 4, right: 2, bottom: 3, left: 1 });
+    expect(zero!.textMargins).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+    expect(rich!.richText[0]!.runs.map(({ text, style }) => ({
+      text,
+      color: style?.color,
+    }))).toEqual([
+      { text: 'Hex run', color: { kind: 'srgb', value: '112233' } },
+      { text: ' Theme run', color: { kind: 'scheme', value: 'accent2' } },
+    ]);
+    expect(table).toBeInstanceOf(TableModel);
+    expect(table.rows[0]!.cells.map(({ text }) => text)).toEqual([
+      'Bare string cell',
+      'Structured plain cell',
+      'Rich cell hex rich cell theme',
+    ]);
+    expect(table.rows[0]!.cells[1]!.richText[0]!.runs[0]!.style?.color).toEqual({
+      kind: 'srgb',
+      value: '445566',
+    });
+    expect(table.rows[0]!.cells[2]!.richText[0]!.runs.map(({ text, style }) => ({
+      text,
+      color: style?.color,
+    }))).toEqual([
+      { text: 'Rich cell hex', color: { kind: 'srgb', value: 'AABBCC' } },
+      { text: ' rich cell theme', color: { kind: 'scheme', value: 'accent3' } },
+    ]);
+
+    const ownerXml = (xml: string, name: string, tag = 'p:sp'): string => {
+      const identityOffset = xml.indexOf(`name="${name}"`);
+      const start = xml.lastIndexOf(`<${tag}`, identityOffset);
+      const end = xml.indexOf(`</${tag}>`, identityOffset);
+      expect(identityOffset).toBeGreaterThanOrEqual(0);
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(end).toBeGreaterThan(identityOffset);
+      return xml.slice(start, end + tag.length + 3);
+    };
+    const firstXml = slideXml(imported, 0);
+    const secondXml = slideXml(imported, 1);
+    const publicRichXml = ownerXml(firstXml, 'Core rich runs');
+    expect(ownerXml(firstXml, 'Core plain string')).toContain(
+      'lIns="127000" tIns="127000" rIns="127000" bIns="127000"',
+    );
+    expect(publicRichXml).toContain(
+      'lIns="12700" tIns="50800" rIns="25400" bIns="38100"',
+    );
+    expect(ownerXml(firstXml, 'Core zero margin')).toContain(
+      'lIns="0" tIns="0" rIns="0" bIns="0"',
+    );
+    expect(publicRichXml).toContain('<a:srgbClr val="112233"/>');
+    expect(publicRichXml).toContain('<a:schemeClr val="accent2"/>');
+    expect(ownerXml(secondXml, 'Core primitive table', 'p:graphicFrame')).toContain(
+      '<a:schemeClr val="accent3"/>',
+    );
+
+    const native = PptxDocument.create({
+      slideSize: { width: inches(10), height: inches(8) },
+    });
+    const nativeSlide = native.addSlide();
+    const nativePercent = nativeSlide.addText('Native explicit units', {
+      x: inches(1),
+      y: '10%',
+      width: '30%',
+      height: inches(1),
+    });
+    nativeSlide.addRichText([{
+      runs: [
+        { text: 'Native hex', style: { color: { kind: 'srgb', value: '112233' } } },
+        {
+          text: ' native theme',
+          style: { color: { kind: 'scheme', value: 'accent2' } },
+        },
+      ],
+    }], {
+      name: 'Native documented tuple',
+      margin: [1, 2, 3, 4],
+    });
+    expect(nativePercent.transform).toEqual(plain!.transform);
+    expect(ownerXml(slideXml(native, 0), 'Native documented tuple')).toContain(
+      'lIns="50800" tIns="12700" rIns="25400" bIns="38100"',
+    );
+
+    plain!.text = 'Plain edited';
+    rich!.richText = [{
+      runs: [
+        {
+          text: 'Edited hex',
+          style: { bold: true, color: { kind: 'srgb', value: 'ABCDEF' } },
+        },
+        {
+          text: ' Edited theme',
+          style: { italic: true, color: { kind: 'scheme', value: 'accent4' } },
+        },
+      ],
+    }];
+    table.setCellRichText(0, 2, [{
+      runs: [
+        { text: 'Edited table', style: { color: { kind: 'srgb', value: '123456' } } },
+        { text: ' theme', style: { color: { kind: 'scheme', value: 'accent5' } } },
+      ],
+    }]);
+    const reopened = await PptxDocument.open(await imported.write({
+      compatibility: 'powerpoint-2010',
+    }));
+    const reopenedTexts = reopened.slides[0]!.shapes as readonly ShapeModel[];
+    expect(reopenedTexts.map((shape) => shape.text)).toEqual([
+      'Plain edited',
+      'Edited hex Edited theme',
+      'Zero margin',
+    ]);
+    expect((reopened.slides[1]!.shapes[0] as TableModel)
+      .rows[0]!.cells[2]!.richText[0]!.runs.map(({ text, style }) => ({
+        text,
+        color: style?.color,
+      }))).toEqual([
+      { text: 'Edited table', color: { kind: 'srgb', value: '123456' } },
+      { text: ' theme', color: { kind: 'scheme', value: 'accent5' } },
+    ]);
+    expect(imported.diagnostics).toEqual([]);
+    expect(reopened.diagnostics).toEqual([]);
+  }, 20_000);
+
   it('closes PptxGenJS shape and text transform identity through strict native state', async () => {
     const classifications = [
       ...['flipH', 'flipV', 'objectName', 'rectRadius', 'rotate'].map((property) => ({

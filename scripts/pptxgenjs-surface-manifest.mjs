@@ -5191,6 +5191,910 @@ const SHAPE_TEXT_TRANSFORM_IDENTITY_FAMILY_ENTRIES = Object.freeze(
   SHAPE_TEXT_TRANSFORM_IDENTITY_IDS.map((id) => shapeTextTransformIdentityEntry(id)),
 );
 
+const CORE_CONTENT_PRIMITIVE_INPUTS_14_FAMILY_ENTRIES = Object.freeze(
+  [
+    {
+      "id": "interface:TableCell@property:options",
+      "status": "deliberate-difference",
+      "native": [
+        "AddTableCell.options",
+        "AddTableCellOptions",
+        "TableCell",
+        "TableModel"
+      ],
+      "evidence": {
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTableCellOptions {"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "readonly options?: AddTableCellOptions;"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.ts",
+            "pattern": "export function normalizeTableDefinition("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS core content and primitive inputs through strict native state"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates table-cell text style defaults through the public SDK and root surface"
+          },
+          {
+            "path": "packages/model/src/table-create.internal.test.ts",
+            "title": "normalizes and renders strict table-cell text style defaults"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const coreContentPrimitiveInputs14Probe ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const coreContentPrimitiveInputs14State = {"
+          }
+        ]
+      },
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS core content and primitive inputs through strict native state"
+      },
+      "serialization": true,
+      "client": true,
+      "note": "Native preserves legal structured table-cell options through strict AddTableCellOptions and editable cell state, while intentionally excluding PptxGenJS aliases, coercions, and owner-inapplicable options."
+    },
+    {
+      "id": "interface:TableCell@property:text",
+      "status": "deliberate-difference",
+      "native": [
+        "AddTableCell.text",
+        "RichTextParagraph",
+        "TableCell.richText",
+        "TableModel.setCellRichText"
+      ],
+      "evidence": {
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "readonly text: string | readonly RichTextParagraph[];"
+          },
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "export interface RichTextParagraph {"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "setCellRichText("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS core content and primitive inputs through strict native state"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and edits legal PptxGenJS rich table-cell text semantically"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and edits rich table-cell text through the public SDK surface"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const coreContentPrimitiveInputs14Probe ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const coreContentPrimitiveInputs14State = {"
+          }
+        ]
+      },
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS core content and primitive inputs through strict native state"
+      },
+      "serialization": true,
+      "client": true,
+      "note": "Native preserves plain and rich table-cell content but uses explicit paragraph/run arrays rather than recursively reusing PptxGenJS TableCell objects as text runs."
+    },
+    {
+      "id": "interface:TextProps@property:options",
+      "status": "deliberate-difference",
+      "native": [
+        "RichTextRun.style",
+        "RichTextRunStyle",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "evidence": {
+        "code": [
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "export interface RichTextRunStyle {"
+          },
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "readonly style?: RichTextRunStyle;"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "set richText(value: readonly RichTextParagraph[]) {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS core content and primitive inputs through strict native state"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, reads, replaces, and round-trips rich text run styles"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates plain and rich text with strict direct fills"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const coreContentPrimitiveInputs14Probe ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const coreContentPrimitiveInputs14State = {"
+          }
+        ]
+      },
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS core content and primitive inputs through strict native state"
+      },
+      "serialization": true,
+      "client": true,
+      "note": "Native separates strict run style from paragraph ownership and rejects permissive PptxGenJS options that are invalid for the selected owner."
+    },
+    {
+      "id": "interface:TextProps@property:text",
+      "status": "supported",
+      "native": [
+        "RichTextRun.text",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "evidence": {
+        "code": [
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "export interface RichTextRun {"
+          },
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "readonly text: string;"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "get richText(): readonly RichTextParagraph[] {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS core content and primitive inputs through strict native state"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, reads, replaces, and round-trips rich text run styles"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates and edits canonical rich text line break paragraphs without changing shape state"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const coreContentPrimitiveInputs14Probe ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const coreContentPrimitiveInputs14State = {"
+          }
+        ]
+      },
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS core content and primitive inputs through strict native state"
+      },
+      "serialization": true,
+      "client": true,
+      "note": "Native preserves the same ordered string run content through create, read, edit, write, and reopen."
+    },
+    {
+      "id": "union:interface:TableCell@property:text#TableCell[]",
+      "status": "deliberate-difference",
+      "native": [
+        "AddTableCell.text",
+        "RichTextParagraph",
+        "RichTextRun",
+        "TableCell.richText"
+      ],
+      "evidence": {
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "readonly text: string | readonly RichTextParagraph[];"
+          },
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "export interface RichTextParagraph {"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "get richText(): readonly RichTextParagraph[] {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS core content and primitive inputs through strict native state"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "imports and edits legal PptxGenJS rich table-cell text semantically"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and edits rich table-cell text through the public SDK surface"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const coreContentPrimitiveInputs14Probe ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const coreContentPrimitiveInputs14State = {"
+          }
+        ]
+      },
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS core content and primitive inputs through strict native state"
+      },
+      "serialization": true,
+      "client": true,
+      "note": "Native represents rich table-cell text with explicit paragraph and run records instead of recursive PptxGenJS TableCell values."
+    },
+    {
+      "id": "union:interface:TableCell@property:text#string",
+      "status": "supported",
+      "native": [
+        "AddTableCell.text",
+        "AddTableCellInput",
+        "TableCell.text"
+      ],
+      "evidence": {
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export type AddTableCellInput = string | AddTableCell;"
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "readonly text: string | readonly RichTextParagraph[];"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "get text(): string {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS core content and primitive inputs through strict native state"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches native basic table creation to public PptxGenJS plain-table output"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and edits rich table-cell text through the public SDK surface"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const coreContentPrimitiveInputs14Probe ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const coreContentPrimitiveInputs14State = {"
+          }
+        ]
+      },
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS core content and primitive inputs through strict native state"
+      },
+      "serialization": true,
+      "client": true,
+      "note": "Native accepts bare string table cells and structured cells whose text is a string, preserving the same normalized text state."
+    },
+    {
+      "id": "union:method:Slide#addText@path:text#TextProps[]",
+      "status": "deliberate-difference",
+      "native": [
+        "RichTextParagraph",
+        "RichTextRun",
+        "ShapeModel.richText",
+        "SlideModel.addRichText"
+      ],
+      "evidence": {
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "addRichText(value: readonly RichTextParagraph[], options: AddTextOptions = {}): ShapeModel {"
+          },
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "export interface RichTextParagraph {"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "set richText(value: readonly RichTextParagraph[]) {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS core content and primitive inputs through strict native state"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, reads, replaces, and round-trips rich text run styles"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "creates plain and rich text with strict direct fills"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const coreContentPrimitiveInputs14Probe ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const coreContentPrimitiveInputs14State = {"
+          }
+        ]
+      },
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS core content and primitive inputs through strict native state"
+      },
+      "serialization": true,
+      "client": true,
+      "note": "Native exposes rich input through addRichText with explicit paragraphs and runs instead of overloading addText with a permissive flat TextProps array."
+    },
+    {
+      "id": "union:method:Slide#addText@path:text#string",
+      "status": "supported",
+      "native": [
+        "ShapeModel.text",
+        "SlideModel.addText"
+      ],
+      "evidence": {
+        "code": [
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "addText(value: string, options: AddTextOptions = {}): ShapeModel {"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "get text(): string {"
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "set text(value: string) {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS core content and primitive inputs through strict native state"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, and round-trips a basic text shape with stable identity"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "edits shape text and adds, duplicates, moves, and deletes slides with relationship updates"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const coreContentPrimitiveInputs14Probe ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const coreContentPrimitiveInputs14State = {"
+          }
+        ]
+      },
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS core content and primitive inputs through strict native state"
+      },
+      "serialization": true,
+      "client": true,
+      "note": "Native addText accepts plain strings and preserves their exact content through live editing and reopen."
+    },
+    {
+      "id": "union:Color#HexColor",
+      "status": "deliberate-difference",
+      "native": [
+        "RichTextColor",
+        "RichTextRunStyle.color"
+      ],
+      "evidence": {
+        "code": [
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "export type RichTextColor ="
+          },
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeRichTextColor("
+          },
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "export interface RichTextRunStyle {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS core content and primitive inputs through strict native state"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, reads, replaces, and round-trips rich text run styles"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates table-cell text style defaults through the public SDK and root surface"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const coreContentPrimitiveInputs14Probe ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const coreContentPrimitiveInputs14State = {"
+          }
+        ]
+      },
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS core content and primitive inputs through strict native state"
+      },
+      "serialization": true,
+      "client": true,
+      "note": "Native preserves legal hexadecimal color state through a strict { kind: 'srgb', value } object instead of an ambiguous permissive string."
+    },
+    {
+      "id": "union:Color#ThemeColor",
+      "status": "deliberate-difference",
+      "native": [
+        "RichTextColor",
+        "RichTextRunStyle.color",
+        "SchemeColor"
+      ],
+      "evidence": {
+        "code": [
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "export type RichTextColor ="
+          },
+          {
+            "path": "packages/model/src/rich-text.internal.ts",
+            "pattern": "export function normalizeRichTextColor("
+          },
+          {
+            "path": "packages/model/src/scheme-color.ts",
+            "pattern": "export const SCHEME_COLORS = Object.freeze({"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS core content and primitive inputs through strict native state"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, reads, replaces, and round-trips rich text run styles"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates table-cell text style defaults through the public SDK and root surface"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const coreContentPrimitiveInputs14Probe ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const coreContentPrimitiveInputs14State = {"
+          }
+        ]
+      },
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS core content and primitive inputs through strict native state"
+      },
+      "serialization": true,
+      "client": true,
+      "note": "Native preserves the legal theme-color vocabulary through a strict { kind: 'scheme', value } object instead of an ambiguous permissive string."
+    },
+    {
+      "id": "union:Coord#${number}%",
+      "status": "supported",
+      "native": [
+        "SlideCoordinate",
+        "resolveSlideCoordinate"
+      ],
+      "evidence": {
+        "code": [
+          {
+            "path": "packages/model/src/units.ts",
+            "pattern": "export type SlideCoordinate = Emu | `${number}%`;"
+          },
+          {
+            "path": "packages/model/src/slide-coordinate.internal.ts",
+            "pattern": "export function resolveSlideCoordinate("
+          },
+          {
+            "path": "packages/model/src/slide.ts",
+            "pattern": "export interface AddTextOptions extends Partial<TransformInput> {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS core content and primitive inputs through strict native state"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens shape and text percentage coordinates against the current slide size"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const coreContentPrimitiveInputs14Probe ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const coreContentPrimitiveInputs14State = {"
+          }
+        ]
+      },
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS core content and primitive inputs through strict native state"
+      },
+      "serialization": true,
+      "client": true,
+      "note": "Native accepts the same finite percentage-string coordinate form and resolves it against the active slide size."
+    },
+    {
+      "id": "union:Coord#number",
+      "status": "deliberate-difference",
+      "native": [
+        "Emu",
+        "SlideCoordinate",
+        "inches",
+        "resolveSlideCoordinate"
+      ],
+      "evidence": {
+        "code": [
+          {
+            "path": "packages/model/src/units.ts",
+            "pattern": "export type Emu = number & { readonly __brand: 'Emu' };"
+          },
+          {
+            "path": "packages/model/src/units.ts",
+            "pattern": "export function inches(value: number): Emu {"
+          },
+          {
+            "path": "packages/model/src/slide-coordinate.internal.ts",
+            "pattern": "export function resolveSlideCoordinate("
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS core content and primitive inputs through strict native state"
+          },
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "matches PptxGenJS shape and text percentage coordinate output with explicit native units"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates and reopens shape and text percentage coordinates against the current slide size"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const coreContentPrimitiveInputs14Probe ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const coreContentPrimitiveInputs14State = {"
+          }
+        ]
+      },
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS core content and primitive inputs through strict native state"
+      },
+      "serialization": true,
+      "client": true,
+      "note": "Native requires explicit branded EMU values or inches() conversion instead of interpreting every numeric coordinate as implicit inches."
+    },
+    {
+      "id": "union:Margin#[number,number,number,number]",
+      "status": "deliberate-difference",
+      "native": [
+        "ShapeModel.textMargins",
+        "TextBoxMarginInput",
+        "normalizeTextBoxMargins"
+      ],
+      "evidence": {
+        "code": [
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "export type TextBoxMarginInput ="
+          },
+          {
+            "path": "packages/model/src/text-box-margins.internal.ts",
+            "pattern": "export function normalizeTextBoxMargins("
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "set textMargins(value: TextBoxMarginInput | undefined) {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS core content and primitive inputs through strict native state"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens text-box margins"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "reads and losslessly replaces strict direct text-box margins"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const coreContentPrimitiveInputs14Probe ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const coreContentPrimitiveInputs14State = {"
+          }
+        ]
+      },
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS core content and primitive inputs through strict native state"
+      },
+      "serialization": true,
+      "client": true,
+      "note": "Native enforces the documented top/right/bottom/left tuple order; PptxGenJS 4.0.1 instead writes asymmetric [1,2,3,4] as top/right/bottom/left = 4/2/3/1."
+    },
+    {
+      "id": "union:Margin#number",
+      "status": "supported",
+      "native": [
+        "ShapeModel.textMargins",
+        "TextBoxMarginInput",
+        "normalizeTextBoxMargins"
+      ],
+      "evidence": {
+        "code": [
+          {
+            "path": "packages/model/src/text.ts",
+            "pattern": "export type TextBoxMarginInput ="
+          },
+          {
+            "path": "packages/model/src/text-box-margins.internal.ts",
+            "pattern": "export function normalizeTextBoxMargins("
+          },
+          {
+            "path": "packages/model/src/shapes.ts",
+            "pattern": "get textMargins(): TextBoxMargins | undefined {"
+          }
+        ],
+        "tests": [
+          {
+            "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+            "title": "closes PptxGenJS core content and primitive inputs through strict native state"
+          },
+          {
+            "path": "packages/sdk/src/index.test.ts",
+            "title": "creates, edits, duplicates, and reopens text-box margins"
+          },
+          {
+            "path": "packages/model/src/model.test.ts",
+            "title": "reads and losslessly replaces strict direct text-box margins"
+          }
+        ],
+        "package": [
+          {
+            "path": "scripts/smoke-npm-package.mjs",
+            "pattern": "const coreContentPrimitiveInputs14Probe ="
+          }
+        ],
+        "ooxml": [
+          {
+            "path": "scripts/core-content-primitive-inputs-14-lifecycle-probe.mjs",
+            "pattern": "const exactOoxml = {"
+          }
+        ],
+        "clients": [
+          {
+            "path": "scripts/playwright-browser-smoke.js",
+            "pattern": "const coreContentPrimitiveInputs14State = {"
+          }
+        ]
+      },
+      "control": {
+        "path": "packages/pptxgenjs-adapter/src/index.test.ts",
+        "pattern": "closes PptxGenJS core content and primitive inputs through strict native state"
+      },
+      "serialization": true,
+      "client": true,
+      "note": "Native and PptxGenJS apply a scalar point margin to all four sides; native additionally requires a finite in-range value before mutation."
+    }
+  ]
+);
+
 const MEDIA_CORE_CONTROL_TITLE =
   'locks MediaProps source, type, metadata, and geometry against PptxGenJS 4.0.1';
 const MEDIA_VALID_CONTROL_TITLE =
@@ -5957,6 +6861,7 @@ export const PPTXGENJS_SURFACE_MANIFEST = deepFreeze({
     ...IMAGE_SOURCE_SIZING_TRANSFORM_FAMILY_ENTRIES,
     ...IMAGE_IDENTITY_EFFECTS_FAMILY_ENTRIES,
     ...SHAPE_TEXT_TRANSFORM_IDENTITY_FAMILY_ENTRIES,
+    ...CORE_CONTENT_PRIMITIVE_INPUTS_14_FAMILY_ENTRIES,
     ...MEDIA_CORE_FAMILY_ENTRIES,
     ...PLACEHOLDER_CORE_FAMILY_ENTRIES,
     ...SHAPE_CUSTOM_PATH_FAMILY_ENTRIES,
