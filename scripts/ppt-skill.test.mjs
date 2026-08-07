@@ -23,8 +23,38 @@ test('ppt skill has the exact documented file surface', async () => {
   assert.match(skill, /separate output path/);
   assert.match(skill, /semantic APIs/);
   assert.match(skill, /\[Sources\]/);
-  assert.match(skill, /Render every slide/);
-  assert.match(skill, /at least one concrete correction/);
+  assert.match(skill, /Render every slide/i);
+  assert.match(combined, /ThemeSpec/);
+  assert.match(combined, /primary.*secondary.*accent.*background.*surface.*text.*mutedText/s);
+  assert.match(combined, /Cambria \+ Arial/);
+  assert.match(combined, /Cambria \+ Calibri/);
+  assert.match(combined, /Arial \+ Arial/);
+  assert.match(combined, /Calibri \+ Calibri/);
+  assert.match(combined, /Do not default to Aptos/);
+  assert.match(combined, /Forest canopy/);
+  assert.match(combined, /Deep ocean/);
+  assert.match(combined, /Editorial clay/);
+  assert.match(combined, /Night sky/);
+  assert.match(combined, /never as fixed templates/);
+  assert.match(combined, /cinematic cover/);
+  assert.match(combined, /section divider/);
+  assert.match(combined, /statement plus hero visual/);
+  assert.match(combined, /asymmetric two-column/);
+  assert.match(combined, /large statistic plus explanation/);
+  assert.match(combined, /comparison/);
+  assert.match(combined, /process or timeline/);
+  assert.match(combined, /native chart or table plus takeaway/);
+  assert.match(combined, /180 seconds/);
+  assert.match(combined, /Narrative outline.*20 seconds/s);
+  assert.match(combined, /Theme and layout assignment.*25 seconds/s);
+  assert.match(combined, /generator execution.*75 seconds/s);
+  assert.match(combined, /Reopen, validate, render, and inspect in parallel.*45 seconds/s);
+  assert.match(combined, /repair and targeted recheck buffer.*15 seconds/si);
+  assert.match(combined, /Do not browse, search, scrape, or download/);
+  assert.match(combined, /at most one targeted repair/);
+  assert.match(combined, /If a concrete defect exists/);
+  assert.match(combined, /rerender only affected slides/);
+  assert.doesNotMatch(combined, /at least one concrete (?:correction|improvement)/i);
   assert.match(reference, /PptxDocument\.create/);
   assert.match(reference, /PptxDocument\.open/);
   assert.match(reference, /tableToSlides/);
@@ -39,13 +69,23 @@ test('documented core creation and edit path works at runtime', async () => {
   const edited = path.join(temp, 'edited.pptx');
 
   try {
+    const themeSpec = {
+      background: 'F3F0E4', surface: 'DDE8D3', secondary: '3D6B45', text: '173126',
+      displayFont: 'Cambria', sizes: { title: 40 }, margin: 0.6,
+    };
     const document = PptxDocument.create({ author: 'Skill test', title: 'Native creation', slideSize: 'wide' });
     const slide = document.addSlide();
+    slide.background = { kind: 'solid', color: { kind: 'srgb', value: themeSpec.background } };
+    const surface = slide.addShape('roundRect', {
+      x: inches(themeSpec.margin), y: inches(2.2), width: inches(5.8), height: inches(3.8),
+      fill: { kind: 'solid', color: { kind: 'srgb', value: themeSpec.surface } },
+      line: { kind: 'line', color: { kind: 'srgb', value: themeSpec.secondary }, width: 1 },
+    });
     const rich = slide.addRichText([{ runs: [{
       text: 'Native creation',
       style: {
-        fontFamily: 'Aptos Display', fontSize: 28, bold: true,
-        color: { kind: 'srgb', value: '113D2C' },
+        fontFamily: themeSpec.displayFont, fontSize: themeSpec.sizes.title, bold: true,
+        color: { kind: 'srgb', value: themeSpec.text },
       },
     }] }], {
       x: inches(1), y: inches(1), width: inches(6), height: inches(1),
@@ -79,10 +119,15 @@ test('documented core creation and edit path works at runtime', async () => {
     slide.addNotes('[Sources]\nhttps://example.org');
     await document.writeFile(created, { compression: true });
 
-    assert.equal(rich.richText[0].runs[0].style.fontFamily, 'Aptos Display');
-    assert.equal(rich.richText[0].runs[0].style.fontSize, 28);
+    assert.equal(rich.richText[0].runs[0].style.fontFamily, 'Cambria');
+    assert.equal(rich.richText[0].runs[0].style.fontSize, 40);
     assert.equal(rich.richText[0].runs[0].style.bold, true);
-    assert.deepEqual(rich.richText[0].runs[0].style.color, { kind: 'srgb', value: '113D2C' });
+    assert.deepEqual(rich.richText[0].runs[0].style.color, { kind: 'srgb', value: themeSpec.text });
+    assert.deepEqual(slide.background, { kind: 'solid', color: { kind: 'srgb', value: themeSpec.background } });
+    assert.deepEqual(surface.fill, { kind: 'solid', color: { kind: 'srgb', value: themeSpec.surface } });
+    assert.deepEqual(surface.line, {
+      kind: 'line', color: { kind: 'srgb', value: themeSpec.secondary }, width: 1, dash: 'solid',
+    });
     assert.equal(body.richText[0].runs[0].style.fontSize, 18);
     assert.equal(body.richText[0].runs[1].style.fontSize, 18);
     assert.equal(body.richText[1].runs[0].style.fontSize, 18);

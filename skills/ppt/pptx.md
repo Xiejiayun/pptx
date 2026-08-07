@@ -4,24 +4,122 @@ This reference explains how to create and edit presentations with `@jiayunxie/pp
 
 ## Contents
 
-1. [Install and import](#install-and-import)
-2. [Units, layouts, and formats](#units-layouts-and-formats)
-3. [Create from zero](#create-from-zero)
-4. [Open and edit](#open-and-edit)
-5. [Text and rich text](#text-and-rich-text)
-6. [Shapes and styling](#shapes-and-styling)
-7. [Images, SVG, and backgrounds](#images-svg-and-backgrounds)
-8. [Tables and pagination](#tables-and-pagination)
-9. [Native charts](#native-charts)
-10. [Audio and video](#audio-and-video)
-11. [Masters, layouts, and placeholders](#masters-layouts-and-placeholders)
-12. [Metadata, sections, notes, and slide numbers](#metadata-sections-notes-and-slide-numbers)
-13. [Output and runtime environments](#output-and-runtime-environments)
-14. [Inspection, validation, and diff](#inspection-validation-and-diff)
-15. [Narrative and visual design](#narrative-and-visual-design)
-16. [Required QA loop](#required-qa-loop)
-17. [Deliberate boundaries](#deliberate-boundaries)
-18. [Common mistakes](#common-mistakes)
+1. [Default source policy](#default-source-policy)
+2. [ThemeSpec](#themespec)
+3. [Typography](#typography)
+4. [Spacing and layout families](#spacing-and-layout-families)
+5. [Install and import](#install-and-import)
+6. [Units, layouts, and formats](#units-layouts-and-formats)
+7. [Create from zero](#create-from-zero)
+8. [Open and edit](#open-and-edit)
+9. [Text and rich text](#text-and-rich-text)
+10. [Shapes and styling](#shapes-and-styling)
+11. [Images, SVG, and backgrounds](#images-svg-and-backgrounds)
+12. [Tables and pagination](#tables-and-pagination)
+13. [Native charts](#native-charts)
+14. [Audio and video](#audio-and-video)
+15. [Masters, layouts, and placeholders](#masters-layouts-and-placeholders)
+16. [Metadata, sections, notes, and slide numbers](#metadata-sections-notes-and-slide-numbers)
+17. [Output and runtime environments](#output-and-runtime-environments)
+18. [Inspection, validation, and diff](#inspection-validation-and-diff)
+19. [Narrative and visual design](#narrative-and-visual-design)
+20. [180-second execution and QA](#180-second-execution-and-qa)
+21. [Deliberate boundaries](#deliberate-boundaries)
+22. [Common mistakes](#common-mistakes)
+
+## Default source policy
+
+The default create path is offline and deterministic. Use sources in this order:
+
+1. user-provided files;
+2. assets already present in the repository or selected template;
+3. native editable PowerPoint text, shapes, tables, charts, and diagrams;
+4. simple local SVG or raster assets derived from already available inputs.
+
+Do not browse, search, scrape, or download stock imagery or other assets during ordinary deck generation. Do not call image search or image generation by default. External acquisition is a separate, explicitly requested workflow and is outside the 180-second budget. When no photographic asset exists, use a designed native composition instead of a placeholder image, broken URL, or last-minute search.
+
+## ThemeSpec
+
+Before creating slides, derive one compact `ThemeSpec` from the subject. This is a generator-side design contract, not a fabricated package API.
+
+```js
+const themeSpec = {
+  mode: 'sandwich', // light, dark, or sandwich
+  primary: '123D2A',
+  secondary: '3D6B45',
+  accent: 'E0A83E',
+  background: 'F3F0E4',
+  surface: 'DDE8D3',
+  text: '173126',
+  mutedText: '607267',
+  motif: 'layered canopy arcs',
+  displayFont: 'Cambria',
+  bodyFont: 'Arial',
+  sizes: { cover: 56, title: 40, heading: 22, body: 16, caption: 11 },
+  margin: 0.6,
+  gap: 0.3,
+};
+```
+
+Use the primary/background family for roughly 60–70% of the visual field, secondary for structure, accent sparingly for emphasis, surface for panels, text for primary copy, and mutedText for captions. Adapt hues to the query instead of defaulting to generic blue. Choose one content-specific motif and repeat it with restraint. When no treatment is implied, use sandwich mode: dark cover and conclusion with lighter content slides.
+
+Use these starting palettes as adaptable color logic, never as fixed templates:
+
+| Starting palette | primary | secondary | accent | background | surface | text | mutedText |
+|---|---|---|---|---|---|---|---|
+| Forest canopy | `123D2A` | `3D6B45` | `E0A83E` | `F3F0E4` | `DDE8D3` | `173126` | `607267` |
+| Deep ocean | `103C5A` | `2E7185` | `F0A35B` | `F2F6F7` | `D8E8EA` | `17313D` | `5D717A` |
+| Editorial clay | `713C2F` | `B2694F` | `E3B94F` | `F6EFE5` | `EAD8C8` | `342720` | `74645A` |
+| Night sky | `171B35` | `414A78` | `E7C568` | `F2F0EA` | `DADDEA` | `20243A` | `696E84` |
+
+Change hue, value, and contrast to fit the subject, audience, and supplied brand. Keep the semantic roles even when every hexadecimal value changes.
+
+Map the contract to real public fields:
+
+```js
+const document = PptxDocument.create({ slideSize: 'wide', title: 'Amazon biodiversity' });
+const slide = document.addSlide();
+slide.background = { kind: 'solid', color: { kind: 'srgb', value: themeSpec.background } };
+slide.addShape('roundRect', {
+  x: inches(themeSpec.margin), y: inches(1.5), width: inches(5.8), height: inches(3.8),
+  fill: { kind: 'solid', color: { kind: 'srgb', value: themeSpec.surface } },
+  line: { kind: 'line', color: { kind: 'srgb', value: themeSpec.secondary }, width: 1 },
+});
+slide.addRichText([{ runs: [{
+  text: 'A living climate engine',
+  style: { fontFamily: themeSpec.displayFont, fontSize: themeSpec.sizes.title, bold: true,
+    color: { kind: 'srgb', value: themeSpec.text } },
+}] }], { x: inches(0.6), y: inches(0.6), width: inches(12.1), height: inches(0.7), margin: 0 });
+```
+
+## Typography
+
+Use predictable Office and LibreOffice pairs: Cambria + Arial, Cambria + Calibri, Arial + Arial, or Calibri + Calibri. Do not default to Aptos. Honor a user-specified face and reserve about 10% extra text-box width for substitution variance.
+
+- Cover title: 50–64 pt.
+- Slide title: 36–44 pt.
+- Section heading: 20–24 pt.
+- Body: 14–18 pt; prefer 16 pt.
+- Captions and labels: 10–12 pt.
+
+Reduce copy or split the slide before shrinking below these ranges. Use left-aligned body copy, real bullet paragraphs instead of Unicode bullets, and zero text-box margin when exact edge alignment matters.
+
+## Spacing and layout families
+
+Use a 16:9 canvas by default, at least 0.5-inch outer margins, and one fixed internal gap of either 0.3 or 0.5 inch for the whole deck. Establish shared alignment anchors before placing shapes. Give each slide one dominant focal point and a meaningful visual element: an available image, native chart, table, diagram, icon-like shape, or large typographic statistic.
+
+Choose among eight layout families:
+
+1. **cinematic cover** — minimal title, short framing line, and one dominant full-field composition;
+2. **section divider** — a numbered or named transition with the deck motif and generous negative space;
+3. **statement plus hero visual** — one declarative takeaway paired with the strongest available visual;
+4. **asymmetric two-column** — unequal text/visual regions such as 40/60 or 35/65;
+5. **large statistic plus explanation** — one oversized number with context and a compact evidence cue;
+6. **comparison** — two aligned alternatives with shared measures and clear contrast;
+7. **process or timeline** — a directional sequence built from native shapes and connectors;
+8. **native chart or table plus takeaway** — editable evidence occupying most of the slide with a concise implication.
+
+Do not repeat a family on consecutive content slides unless continuity requires it. Do not default to title-and-bullets, repeated card grids, title underlines, decorative bars, or accent stripes. Prefer one main idea, no more than three supporting points, and one clear visual hierarchy.
 
 ## Install and import
 
@@ -78,7 +176,7 @@ cover.background = {
 cover.addRichText([{ runs: [{
   text: 'Amazon biodiversity',
   style: {
-    fontFamily: 'Aptos Display', fontSize: 34, bold: true,
+    fontFamily: 'Cambria', fontSize: 56, bold: true,
     color: { kind: 'srgb', value: 'FFFFFF' },
   },
 }] }], {
@@ -120,7 +218,7 @@ Use `addText()` for ordinary content and `addRichText()` for paragraph/run-level
 slide.addRichText([{ runs: [{
   text: 'One clear message',
   style: {
-    fontFamily: 'Aptos Display', fontSize: 28, bold: true,
+    fontFamily: 'Cambria', fontSize: 40, bold: true,
     color: { kind: 'srgb', value: '113D2C' },
   },
 }] }], {
@@ -256,7 +354,7 @@ const section = document.addSection({ title: 'Species' });
 slide.addNotes([
   '[Sources]',
   'https://example.org/report — statistic used on slide',
-  'Generated image: canopy prompt, 2026-08-05',
+  'Local asset: assets/canopy.png — supplied by research team',
 ].join('\n'));
 
 slide.slideNumber = {
@@ -315,29 +413,26 @@ Choose a deliberate visual system:
 
 Use image composition intentionally. Request negative space where text must sit, crop around the focal subject, and apply a controlled overlay when text crosses photography. Do not reuse the same foreground image more than once. Prefer full-bleed visuals, diagrams, and native data graphics to dense paragraphs.
 
-Minimum practical text sizes are approximately 50 pt for a cover title, 35 pt for slide titles, 24 pt for subheads, and 16 pt for body copy. These are floors, not targets. Reduce copy before reducing type.
+Minimum practical text sizes are 50 pt for a cover title, 36 pt for slide titles, 20 pt for section headings, 14 pt for body copy, and 10 pt for captions. These are floors, not targets. Reduce copy before reducing type.
 
-## Required QA loop
+## 180-second execution and QA
 
-Use a two-part QA process.
+The warm path starts when the query is available and ends when the final PPTX passes content, structural, and visual checks.
 
-Content QA:
+| Stage | Budget |
+|---|---:|
+| Narrative outline | 20 seconds |
+| Theme and layout assignment | 25 seconds |
+| One native PPTX generator execution | 75 seconds |
+| Reopen, validate, render, and inspect in parallel | 45 seconds |
+| One repair and targeted recheck buffer | 15 seconds |
+| Total | 180 seconds |
 
-1. Reopen the written file.
-2. Verify slide count, order, titles, notes, metadata, links, chart values, table cells, alt text, and source blocks.
-3. Run package inspection and compatibility validation.
-4. For edits, run a package diff against the untouched source.
+Run content QA by reopening the written file and verifying slide count, order, titles, notes, metadata, links, chart values, table cells, alt text, and `[Sources]` blocks. In parallel, run package inspection and compatibility validation. For edits, also diff against the untouched source.
 
-Visual QA:
+Render every slide once, create a montage, and inspect it for story flow and repetitive composition. Inspect readable slide images for overlap, clipping, unexpected wrapping, low contrast, awkward crops, tiny text, misalignment, and excess empty space. Run the available automated overflow check, but do not treat it as a substitute for visual inspection.
 
-1. Render every slide to images.
-2. Create a montage to review story flow, rhythm, and repetition.
-3. Inspect each slide at readable resolution for overlap, clipping, unexpected wrapping, low contrast, awkward crops, tiny text, misalignment, and excess empty space.
-4. Run automated slide tests where available, but do not substitute them for visual inspection.
-5. Make at least one concrete improvement found during the first review.
-6. Regenerate, revalidate, rerender, and inspect the corrected deck.
-
-The final deliverable is the corrected PPTX, not the first file that writes successfully.
+If the first output has no defect, deliver it without inventing a correction. If a concrete defect exists, make at most one targeted repair within the fast path, rerender only affected slides, repeat affected semantic checks, and run final package validation. Report a missed time budget as a performance defect rather than skipping structural or visual evidence.
 
 ## Deliberate boundaries
 
@@ -353,7 +448,7 @@ Provider-specific online-video metadata, remote-fetch embedding, trim/bookmarks,
 - Editing ZIP/XML directly when a semantic API exists.
 - Using raw numbers as inches rather than converting with `inches()`.
 - Assuming package validation replaces rendering and visual review.
-- Delivering the first render without a correction pass.
+- Delivering a render that contains an observed defect without using the targeted repair buffer.
 - Filling slides with prose or shrinking text below a readable size.
 - Repeating one card layout or one foreground image across the deck.
 - Stretching images instead of using `cover`, `contain`, or a deliberate crop.
