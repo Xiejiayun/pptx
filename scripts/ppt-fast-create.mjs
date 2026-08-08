@@ -26,6 +26,19 @@ const PROCESS_LAYOUT = Object.freeze({
   body: Object.freeze({ dx: 0.2, y: 3.2, width: 2.05, height: 1.3, fontSize: 16 }),
 });
 
+const BRANCH_POSITIONS = Object.freeze([
+  Object.freeze([0.78, 1.75]), Object.freeze([8.1, 1.75]),
+  Object.freeze([0.78, 4.55]), Object.freeze([8.1, 4.55]),
+]);
+
+const ACTION_LAYOUT = Object.freeze({ startY: 1.65, stepY: 1.18 });
+
+const DEFAULT_KICKERS = Object.freeze({
+  cover: '', bands: 'A layered system', spotlight: 'A keystone relationship',
+  roles: 'Invisible work', branches: 'A living architecture', stats: 'Three signals',
+  chart: 'Evidence over time', process: 'A chain reaction', actions: 'What changes the trajectory',
+});
+
 function luminance(hex) {
   const channels = [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16) / 255);
   return channels.reduce((sum, channel, index) => {
@@ -114,6 +127,17 @@ function notes(slide, sources = []) {
   slide.addNotes(`[Sources]\n${sources.join('\n')}`);
 }
 
+function deckText(id, value, fontFamily, x, y, width, height, fontSize, options = {}) {
+  return {
+    kind: 'text', id, role: options.role ?? 'body', text: String(value ?? ''),
+    fontFamily, fontSize, bold: options.bold, wrap: options.wrap ?? true,
+    maxLines: options.maxLines ?? 1, fit: 'error', minFontSize: fontSize,
+    bounds: { x: inches(x), y: inches(y), width: inches(width), height: inches(height) },
+    ...(options.regionId ? { regionId: options.regionId } : {}),
+    ...(options.allowBleed ? { allowBleed: true } : {}),
+  };
+}
+
 function buildDeckSpec(content) {
   return {
     schemaVersion: 1,
@@ -123,16 +147,107 @@ function buildDeckSpec(content) {
     fontSafetyFactor: 1.1,
     slides: content.slides.map((slide, index) => {
       const cover = slide.family === 'cover';
+      const fontFamily = content.theme?.font ?? DEFAULT_THEME.font;
       const bounds = cover
         ? { x: inches(0.72), y: inches(3.85), width: inches(11.8), height: inches(0.9) }
         : { x: inches(0.65), y: inches(0.45), width: inches(12), height: inches(0.7) };
       const regions = [{ id: 'title-region', bounds, collision: 'exclusive' }];
       const elements = [{
         kind: 'text', id: 'title', regionId: 'title-region', bounds,
-        role: 'title', text: slide.title, fontFamily: content.theme?.font ?? DEFAULT_THEME.font,
+        role: 'title', text: slide.title, fontFamily,
         fontSize: cover ? 54 : 38, bold: true, wrap: false, maxLines: 1,
         fit: 'error', minFontSize: cover ? 50 : 36,
       }];
+      elements.push(deckText(
+        'kicker', slide.kicker ?? DEFAULT_KICKERS[slide.family] ?? '', fontFamily,
+        0.67, 1.16, 7.5, 0.24, 10.5,
+        { role: 'caption', bold: true, wrap: false, maxLines: 1 },
+      ));
+      if (slide.family === 'cover') {
+        elements.push(deckText('subtitle', slide.subtitle, fontFamily, 0.76, 4.8, 9.9, 0.7, 19, {
+          role: 'subtitle', maxLines: 2,
+        }));
+      } else if (slide.family === 'bands') {
+        slide.rows.slice(0, 4).forEach((row, rowIndex) => {
+          const y = 1.55 + rowIndex * 1.2;
+          elements.push(
+            deckText(`row-${rowIndex + 1}-heading`, row.heading, fontFamily, 0.9, y + 0.18, 2.45, 0.4, 24,
+              { role: 'label', bold: true, wrap: false, maxLines: 1 }),
+            deckText(`row-${rowIndex + 1}-body`, row.body, fontFamily, 3.5, y + 0.14, 3.8, 0.78, 16,
+              { role: 'body', bold: true, maxLines: 3 }),
+            deckText(`row-${rowIndex + 1}-detail`, row.detail, fontFamily, 7.55, y + 0.2, 4.6, 0.5, 16,
+              { role: 'caption', maxLines: 1 }),
+          );
+        });
+      } else if (slide.family === 'spotlight') {
+        elements.push(
+          deckText('hero-heading', slide.hero.heading, fontFamily, 1.1, 2.15, 4, 0.7, 40,
+            { role: 'label', bold: true, wrap: false, maxLines: 1 }),
+          deckText('hero-subheading', slide.hero.subheading, fontFamily, 1.25, 2.95, 3.7, 0.5, 24,
+            { role: 'label', bold: true, maxLines: 1 }),
+          deckText('hero-body', slide.hero.body, fontFamily, 1.25, 3.55, 3.7, 1.2, 16,
+            { role: 'body', maxLines: 4 }),
+        );
+        slide.items.slice(0, 3).forEach((item, itemIndex) => {
+          const y = 1.65 + itemIndex * 1.55;
+          elements.push(
+            deckText(`item-${itemIndex + 1}-heading`, item.heading, fontFamily, 6.05, y, 5.8, 0.42, 24,
+              { role: 'label', bold: true, wrap: false, maxLines: 1 }),
+            deckText(`item-${itemIndex + 1}-body`, item.body, fontFamily, 6.05, y + 0.52, 5.8, 0.7, 16,
+              { role: 'body', maxLines: 2 }),
+          );
+        });
+      } else if (slide.family === 'roles') {
+        const positions = [[0.95, 1.9], [9, 1.9], [0.95, 4.85], [9, 4.85]];
+        slide.items.slice(0, 4).forEach((item, itemIndex) => {
+          const [x, y] = positions[itemIndex];
+          elements.push(
+            deckText(`item-${itemIndex + 1}-heading`, item.heading, fontFamily, x, y, 3.35, 0.42, 24,
+              { role: 'label', bold: true, wrap: false, maxLines: 1 }),
+            deckText(`item-${itemIndex + 1}-body`, item.body, fontFamily, x, y + 0.5, 3.45, 0.88, 16,
+              { role: 'body', maxLines: 3 }),
+          );
+        });
+        elements.push(deckText('footer', slide.footer, fontFamily, 4.2, 6.35, 5, 0.36, 16,
+          { role: 'subtitle', bold: true, wrap: false, maxLines: 1 }));
+      } else if (slide.family === 'branches') {
+        slide.items.slice(0, 4).forEach((item, itemIndex) => {
+          const [x, y] = BRANCH_POSITIONS[itemIndex];
+          elements.push(
+            deckText(`item-${itemIndex + 1}-heading`, item.heading, fontFamily, x, y, 4.3, 0.42, 24,
+              { role: 'label', bold: true, wrap: false, maxLines: 1 }),
+            deckText(`item-${itemIndex + 1}-body`, item.body, fontFamily, x, y + 0.58, 4.45, 0.9, 16,
+              { role: 'body', maxLines: 3 }),
+          );
+        });
+        if (slide.items.length < 4) {
+          elements.push(deckText('callout', slide.callout, fontFamily, 8.1, 5.1, 4.2, 0.8, 24,
+            { role: 'label', bold: true, maxLines: 2 }));
+        }
+      } else if (slide.family === 'stats') {
+        slide.items.slice(0, 3).forEach((item, itemIndex) => {
+          const x = 0.78 + itemIndex * 3.98;
+          elements.push(
+            deckText(`item-${itemIndex + 1}-value`, item.value, fontFamily, x + 0.2, 2.15, 2.8, 0.7, 38,
+              { role: 'label', bold: true, wrap: false, maxLines: 1 }),
+            deckText(`item-${itemIndex + 1}-unit`, item.unit, fontFamily, x + 0.3, 2.95, 2.6, 0.36, 16,
+              { role: 'caption', bold: true, wrap: false, maxLines: 1 }),
+            deckText(`item-${itemIndex + 1}-heading`, item.heading, fontFamily, x - 0.05, 5.08, 3.4, 0.42, 24,
+              { role: 'label', bold: true, wrap: false, maxLines: 1 }),
+            deckText(`item-${itemIndex + 1}-body`, item.body, fontFamily, x - 0.05, 5.58, 3.4, 0.8, 16,
+              { role: 'body', maxLines: 3 }),
+          );
+        });
+      } else if (slide.family === 'chart') {
+        elements.push(
+          deckText('callout-value', slide.callout.value, fontFamily, 9.55, 2.25, 2.88, 0.75, 38,
+            { role: 'label', bold: true, wrap: false, maxLines: 1 }),
+          deckText('callout-heading', slide.callout.heading, fontFamily, 9.8, 3.2, 2.4, 0.72, 24,
+            { role: 'label', bold: true, maxLines: 2 }),
+          deckText('callout-body', slide.callout.body, fontFamily, 9.7, 4.45, 2.58, 1.25, 17,
+            { role: 'body', maxLines: 4 }),
+        );
+      }
       if (slide.family === 'process') {
         slide.items.slice(0, 4).forEach((item, itemIndex) => {
           const x = PROCESS_LAYOUT.positions[itemIndex];
@@ -155,17 +270,33 @@ function buildDeckSpec(content) {
           });
           elements.push({
             kind: 'text', id: `step-${itemIndex + 1}-heading`, regionId, bounds: headingBounds,
-            role: 'label', text: item.heading, fontFamily: content.theme?.font ?? DEFAULT_THEME.font,
+            role: 'label', text: item.heading, fontFamily,
             fontSize: PROCESS_LAYOUT.heading.fontSize, bold: true, wrap: true, maxLines: 2,
             fit: 'error', minFontSize: PROCESS_LAYOUT.heading.fontSize,
           }, {
             kind: 'text', id: `step-${itemIndex + 1}-body`, regionId, bounds: bodyBounds,
-            role: 'body', text: item.body, fontFamily: content.theme?.font ?? DEFAULT_THEME.font,
+            role: 'body', text: item.body, fontFamily,
             fontSize: PROCESS_LAYOUT.body.fontSize, wrap: true, maxLines: 5,
             fit: 'error', minFontSize: PROCESS_LAYOUT.body.fontSize,
           });
         });
+        elements.push(deckText('footer', slide.footer, fontFamily, 1.6, 5.4, 10.1, 0.8, 24,
+          { role: 'subtitle', bold: true, maxLines: 2 }));
+      } else if (slide.family === 'actions') {
+        slide.items.slice(0, 4).forEach((item, itemIndex) => {
+          const y = ACTION_LAYOUT.startY + itemIndex * ACTION_LAYOUT.stepY;
+          elements.push(
+            deckText(`item-${itemIndex + 1}-number`, String(itemIndex + 1).padStart(2, '0'), fontFamily,
+              0.85, y, 0.55, 0.4, 20, { role: 'caption', bold: true, wrap: false, maxLines: 1 }),
+            deckText(`item-${itemIndex + 1}-heading`, item.heading, fontFamily, 1.65, y, 4.5, 0.8, 24,
+              { role: 'label', bold: true, maxLines: 2 }),
+            deckText(`item-${itemIndex + 1}-body`, item.body, fontFamily, 6.2, y, 5.7, 0.72, 16,
+              { role: 'body', maxLines: 2 }),
+          );
+        });
       }
+      elements.push(deckText('slide-number', String(index + 1).padStart(2, '0'), fontFamily,
+        12.15, 7.02, 0.5, 0.18, 10, { role: 'caption', wrap: false, maxLines: 1, allowBleed: true }));
       return {
         id: slide.id ?? `slide-${index + 1}`,
         family: slide.family,
@@ -203,9 +334,9 @@ function addBands(document, theme, spec, number) {
     const y = 1.55 + index * 1.2;
     const dark = index > 0;
     slide.addShape('rect', { x: inches(0.65), y: inches(y), width: inches(12.03), height: inches(1.08), fill: solid(colors[index]), line: { kind: 'none' } });
-    text(slide, theme, row.heading, 0.9, y + 0.18, 2.45, 0.34, 21, dark ? theme.contrast : theme.deep, { bold: true, wrap: false });
-    text(slide, theme, row.body, 3.5, y + 0.16, 3.8, 0.7, 15, dark ? theme.contrast : theme.text, { bold: true });
-    text(slide, theme, row.detail ?? '', 7.55, y + 0.2, 4.6, 0.5, 14, dark ? theme.surface : theme.text);
+    text(slide, theme, row.heading, 0.9, y + 0.18, 2.45, 0.4, 24, dark ? theme.contrast : theme.deep, { bold: true, wrap: false });
+    text(slide, theme, row.body, 3.5, y + 0.14, 3.8, 0.78, 16, dark ? theme.contrast : theme.text, { bold: true });
+    text(slide, theme, row.detail ?? '', 7.55, y + 0.2, 4.6, 0.5, 16, dark ? theme.surface : theme.text);
   });
   notes(slide, spec.sources);
   slideNumber(slide, theme, number);
@@ -218,11 +349,11 @@ function addSpotlight(document, theme, spec, number) {
   kicker(slide, theme, spec.kicker ?? 'A keystone relationship');
   slide.addShape('ellipse', { x: inches(0.7), y: inches(1.55), width: inches(4.8), height: inches(4.8), fill: solid(theme.accent), line: { kind: 'none' } });
   text(slide, theme, spec.hero.heading, 1.1, 2.15, 4.0, 0.7, 40, theme.deep, { bold: true, align: 'center', wrap: false });
-  text(slide, theme, spec.hero.subheading ?? '', 1.25, 2.95, 3.7, 0.4, 19, theme.deep, { bold: true, align: 'center' });
+  text(slide, theme, spec.hero.subheading ?? '', 1.25, 2.95, 3.7, 0.5, 24, theme.deep, { bold: true, align: 'center' });
   text(slide, theme, spec.hero.body, 1.25, 3.55, 3.7, 1.2, 16, theme.text, { align: 'center', valign: 'middle' });
   spec.items.slice(0, 3).forEach((item, index) => {
     const y = 1.65 + index * 1.55;
-    text(slide, theme, item.heading, 6.05, y, 5.8, 0.4, 23, index === 0 ? theme.cool : theme.secondary, { bold: true, wrap: false });
+    text(slide, theme, item.heading, 6.05, y, 5.8, 0.42, 24, index === 0 ? theme.cool : theme.secondary, { bold: true, wrap: false });
     text(slide, theme, item.body, 6.05, y + 0.52, 5.8, 0.7, 16, theme.text);
     if (index < 2) slide.addShape('line', { x: inches(6.05), y: inches(y + 1.35), width: inches(5.6), height: 1, line: stroke(theme.secondary, 1, 55) });
   });
@@ -238,8 +369,8 @@ function addRoles(document, theme, spec, number) {
   const positions = [[0.95, 1.9], [9.0, 1.9], [0.95, 4.85], [9.0, 4.85]];
   spec.items.slice(0, 4).forEach((item, index) => {
     const [x, y] = positions[index];
-    text(slide, theme, item.heading, x, y, 3.35, 0.4, 21, [theme.accent, theme.cool, theme.danger, theme.surface][index], { bold: true, wrap: false });
-    text(slide, theme, item.body, x, y + 0.5, 3.45, 0.88, 15, theme.surface);
+    text(slide, theme, item.heading, x, y, 3.35, 0.42, 24, [theme.accent, theme.cool, theme.danger, theme.surface][index], { bold: true, wrap: false });
+    text(slide, theme, item.body, x, y + 0.5, 3.45, 0.88, 16, theme.surface);
   });
   slide.addShape('ellipse', { x: inches(5.55), y: inches(2.75), width: inches(2.2), height: inches(1.35), fill: solid(theme.accent), line: { kind: 'none' } });
   for (const [x, y, rotation] of [[4.9, 2.0, -25], [7.0, 2.0, 25], [4.9, 4.0, 25], [7.0, 4.0, -25]]) {
@@ -262,13 +393,17 @@ function addBranches(document, theme, spec, number) {
       1.0, 0.34, index < 4 ? theme.surface : index < 8 ? theme.secondary : theme.primary,
       side > 0 ? 22 : -22, index * 2);
   }
-  const positions = [[0.78, 1.75], [8.1, 2.1], [0.78, 4.7]];
-  spec.items.slice(0, 3).forEach((item, index) => {
-    const [x, y] = positions[index];
-    text(slide, theme, item.heading, x, y, 4.3, 0.42, 24, [theme.primary, theme.secondary, theme.cool][index], { bold: true, wrap: false });
+  const items = spec.items.slice(0, 4);
+  items.forEach((item, index) => {
+    const [x, y] = BRANCH_POSITIONS[index];
+    text(slide, theme, item.heading, x, y, 4.3, 0.42, 24,
+      [theme.primary, theme.secondary, theme.cool, theme.danger][index],
+      { bold: true, wrap: false });
     text(slide, theme, item.body, x, y + 0.58, 4.45, 0.9, 16, theme.text);
   });
-  text(slide, theme, spec.callout ?? '', 8.1, 5.1, 4.2, 0.8, 22, theme.danger, { bold: true });
+  if (items.length < 4) {
+    text(slide, theme, spec.callout ?? '', 8.1, 5.1, 4.2, 0.8, 24, theme.danger, { bold: true });
+  }
   notes(slide, spec.sources);
   slideNumber(slide, theme, number);
 }
@@ -283,9 +418,9 @@ function addStats(document, theme, spec, number) {
     const x = 0.78 + index * 3.98;
     slide.addShape('ellipse', { x: inches(x), y: inches(1.65), width: inches(3.2), height: inches(3.2), fill: solid(colors[index]), line: { kind: 'none' } });
     text(slide, theme, item.value, x + 0.2, 2.15, 2.8, 0.7, 38, index === 2 ? theme.deep : theme.contrast, { bold: true, align: 'center', wrap: false });
-    text(slide, theme, item.unit ?? '', x + 0.3, 2.95, 2.6, 0.36, 15, index === 2 ? theme.deep : theme.contrast, { bold: true, align: 'center' });
-    text(slide, theme, item.heading, x - 0.05, 5.08, 3.4, 0.4, 20, colors[index], { bold: true, align: 'center', wrap: false });
-    text(slide, theme, item.body, x - 0.05, 5.58, 3.4, 0.8, 14, theme.text, { align: 'center' });
+    text(slide, theme, item.unit ?? '', x + 0.3, 2.95, 2.6, 0.36, 16, index === 2 ? theme.deep : theme.contrast, { bold: true, align: 'center' });
+    text(slide, theme, item.heading, x - 0.05, 5.08, 3.4, 0.42, 24, colors[index], { bold: true, align: 'center', wrap: false });
+    text(slide, theme, item.body, x - 0.05, 5.58, 3.4, 0.8, 16, theme.text, { align: 'center' });
   });
   notes(slide, spec.sources);
   slideNumber(slide, theme, number);
@@ -316,9 +451,9 @@ async function addChart(document, theme, spec, number) {
     },
   });
   slide.addShape('rect', { x: inches(9.45), y: inches(1.78), width: inches(3.08), height: inches(4.62), fill: solid(theme.deep), line: { kind: 'none' } });
-  text(slide, theme, spec.callout.value, 9.78, 2.25, 2.45, 0.75, 42, theme.accent, { bold: true, align: 'center', wrap: false });
-  text(slide, theme, spec.callout.heading, 9.8, 3.2, 2.4, 0.72, 16, theme.contrast, { bold: true, align: 'center' });
-  text(slide, theme, spec.callout.body, 9.78, 4.55, 2.45, 1.0, 17, theme.surface, { align: 'center', valign: 'middle' });
+  text(slide, theme, spec.callout.value, 9.55, 2.25, 2.88, 0.75, 38, theme.accent, { bold: true, align: 'center', wrap: false });
+  text(slide, theme, spec.callout.heading, 9.8, 3.2, 2.4, 0.72, 24, theme.contrast, { bold: true, align: 'center' });
+  text(slide, theme, spec.callout.body, 9.7, 4.45, 2.58, 1.25, 17, theme.surface, { align: 'center', valign: 'middle' });
   notes(slide, spec.sources);
   slideNumber(slide, theme, number);
 }
@@ -355,7 +490,7 @@ function addProcess(document, theme, spec, number) {
       PROCESS_LAYOUT.body.fontSize, index === 0 ? theme.deep : theme.contrast,
       { fit: 'none' });
   });
-  text(slide, theme, spec.footer ?? '', 1.6, 5.4, 10.1, 0.8, 21, theme.primary, { bold: true, align: 'center' });
+  text(slide, theme, spec.footer ?? '', 1.6, 5.4, 10.1, 0.8, 24, theme.primary, { bold: true, align: 'center' });
   notes(slide, spec.sources);
   slideNumber(slide, theme, number);
 }
@@ -365,12 +500,13 @@ function addActions(document, theme, spec, number) {
   slide.background = solid(theme.deep);
   title(slide, theme, spec.title, true);
   kicker(slide, theme, spec.kicker ?? 'What changes the trajectory', theme.accent);
-  spec.items.slice(0, 3).forEach((item, index) => {
-    const y = 1.7 + index * 1.48;
+  const items = spec.items.slice(0, 4);
+  items.forEach((item, index) => {
+    const y = ACTION_LAYOUT.startY + index * ACTION_LAYOUT.stepY;
     text(slide, theme, String(index + 1).padStart(2, '0'), 0.85, y, 0.55, 0.4, 20, theme.accent, { bold: true });
-    text(slide, theme, item.heading, 1.65, y, 4.5, 0.42, 21, theme.contrast, { bold: true, wrap: false });
-    text(slide, theme, item.body, 6.2, y, 5.7, 0.72, 15, theme.surface);
-    if (index < 2) slide.addShape('line', { x: inches(1.65), y: inches(y + 1.05), width: inches(10.2), height: 1, line: stroke(theme.secondary, 1, 55) });
+    text(slide, theme, item.heading, 1.65, y, 4.5, 0.8, 24, theme.contrast, { bold: true });
+    text(slide, theme, item.body, 6.2, y, 5.7, 0.72, 16, theme.surface);
+    if (index < items.length - 1) slide.addShape('line', { x: inches(1.65), y: inches(y + 0.98), width: inches(10.2), height: 1, line: stroke(theme.secondary, 1, 55) });
   });
   for (let index = 0; index < 7; index += 1) leaf(slide, theme, 0.55 + index * 1.75, 6.35, 1.3, 0.42, index % 2 ? theme.secondary : theme.surface, index % 2 ? 20 : -20, 30);
   notes(slide, spec.sources);

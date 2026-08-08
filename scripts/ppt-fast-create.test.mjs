@@ -88,6 +88,56 @@ test('process layout rejects step copy that exceeds its declared text budget', a
   }, '/tmp/never-written-process.pptx'), /step-1-heading/);
 });
 
+test('fast compiler rejects unsafe body copy outside the process family', async () => {
+  const item = {
+    value: '42%', unit: 'share', heading: 'Signal',
+    body: 'This intentionally excessive explanation repeats far beyond the three-line body budget. '.repeat(6),
+  };
+  await assert.rejects(createFastPresentation({
+    title: 'Unsafe stats',
+    slides: [{ family: 'stats', title: 'Three signals reveal the system', items: [item] }],
+  }, '/tmp/never-written-stats.pptx'), /item-1-body/);
+});
+
+test('Amazon-sized bands, chart, and four-action copy passes full text preflight', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'ppt-fast-amazon-copy-'));
+  const content = {
+    title: 'Amazon biodiversity',
+    slides: [
+      {
+        family: 'bands', title: 'A vertical city of plants',
+        rows: [
+          { heading: 'Emergents', body: 'Kapok and Brazil-nut crowns rise into fierce sun and wind.', detail: '45–60 m' },
+          { heading: 'Canopy', body: 'A dense green roof where leaves, fruit and epiphytes concentrate life.', detail: 'Primary engine' },
+          { heading: 'Understory', body: 'Palms and saplings thrive in filtered light with oversized leaves.', detail: 'Low light' },
+          { heading: 'Forest floor', body: 'Fungi and roots rapidly reclaim nutrients from fallen material.', detail: 'Fast cycling' },
+        ],
+      },
+      {
+        family: 'chart', title: 'Brazilian Amazon loss remains immense',
+        chart: { name: 'Deforested area', categories: ['2020', '2021', '2022', '2023'], values: [10851, 13038, 11594, 9001] },
+        callout: { value: '9,001 km²', heading: 'Lost in 2023', body: 'A sharp decline from 2022, yet an area larger than many major cities.' },
+      },
+      {
+        family: 'actions', title: 'Keep the forest standing — and thriving',
+        items: [
+          { heading: 'Secure Indigenous rights', body: 'Support territorial governance and locally led stewardship.' },
+          { heading: 'Protect connected habitat', body: 'Expand and enforce reserves, corridors and river safeguards.' },
+          { heading: 'Transform supply chains', body: 'Trace commodities and eliminate conversion from production.' },
+          { heading: 'Restore strategically', body: 'Reconnect fragments with native species while preventing new loss.' },
+        ],
+      },
+    ],
+  };
+  const result = await createFastPresentation(
+    content,
+    path.join(directory, 'deck.pptx'),
+    path.join(directory, 'deck-spec.json'),
+  );
+  assert.equal(result.slideCount, 3);
+  assert.equal(result.deckSpec.slides[2].elements.some((element) => element.id === 'item-4-heading'), true);
+});
+
 test('fast compiler materializes every registered layout family', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'ppt-fast-families-'));
   const item = { heading: 'ROLE', body: 'Concise supporting explanation.' };
@@ -96,15 +146,26 @@ test('fast compiler materializes every registered layout family', async () => {
     { family: 'bands', title: 'Layers organize the system', rows: Array.from({ length: 4 }, () => ({ ...item, detail: 'Example' })) },
     { family: 'spotlight', title: 'One actor anchors the story', hero: { heading: 'HERO', body: 'Core role.' }, items: [item, item, item] },
     { family: 'roles', title: 'Four roles keep work moving', items: [item, item, item, item] },
-    { family: 'branches', title: 'Structure creates new habitat', items: [item, item, item] },
+    { family: 'branches', title: 'Structure creates new habitat', items: [
+      item, item, item, { heading: 'FOURTH BRANCH', body: 'Fourth branch remains visible.' },
+    ] },
     { family: 'stats', title: 'Three signals reveal the system', items: Array.from({ length: 3 }, () => ({ ...item, value: '42%', unit: 'share' })) },
     { family: 'chart', title: 'The trend changes over time', chart: { name: 'Trend', categories: ['A', 'B'], values: [1, 2] }, callout: { value: '+1', heading: 'change', body: 'Meaning.' } },
     { family: 'process', title: 'Pressure compounds through a chain', items: [item, item, item, item] },
-    { family: 'actions', title: 'Three moves protect the system', items: [item, item, item] },
+    { family: 'actions', title: 'Four moves protect the system', items: [
+      item, item, item, { heading: 'FOURTH ACTION', body: 'Fourth action remains visible.' },
+    ] },
   ];
   const output = path.join(directory, 'families.pptx');
   await createFastPresentation({ title: 'Families', slides }, output, path.join(directory, 'deck-spec.json'));
   const reopened = await PptxDocument.open(output);
   assert.equal(reopened.slides.length, 9);
   assert.deepEqual(reopened.slides.map((slide) => slide.title.text), slides.map((slide) => slide.title));
+  const slideText = (slide) => slide.shapes
+    .flatMap((shape) => shape.richText ?? [])
+    .flatMap((paragraph) => paragraph.runs)
+    .map((run) => run.text)
+    .join(' ');
+  assert.match(slideText(reopened.slides[4]), /FOURTH BRANCH/);
+  assert.match(slideText(reopened.slides[8]), /FOURTH ACTION/);
 });
