@@ -19,6 +19,32 @@ const DEFAULT_THEME = Object.freeze({
   contrast: 'FFFFFF', danger: 'B94732', cool: '4A91A8', font: 'Arial',
 });
 
+function luminance(hex) {
+  const channels = [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16) / 255);
+  return channels.reduce((sum, channel, index) => {
+    const linear = channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    return sum + linear * [0.2126, 0.7152, 0.0722][index];
+  }, 0);
+}
+
+function mixWithWhite(hex, amount) {
+  return [0, 2, 4].map((offset) => {
+    const channel = Number.parseInt(hex.slice(offset, offset + 2), 16);
+    return Math.round(channel + (255 - channel) * amount).toString(16).padStart(2, '0');
+  }).join('').toUpperCase();
+}
+
+export function normalizeFastTheme(input = {}) {
+  const theme = { ...DEFAULT_THEME, ...input };
+  if (!/^[0-9A-F]{6}$/iu.test(theme.background)) throw new Error('Theme background must be a six-digit hex color');
+  if (!/^[0-9A-F]{6}$/iu.test(theme.surface)) throw new Error('Theme surface must be a six-digit hex color');
+  return {
+    ...theme,
+    background: luminance(theme.background) < 0.72 ? mixWithWhite(theme.background, 0.88) : theme.background.toUpperCase(),
+    surface: luminance(theme.surface) < 0.52 ? mixWithWhite(theme.surface, 0.72) : theme.surface.toUpperCase(),
+  };
+}
+
 const solid = (value, transparency) => ({
   kind: 'solid', color: { kind: 'srgb', value },
   ...(transparency === undefined ? {} : { transparency }),
@@ -300,7 +326,7 @@ function addActions(document, theme, spec, number) {
 
 export async function createFastPresentation(content, output, deckSpecOutput) {
   if (!Array.isArray(content.slides) || content.slides.length < 1) throw new Error('Content spec requires slides');
-  const theme = { ...DEFAULT_THEME, ...(content.theme ?? {}) };
+  const theme = normalizeFastTheme(content.theme);
   const deckSpec = buildDeckSpec({ ...content, theme });
   assertDeckSpec(deckSpec);
   if (deckSpecOutput) await writeFile(deckSpecOutput, `${JSON.stringify(deckSpec, null, 2)}\n`);

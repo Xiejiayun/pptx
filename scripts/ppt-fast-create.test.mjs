@@ -5,7 +5,14 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { PptxDocument } from '../packages/pptx/dist/index.js';
-import { createFastPresentation } from './ppt-fast-create.mjs';
+import { createFastPresentation, normalizeFastTheme } from './ppt-fast-create.mjs';
+
+test('fast compiler normalizes dark content backgrounds to a readable light field', () => {
+  const theme = normalizeFastTheme({ background: '071F17', surface: '123D2A' });
+  assert.ok(Number.parseInt(theme.background.slice(0, 2), 16) > 200);
+  assert.ok(Number.parseInt(theme.surface.slice(2, 4), 16) > 150);
+  assert.equal(theme.deep, '0B2E22');
+});
 
 test('fast compiler creates and reopens a preflighted deck', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'ppt-fast-create-'));
