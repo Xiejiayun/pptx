@@ -102,6 +102,24 @@ export type { OutputType, WriteOutput } from './output-type.js';
 export { PPTX_VERSION } from './version.js';
 export type { PptxVersion } from './version.js';
 export type { PresentationLayout, PresentationLayoutName } from './presentation-layout.js';
+export { assertDeckSpec, connectorTransform, preflightDeckSpec } from './deck-layout-preflight.js';
+export type {
+  BoxLayoutSpec,
+  ConnectorLayoutSpec,
+  DeckInsets,
+  DeckPoint,
+  DeckPreflightDiagnostic,
+  DeckPreflightDiagnosticCode,
+  DeckPreflightReport,
+  DeckRect,
+  DeckSlideSpec,
+  DeckSpec,
+  LayoutElementSpec,
+  LayoutFamily,
+  LayoutRegionSpec,
+  PreflightOptions,
+  TextLayoutSpec,
+} from './deck-layout-preflight.js';
 export {
   assertImageContentType,
   inspectImage,

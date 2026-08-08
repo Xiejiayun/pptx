@@ -7,6 +7,7 @@ import {
 } from '@pptx/sdk';
 import {
   CHART_TYPES,
+  assertDeckSpec,
   ChartModel,
   MediaModel,
   OUTPUT_TYPES,
@@ -20,6 +21,7 @@ import {
   TableModel,
   chartWorkbookMatches,
   inches,
+  preflightDeckSpec,
   slideNumberDiagnostics,
   TEXT_ALIGNMENTS,
   TEXT_VERTICAL_ALIGNMENTS,
@@ -34,6 +36,7 @@ import {
   type RichTextRunStyle,
   type SchemeColor,
   type DefineSlideMasterOptions,
+  type DeckSpec,
   type Emu,
   type Hyperlink,
   type InsertTableColumnsOptions,
@@ -69,6 +72,18 @@ import {
 } from './index.js';
 
 describe('@jiayunxie/pptx stable exports', () => {
+  it('exports deterministic DeckSpec preflight from the root package', () => {
+    const spec: DeckSpec = {
+      schemaVersion: 1,
+      slideSize: { width: inches(13.333), height: inches(7.5) },
+      safeArea: { top: inches(0.5), right: inches(0.5), bottom: inches(0.5), left: inches(0.5) },
+      gap: inches(0.3),
+      slides: [],
+    };
+    expect(preflightDeckSpec(spec)).toEqual({ ok: true, diagnostics: [] });
+    expect(() => assertDeckSpec(spec)).not.toThrow();
+  });
+
   it('exports the tableToSlides method and option types from the root package', () => {
     const document = PptxDocument.create();
     expect(typeof document.tableToSlides).toBe('function');
