@@ -5,7 +5,7 @@ description: Create, edit, read, inspect, validate, render, or troubleshoot Powe
 
 # PowerPoint
 
-Use `@jiayunxie/pptx` for native creation and lossless semantic editing. Read [pptx.md](pptx.md) completely before creating or editing a presentation.
+Use `@jiayunxie/pptx` for native creation and lossless semantic editing. Standard from-zero creation uses the fast compiler below and does not require reading [pptx.md](pptx.md). Read `pptx.md` completely for edits, unsupported compiler layouts, or API-level troubleshooting.
 
 ## Route the request
 
@@ -23,10 +23,32 @@ Do not browse, search, scrape, or download stock assets on the default path. Do 
 ## 180-second create path
 
 1. In 20 seconds, derive the audience, purpose, narrative arc, one declarative takeaway per slide, and a compact `ThemeSpec` from the query and available files.
-2. In 25 seconds, express the selected layout families as one `DeckSpec`. Call `assertDeckSpec()` before creating the presentation; fix every diagnostic in the spec rather than discovering basic geometry and title-fit defects after rendering.
-3. In 75 seconds, run one generator execution. Keep text, diagrams, tables, and charts editable and use semantic APIs rather than raw OOXML. Create straight lines from endpoints with `connectorTransform()`; never emit zero-width or zero-height transforms.
+2. In 25 seconds, write a compact content JSON using the fast compiler contract below. The compiler derives a `DeckSpec`, calls `assertDeckSpec()`, and writes the resolved spec before serialization; fix content diagnostics rather than discovering basic geometry and title-fit defects after rendering.
+3. In 75 seconds, run one compiler execution. Keep text, diagrams, tables, and charts editable and use semantic APIs rather than raw OOXML. The compiler creates straight lines from endpoints with `connectorTransform()` and never emits zero-width or zero-height transforms.
 4. In 45 seconds, run `node scripts/ppt-fast-qa.mjs <deck.pptx> --out-dir <new-run-dir> --expected-slides <count> --max-warnings 0 --json`. It reopens, validates, renders, checks overflow, and builds a montage concurrently with the bundled runtime.
 5. Inspect the full-size rendered slides and montage. Reserve 15 seconds for at most one targeted repair when inspection finds a concrete defect. Recheck affected content and run the QA command into another new directory. If no defect exists, deliver the first valid output without inventing a change.
+
+## Fast compiler contract
+
+Write one JSON object with `title`, optional `author`, optional theme colors/fonts, and `slides`. Each slide requires `family`, `title`, optional `kicker`, a family-specific payload, and a `sources` URL array. Use 8–10 slides and at least five silhouettes.
+
+- `cover`: `subtitle`.
+- `bands`: four `rows` with `heading`, `body`, and optional `detail`.
+- `spotlight`: one `hero` plus up to three `items`.
+- `roles`, `branches`, `process`, or `actions`: three or four `items` with `heading` and `body`.
+- `stats`: three `items` with `value`, `unit`, `heading`, and `body`.
+- `chart`: `chart` with `name`, `categories`, and numeric `values`, plus a `callout` with `value`, `heading`, and `body`.
+
+Run exactly once before QA:
+
+```sh
+node scripts/ppt-fast-create.mjs \
+  --input <content.json> \
+  --output <deck.pptx> \
+  --deck-spec-out <deck-spec.json>
+```
+
+Do not write a bespoke generator unless the request cannot be expressed by these families. That exception leaves the standard fast path and requires the full `pptx.md` reference.
 
 ## Editing and delivery contract
 

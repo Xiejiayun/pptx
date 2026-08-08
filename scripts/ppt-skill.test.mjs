@@ -24,7 +24,8 @@ test('ppt skill has the exact documented file surface', async () => {
   const combined = `${skill}\n${reference}`;
 
   assert.match(skill, /^---\nname: ppt\ndescription: .+\n---/);
-  assert.match(skill, /Read \[pptx\.md\]\(pptx\.md\) completely/);
+  assert.match(skill, /does not require reading \[pptx\.md\]\(pptx\.md\)/);
+  assert.match(skill, /Read `pptx\.md` completely for edits/);
   assert.match(skill, /Create:|Edit:|Inspect:/);
   assert.match(skill, /separate output path/);
   assert.match(skill, /semantic APIs/);
@@ -62,6 +63,7 @@ test('ppt skill has the exact documented file surface', async () => {
   assert.match(combined, /assertDeckSpec\(\)/);
   assert.match(combined, /connectorTransform\(\)/);
   assert.match(combined, /scripts\/ppt-fast-qa\.mjs/);
+  assert.match(combined, /scripts\/ppt-fast-create\.mjs/);
   assert.match(combined, /task-cold clock/);
   assert.match(combined, /If a concrete defect exists/);
   assert.match(combined, /rerender only affected slides/);
