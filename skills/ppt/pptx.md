@@ -462,11 +462,11 @@ Choose a deliberate visual system:
 
 Use image composition intentionally. Request negative space where text must sit, crop around the focal subject, and apply a controlled overlay when text crosses photography. Do not reuse the same foreground image more than once. Prefer full-bleed visuals, diagrams, and native data graphics to dense paragraphs.
 
-Minimum practical text sizes are 50 pt for a cover title, 36 pt for slide titles, 20 pt for section headings, 14 pt for body copy, and 10 pt for captions. These are floors, not targets. Reduce copy before reducing type.
+Minimum practical text sizes are 50 pt for a cover title, 36 pt for slide titles, 24 pt for section headings, 16 pt for body copy, and 10 pt for captions. These are floors, not targets. Reduce copy before reducing type.
 
 ## 180-second execution and QA
 
-The fast-path clock starts before the query is handed to the generating agent and ends only when the final PPTX passes content, structural, and visual checks. Replaying an existing generator is a useful regression check, but it is not task-cold query-to-PPT evidence.
+The fast-path clock starts before the query is handed to the generating agent and ends only when an atomic final verdict records content, structural, visual, and SLA success. Replaying an existing generator is a useful regression check, but it is not task-cold query-to-PPT evidence.
 
 | Stage | Budget |
 |---|---:|
@@ -477,11 +477,23 @@ The fast-path clock starts before the query is handed to the generating agent an
 | One repair and targeted recheck buffer | 15 seconds |
 | Total | 180 seconds |
 
-Run `node scripts/ppt-fast-qa.mjs <deck.pptx> --out-dir <new-run-dir> --expected-slides <count> --max-warnings 0 --json`. It resolves the bundled Node and Python runtimes once, starts reopen, package validation, rendering, and overflow checks concurrently, creates the montage after rendering, and writes an atomic `qa-result.json`. Never reuse or clear an old run directory; its content hash and outputs must belong to the current PPTX.
+Start a new acceptance directory before content generation:
 
-The command treats `valid: false` and overflow `ERROR:` output as failures even when a child process exits with status 0. A normal 8–10 slide deck should keep this QA phase under 45 seconds with a 60-second hard timeout, leaving at least 135 seconds for query interpretation, DeckSpec creation, generation, visual inspection, and at most one repair. Reopen the written file and verify slide count, order, titles, notes, metadata, links, chart values, table cells, alt text, and `[Sources]` blocks. For edits, also diff against the untouched source.
+```sh
+node scripts/ppt-fast-accept.mjs begin \
+  --run-dir <new-run-directory> \
+  --query-file <query-source.txt> \
+  --expected-slides <count> \
+  --sla-ms 180000
+```
 
-Render every slide once, create a montage, and inspect it for story flow and repetitive composition. Inspect readable slide images for overlap, clipping, unexpected wrapping, low contrast, awkward crops, tiny text, misalignment, and excess empty space. Run the available automated overflow check, but do not treat it as a substitute for visual inspection.
+Write `content.json` into that directory, then run `node scripts/ppt-fast-accept.mjs build --run-dir <run-directory>`. The supervisor calls the compiler and parallel QA runner, resolves the bundled runtimes once, writes `deck-spec.json`, `deck.pptx`, `compile-result.json`, `qa-1/qa-result.json`, all rendered PNGs, the montage, `review-manifest.json`, and a hash-populated `review-template.json`. Never reuse or clear an old run directory; its query and content hashes must belong to the current run.
+
+The command treats `valid: false` and overflow `ERROR:` output as failures even when a child process exits with status 0. A normal 8–10 slide deck should keep this QA phase under a diagnostic 45-second stage budget with a 60-second hard timeout, leaving at least 135 seconds for query interpretation, DeckSpec creation, generation, visual inspection, and at most one repair. Missing the stage budget records `qaBudgetPass: false`; only the complete 180-second query-to-verdict SLA controls final `slaPass`. Structural QA failures remain quality failures. Reopen the written file and verify slide count, order, titles, notes, metadata, links, chart values, table cells, alt text, and `[Sources]` blocks. For edits, also diff against the untouched source.
+
+Render every slide once, create a montage, and inspect it for story flow and repetitive composition. Inspect readable slide images for overlap, clipping, unexpected wrapping, low contrast, awkward crops, tiny text, misalignment, and excess empty space. Run the available automated overflow check, but do not treat it as a substitute for visual inspection. Copy `review-template.json`, replace all pending review fields, and preserve its PPTX, manifest, QA, montage, and per-slide PNG hashes. This prevents an older visual review from being reused for a different render.
+
+Finalize with `node scripts/ppt-fast-accept.mjs finalize --run-dir <run-directory> --review-file <review.json>`. Deliver only when `final-verdict.json` is `pass`; it binds the query, content, DeckSpec, PPTX, QA, render, montage, and visual review by SHA-256 and separately records `qualityPass` and `slaPass`.
 
 If the first output has no defect, deliver it without inventing a correction. If a concrete defect exists, make at most one targeted repair within the fast path, rerender only affected slides, repeat affected semantic checks, and run final package validation. Report a missed time budget as a performance defect rather than skipping structural or visual evidence.
 
