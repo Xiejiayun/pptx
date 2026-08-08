@@ -285,6 +285,46 @@ test('cold-run bands, roles footer, chart labels, and four-action copy pass full
   assert.match(chartText, /6,288 km²/u);
 });
 
+test('documented fast-path character targets compile at their stated limits', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'ppt-fast-budget-limits-'));
+  const copyAt = (length, phrase = 'a forest ') => {
+    const repeated = phrase.repeat(Math.ceil(length / phrase.length) + 1);
+    return `${repeated.slice(0, length - 1)}x`;
+  };
+  const item = (headingLength, bodyLength) => ({
+    heading: copyAt(headingLength),
+    body: copyAt(bodyLength),
+  });
+  const title = copyAt(40);
+  const kicker = copyAt(36);
+  const slides = [
+    { family: 'cover', title: copyAt(30), subtitle: copyAt(90) },
+    { family: 'bands', title, kicker, rows: Array.from({ length: 4 }, () => ({
+      ...item(13, 64), detail: copyAt(34),
+    })) },
+    { family: 'spotlight', title, kicker,
+      hero: { ...item(13, 90), subheading: copyAt(20) },
+      items: Array.from({ length: 3 }, () => item(22, 74)) },
+    { family: 'roles', title, kicker, items: Array.from({ length: 4 }, () => item(18, 64)), footer: copyAt(45) },
+    { family: 'branches', title, kicker, items: Array.from({ length: 3 }, () => item(22, 74)), callout: copyAt(48) },
+    { family: 'stats', title, kicker, items: Array.from({ length: 3 }, () => ({
+      ...item(19, 62), value: '111111111', unit: copyAt(20),
+    })) },
+    { family: 'chart', title, kicker,
+      chart: { name: copyAt(30), categories: [copyAt(10), copyAt(10), copyAt(10)], values: [1, 2, 3] },
+      callout: { value: '111111111', heading: copyAt(22), body: copyAt(62) } },
+    { family: 'process', title, kicker, items: Array.from({ length: 4 }, () => item(20, 65)), footer: copyAt(75) },
+    { family: 'actions', title, kicker, items: Array.from({ length: 4 }, () => item(30, 72)) },
+  ];
+  const output = path.join(directory, 'budget-limits.pptx');
+  const result = await createFastPresentation(
+    { title: 'Budget limits', slides }, output, path.join(directory, 'deck-spec.json'),
+  );
+  assert.equal(result.slideCount, 9);
+  const reopened = await PptxDocument.open(output);
+  assert.equal(reopened.slides.length, 9);
+});
+
 test('fast compiler materializes every registered layout family', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'ppt-fast-families-'));
   const item = { heading: 'ROLE', body: 'Concise supporting explanation.' };

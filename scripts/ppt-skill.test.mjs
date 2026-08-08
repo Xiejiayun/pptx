@@ -67,6 +67,21 @@ test('ppt skill has the exact documented file surface', async () => {
   assert.match(combined, /task-cold clock/);
   assert.match(combined, /If a concrete defect exists/);
   assert.match(combined, /rerender only affected slides/);
+  for (const budget of [
+    'Any non-cover slide title / kicker | 40 / 36',
+    'Cover title / subtitle | 30 / 90',
+    '`bands` heading / body / detail | 13 / 64 / 34',
+    '`spotlight.hero` heading / subheading / body | 13 / 20 / 90',
+    '`spotlight.items` heading / body | 22 / 74',
+    '`roles` heading / body / footer | 18 / 64 / 45',
+    '`branches` heading / body / callout | 22 / 74 / 48',
+    '`stats` value / unit / heading / body | 9 / 20 / 19 / 62',
+    '`chart.name` / category / callout value / heading / body | 30 / 10 / 9 / 22 / 62',
+    '`process` heading / body / footer | 20 / 65 / 75',
+    '`actions` heading / body | 30 / 72',
+  ]) {
+    assert.ok(skill.includes(budget), `Missing documented budget: ${budget}`);
+  }
   assert.doesNotMatch(combined, /at least one concrete (?:correction|improvement)/i);
   assert.match(reference, /PptxDocument\.create/);
   assert.match(reference, /PptxDocument\.open/);

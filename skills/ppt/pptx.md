@@ -159,6 +159,8 @@ const deckSpec = {
 
 assertDeckSpec(deckSpec);
 
+// Use connectorTransform() for every connector so bounds and flip flags stay valid in all directions.
+
 const line = connectorTransform(
   { x: inches(1), y: inches(3) },
   { x: inches(5), y: inches(3) },

@@ -32,8 +32,10 @@ Do not browse, search, scrape, or download stock assets on the default path. Do 
      --sla-ms 180000
    ```
 
+   Treat this task-cold clock as authoritative; do not reset or pause it between content generation, build, visual review, and finalization.
+
 2. In one reasoning pass and at most 45 seconds, derive the audience, purpose, narrative arc, one declarative takeaway per slide, and a compact `ThemeSpec`; then write only valid JSON to `<run-directory>/content.json`. Do not read `pptx.md`, browse the repository, search for assets, draft prose in another file, or inspect/reuse an older topic-specific content file, generator, or deck during a task-cold run. Do not ask another agent to rewrite or polish the JSON before the first build.
-3. Run `node scripts/ppt-fast-accept.mjs build --run-dir <run-directory>`. It performs one compiler execution, writes `deck-spec.json` before serialization, creates `deck.pptx`, and runs reopen, OOXML validation, rendering, overflow checks, and montage creation concurrently in `qa-1/`.
+3. Run `node scripts/ppt-fast-accept.mjs build --run-dir <run-directory>`. It wraps `scripts/ppt-fast-create.mjs` and `scripts/ppt-fast-qa.mjs`, performs one compiler execution, writes `deck-spec.json` before serialization, creates `deck.pptx`, and runs reopen, OOXML validation, rendering, overflow checks, and montage creation concurrently in `qa-1/`.
 4. Inspect every full-size PNG and the montage. Copy `review-template.json`, replace its pending values with the actual review, and preserve every supplied hash. Record exact slide coverage, query/content consistency, sources, and unresolved issues. If a concrete defect exists, make at most one targeted content/compiler repair and rerun `build` with `--force-repair`; discard the old review and use the new template for `qa-2/`.
 
    ```json
@@ -64,17 +66,17 @@ For the predictable nine-slide cold path, use exactly `cover → roles → stats
 
 | Field | Maximum characters |
 |---|---:|
-| Any non-cover slide title / kicker | 48 / 42 |
-| Cover title / subtitle | 34 / 100 |
-| `bands` heading / body / detail | 18 / 72 / 36 |
-| `spotlight.hero` heading / subheading / body | 16 / 24 / 110 |
-| `spotlight.items` heading / body | 24 / 95 |
-| `roles` heading / body / footer | 20 / 90 / 48 |
-| `branches` heading / body / callout | 24 / 95 / 60 |
-| `stats` value / unit / heading / body | 10 / 22 / 22 / 85 |
-| `chart.name` / category / callout value / heading / body | 34 / 12 / 9 / 26 / 100 |
-| `process` heading / body / footer | 22 / 80 / 90 |
-| `actions` heading / body | 34 / 90 |
+| Any non-cover slide title / kicker | 40 / 36 |
+| Cover title / subtitle | 30 / 90 |
+| `bands` heading / body / detail | 13 / 64 / 34 |
+| `spotlight.hero` heading / subheading / body | 13 / 20 / 90 |
+| `spotlight.items` heading / body | 22 / 74 |
+| `roles` heading / body / footer | 18 / 64 / 45 |
+| `branches` heading / body / callout | 22 / 74 / 48 |
+| `stats` value / unit / heading / body | 9 / 20 / 19 / 62 |
+| `chart.name` / category / callout value / heading / body | 30 / 10 / 9 / 22 / 62 |
+| `process` heading / body / footer | 20 / 65 / 75 |
+| `actions` heading / body | 30 / 72 |
 
 Prefer complete short sentences over filling the budget. Make `chart.callout.value` a number, percentage, or number plus short unit; never use prose there. Never compensate for excess copy by requesting smaller fonts. All theme colors must be six-digit hexadecimal values without `#`; choose a light `background`, a readable `surface`, and a dark `deep`. The compiler selects accessible text colors automatically.
 
