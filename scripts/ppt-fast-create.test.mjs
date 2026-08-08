@@ -55,6 +55,39 @@ test('fast compiler rejects an unsafe title before writing', async () => {
   await assert.rejects(createFastPresentation(content, '/tmp/never-written.pptx'), /TEXT_HORIZONTAL_OVERFLOW/);
 });
 
+test('process layout preflights and renders a two-line Edges dry and burn heading', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'ppt-fast-process-'));
+  const output = path.join(directory, 'deck.pptx');
+  const deckSpecOutput = path.join(directory, 'deck-spec.json');
+  const items = [
+    { heading: 'Roads open access', body: 'New corridors fragment habitat and expose intact forest edges.' },
+    { heading: 'Forest is cleared', body: 'Agricultural expansion replaces complex ecosystems.' },
+    { heading: 'Edges dry and burn', body: 'Hotter, windier boundaries make degradation and fire more likely.' },
+    { heading: 'Resilience falls', body: 'Species loss and weaker moisture recycling raise dieback risk.' },
+  ];
+  const result = await createFastPresentation({
+    title: 'Amazon pressure',
+    slides: [{ family: 'process', title: 'Deforestation unravels a living network', items }],
+  }, output, deckSpecOutput);
+  const processSpec = result.deckSpec.slides[0];
+  const thirdHeading = processSpec.elements.find((element) => element.id === 'step-3-heading');
+  assert.equal(thirdHeading.text, 'Edges dry and burn');
+  assert.equal(thirdHeading.fontSize, 24);
+  assert.equal(thirdHeading.wrap, true);
+  assert.equal(thirdHeading.maxLines, 2);
+  const reopened = await PptxDocument.open(output);
+  assert.equal(reopened.slides.length, 1);
+  assert.equal(reopened.slides[0].title.text, 'Deforestation unravels a living network');
+});
+
+test('process layout rejects step copy that exceeds its declared text budget', async () => {
+  const item = { heading: 'A heading that cannot fit in the compact process card even on two lines', body: 'Short body.' };
+  await assert.rejects(createFastPresentation({
+    title: 'Unsafe process',
+    slides: [{ family: 'process', title: 'Pressure compounds through a chain', items: [item] }],
+  }, '/tmp/never-written-process.pptx'), /step-1-heading/);
+});
+
 test('fast compiler materializes every registered layout family', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'ppt-fast-families-'));
   const item = { heading: 'ROLE', body: 'Concise supporting explanation.' };

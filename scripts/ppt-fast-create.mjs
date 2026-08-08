@@ -19,6 +19,13 @@ const DEFAULT_THEME = Object.freeze({
   contrast: 'FFFFFF', danger: 'B94732', cool: '4A91A8', font: 'Arial',
 });
 
+const PROCESS_LAYOUT = Object.freeze({
+  positions: Object.freeze([0.82, 3.93, 7.04, 10.15]),
+  card: Object.freeze({ y: 2.08, width: 2.45, height: 2.7 }),
+  heading: Object.freeze({ dx: 0.2, y: 2.25, width: 2.05, height: 0.82, fontSize: 24 }),
+  body: Object.freeze({ dx: 0.2, y: 3.2, width: 2.05, height: 1.3, fontSize: 16 }),
+});
+
 function luminance(hex) {
   const channels = [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16) / 255);
   return channels.reduce((sum, channel, index) => {
@@ -119,16 +126,51 @@ function buildDeckSpec(content) {
       const bounds = cover
         ? { x: inches(0.72), y: inches(3.85), width: inches(11.8), height: inches(0.9) }
         : { x: inches(0.65), y: inches(0.45), width: inches(12), height: inches(0.7) };
+      const regions = [{ id: 'title-region', bounds, collision: 'exclusive' }];
+      const elements = [{
+        kind: 'text', id: 'title', regionId: 'title-region', bounds,
+        role: 'title', text: slide.title, fontFamily: content.theme?.font ?? DEFAULT_THEME.font,
+        fontSize: cover ? 54 : 38, bold: true, wrap: false, maxLines: 1,
+        fit: 'error', minFontSize: cover ? 50 : 36,
+      }];
+      if (slide.family === 'process') {
+        slide.items.slice(0, 4).forEach((item, itemIndex) => {
+          const x = PROCESS_LAYOUT.positions[itemIndex];
+          const regionId = `step-${itemIndex + 1}-region`;
+          const headingBounds = {
+            x: inches(x + PROCESS_LAYOUT.heading.dx), y: inches(PROCESS_LAYOUT.heading.y),
+            width: inches(PROCESS_LAYOUT.heading.width), height: inches(PROCESS_LAYOUT.heading.height),
+          };
+          const bodyBounds = {
+            x: inches(x + PROCESS_LAYOUT.body.dx), y: inches(PROCESS_LAYOUT.body.y),
+            width: inches(PROCESS_LAYOUT.body.width), height: inches(PROCESS_LAYOUT.body.height),
+          };
+          regions.push({
+            id: regionId,
+            bounds: {
+              x: inches(x), y: inches(PROCESS_LAYOUT.card.y),
+              width: inches(PROCESS_LAYOUT.card.width), height: inches(PROCESS_LAYOUT.card.height),
+            },
+            collision: 'exclusive',
+          });
+          elements.push({
+            kind: 'text', id: `step-${itemIndex + 1}-heading`, regionId, bounds: headingBounds,
+            role: 'label', text: item.heading, fontFamily: content.theme?.font ?? DEFAULT_THEME.font,
+            fontSize: PROCESS_LAYOUT.heading.fontSize, bold: true, wrap: true, maxLines: 2,
+            fit: 'error', minFontSize: PROCESS_LAYOUT.heading.fontSize,
+          }, {
+            kind: 'text', id: `step-${itemIndex + 1}-body`, regionId, bounds: bodyBounds,
+            role: 'body', text: item.body, fontFamily: content.theme?.font ?? DEFAULT_THEME.font,
+            fontSize: PROCESS_LAYOUT.body.fontSize, wrap: true, maxLines: 5,
+            fit: 'error', minFontSize: PROCESS_LAYOUT.body.fontSize,
+          });
+        });
+      }
       return {
         id: slide.id ?? `slide-${index + 1}`,
         family: slide.family,
-        regions: [{ id: 'title-region', bounds, collision: 'exclusive' }],
-        elements: [{
-          kind: 'text', id: 'title', regionId: 'title-region', bounds,
-          role: 'title', text: slide.title, fontFamily: content.theme?.font ?? DEFAULT_THEME.font,
-          fontSize: cover ? 54 : 38, bold: true, wrap: false, maxLines: 1,
-          fit: 'error', minFontSize: cover ? 50 : 36,
-        }],
+        regions,
+        elements,
       };
     }),
   };
@@ -287,20 +329,31 @@ function addProcess(document, theme, spec, number) {
   title(slide, theme, spec.title);
   kicker(slide, theme, spec.kicker ?? 'A chain reaction', theme.danger);
   const steps = spec.items.slice(0, 4);
-  const positions = [0.82, 3.93, 7.04, 10.15];
   for (let index = 0; index < steps.length - 1; index += 1) {
     const transform = connectorTransform(
-      { x: inches(positions[index] + 2.2), y: inches(3.28) },
-      { x: inches(positions[index + 1] - 0.12), y: inches(3.28) },
+      { x: inches(PROCESS_LAYOUT.positions[index] + PROCESS_LAYOUT.card.width), y: inches(3.28) },
+      { x: inches(PROCESS_LAYOUT.positions[index + 1] - 0.12), y: inches(3.28) },
     );
     slide.addShape('line', { ...transform, line: stroke(theme.danger, 3), arrows: { end: 'triangle' } });
   }
   steps.forEach((item, index) => {
-    const x = positions[index];
+    const x = PROCESS_LAYOUT.positions[index];
     const color = [theme.accent, theme.danger, '9E3A2A', theme.deep][index];
-    slide.addShape('roundRect', { x: inches(x), y: inches(2.08), width: inches(2.2), height: inches(2.35), fill: solid(color), line: { kind: 'none' } });
-    text(slide, theme, item.heading, x + 0.2, 2.28, 1.8, 0.4, 21, index === 0 ? theme.deep : theme.contrast, { bold: true, wrap: false });
-    text(slide, theme, item.body, x + 0.2, 2.9, 1.8, 1.05, 14, index === 0 ? theme.deep : theme.contrast);
+    slide.addShape('roundRect', {
+      x: inches(x), y: inches(PROCESS_LAYOUT.card.y),
+      width: inches(PROCESS_LAYOUT.card.width), height: inches(PROCESS_LAYOUT.card.height),
+      fill: solid(color), line: { kind: 'none' },
+    });
+    text(slide, theme, item.heading,
+      x + PROCESS_LAYOUT.heading.dx, PROCESS_LAYOUT.heading.y,
+      PROCESS_LAYOUT.heading.width, PROCESS_LAYOUT.heading.height,
+      PROCESS_LAYOUT.heading.fontSize, index === 0 ? theme.deep : theme.contrast,
+      { bold: true, wrap: true, fit: 'none' });
+    text(slide, theme, item.body,
+      x + PROCESS_LAYOUT.body.dx, PROCESS_LAYOUT.body.y,
+      PROCESS_LAYOUT.body.width, PROCESS_LAYOUT.body.height,
+      PROCESS_LAYOUT.body.fontSize, index === 0 ? theme.deep : theme.contrast,
+      { fit: 'none' });
   });
   text(slide, theme, spec.footer ?? '', 1.6, 5.4, 10.1, 0.8, 21, theme.primary, { bold: true, align: 'center' });
   notes(slide, spec.sources);
