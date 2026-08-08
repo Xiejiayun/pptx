@@ -8,24 +8,25 @@ This reference explains how to create and edit presentations with `@jiayunxie/pp
 2. [ThemeSpec](#themespec)
 3. [Typography](#typography)
 4. [Spacing and layout families](#spacing-and-layout-families)
-5. [Install and import](#install-and-import)
-6. [Units, layouts, and formats](#units-layouts-and-formats)
-7. [Create from zero](#create-from-zero)
-8. [Open and edit](#open-and-edit)
-9. [Text and rich text](#text-and-rich-text)
-10. [Shapes and styling](#shapes-and-styling)
-11. [Images, SVG, and backgrounds](#images-svg-and-backgrounds)
-12. [Tables and pagination](#tables-and-pagination)
-13. [Native charts](#native-charts)
-14. [Audio and video](#audio-and-video)
-15. [Masters, layouts, and placeholders](#masters-layouts-and-placeholders)
-16. [Metadata, sections, notes, and slide numbers](#metadata-sections-notes-and-slide-numbers)
-17. [Output and runtime environments](#output-and-runtime-environments)
-18. [Inspection, validation, and diff](#inspection-validation-and-diff)
-19. [Narrative and visual design](#narrative-and-visual-design)
-20. [180-second execution and QA](#180-second-execution-and-qa)
-21. [Deliberate boundaries](#deliberate-boundaries)
-22. [Common mistakes](#common-mistakes)
+5. [DeckSpec layout preflight](#deckspec-layout-preflight)
+6. [Install and import](#install-and-import)
+7. [Units, layouts, and formats](#units-layouts-and-formats)
+8. [Create from zero](#create-from-zero)
+9. [Open and edit](#open-and-edit)
+10. [Text and rich text](#text-and-rich-text)
+11. [Shapes and styling](#shapes-and-styling)
+12. [Images, SVG, and backgrounds](#images-svg-and-backgrounds)
+13. [Tables and pagination](#tables-and-pagination)
+14. [Native charts](#native-charts)
+15. [Audio and video](#audio-and-video)
+16. [Masters, layouts, and placeholders](#masters-layouts-and-placeholders)
+17. [Metadata, sections, notes, and slide numbers](#metadata-sections-notes-and-slide-numbers)
+18. [Output and runtime environments](#output-and-runtime-environments)
+19. [Inspection, validation, and diff](#inspection-validation-and-diff)
+20. [Narrative and visual design](#narrative-and-visual-design)
+21. [180-second execution and QA](#180-second-execution-and-qa)
+22. [Deliberate boundaries](#deliberate-boundaries)
+23. [Common mistakes](#common-mistakes)
 
 ## Default source policy
 
@@ -120,6 +121,54 @@ Choose among eight layout families:
 8. **native chart or table plus takeaway** — editable evidence occupying most of the slide with a concise implication.
 
 Do not repeat a family on consecutive content slides unless continuity requires it. Do not default to title-and-bullets, repeated card grids, title underlines, decorative bars, or accent stripes. Prefer one main idea, no more than three supporting points, and one clear visual hierarchy.
+
+## DeckSpec layout preflight
+
+Turn the outline and selected layout families into one compact `DeckSpec` before creating slide objects. It is the deterministic source of truth for regions, audience-facing text boxes, and connector endpoints. Use EMU values from `inches()` and keep element ids stable so diagnostics identify the exact repair target.
+
+```js
+import {
+  assertDeckSpec,
+  connectorTransform,
+  inches,
+  PptxDocument,
+} from '@jiayunxie/pptx';
+
+const deckSpec = {
+  schemaVersion: 1,
+  slideSize: { width: inches(13.333), height: inches(7.5) },
+  safeArea: { top: inches(0.4), right: inches(0.4), bottom: inches(0.4), left: inches(0.4) },
+  gap: inches(0.3),
+  fontSafetyFactor: 1.1,
+  slides: [{
+    id: 'climate-role',
+    family: 'large-statistic',
+    regions: [{
+      id: 'title-region',
+      bounds: { x: inches(0.6), y: inches(0.5), width: inches(12.1), height: inches(0.7) },
+      collision: 'exclusive',
+    }],
+    elements: [{
+      kind: 'text', id: 'title', regionId: 'title-region', role: 'title',
+      bounds: { x: inches(0.6), y: inches(0.5), width: inches(12.1), height: inches(0.7) },
+      text: 'The Amazon exports climate stability', fontFamily: 'Arial', fontSize: 40,
+      wrap: false, maxLines: 1, fit: 'error', minFontSize: 36,
+    }],
+  }],
+};
+
+assertDeckSpec(deckSpec);
+
+const line = connectorTransform(
+  { x: inches(1), y: inches(3) },
+  { x: inches(5), y: inches(3) },
+);
+// Pass line.x, line.y, line.width, line.height, and flip flags to the shape API.
+```
+
+`assertDeckSpec()` rejects non-finite or non-positive boxes, slide and safe-area overflow, exclusive regions without the deck gap, elements outside declared regions or parents, duplicate ids, text that cannot fit its line and font-size budget, and zero-length connectors. Titles are a one-line editorial decision: shorten the title or select a roomier layout instead of trusting client autofit. A title that intentionally uses two lines must declare `wrap: true`, `maxLines: 2`, and a `minFontSize` of at least 36.
+
+The preflight is intentionally conservative and browser-safe. Use `collision: 'overlay'` or `'ignore'` only for deliberate compositions such as a label inside its parent or decorative canopy shapes. Do not suppress a diagnostic merely because package validation succeeds; OOXML validity does not detect visible clipping.
 
 ## Install and import
 
@@ -417,18 +466,20 @@ Minimum practical text sizes are 50 pt for a cover title, 36 pt for slide titles
 
 ## 180-second execution and QA
 
-The warm path starts when the query is available and ends when the final PPTX passes content, structural, and visual checks.
+The fast-path clock starts before the query is handed to the generating agent and ends only when the final PPTX passes content, structural, and visual checks. Replaying an existing generator is a useful regression check, but it is not task-cold query-to-PPT evidence.
 
 | Stage | Budget |
 |---|---:|
 | Narrative outline | 20 seconds |
-| Theme and layout assignment | 25 seconds |
+| Theme, DeckSpec, and layout preflight | 25 seconds |
 | One native PPTX generator execution | 75 seconds |
 | Reopen, validate, render, and inspect in parallel | 45 seconds |
 | One repair and targeted recheck buffer | 15 seconds |
 | Total | 180 seconds |
 
-Run content QA by reopening the written file and verifying slide count, order, titles, notes, metadata, links, chart values, table cells, alt text, and `[Sources]` blocks. In parallel, run package inspection and compatibility validation. For edits, also diff against the untouched source.
+Run `node scripts/ppt-fast-qa.mjs <deck.pptx> --out-dir <new-run-dir> --expected-slides <count> --max-warnings 0 --json`. It resolves the bundled Node and Python runtimes once, starts reopen, package validation, rendering, and overflow checks concurrently, creates the montage after rendering, and writes an atomic `qa-result.json`. Never reuse or clear an old run directory; its content hash and outputs must belong to the current PPTX.
+
+The command treats `valid: false` and overflow `ERROR:` output as failures even when a child process exits with status 0. A normal 8–10 slide deck should keep this QA phase under 45 seconds with a 60-second hard timeout, leaving at least 135 seconds for query interpretation, DeckSpec creation, generation, visual inspection, and at most one repair. Reopen the written file and verify slide count, order, titles, notes, metadata, links, chart values, table cells, alt text, and `[Sources]` blocks. For edits, also diff against the untouched source.
 
 Render every slide once, create a montage, and inspect it for story flow and repetitive composition. Inspect readable slide images for overlap, clipping, unexpected wrapping, low contrast, awkward crops, tiny text, misalignment, and excess empty space. Run the available automated overflow check, but do not treat it as a substitute for visual inspection.
 

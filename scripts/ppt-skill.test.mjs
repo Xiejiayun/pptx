@@ -4,7 +4,13 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { ChartModel, inches, PptxDocument } from '../packages/pptx/dist/index.js';
+import {
+  assertDeckSpec,
+  ChartModel,
+  inches,
+  PptxDocument,
+  preflightDeckSpec,
+} from '../packages/pptx/dist/index.js';
 
 const root = new URL('..', import.meta.url);
 const skillDir = new URL('../skills/ppt/', import.meta.url);
@@ -46,12 +52,17 @@ test('ppt skill has the exact documented file surface', async () => {
   assert.match(combined, /native chart or table plus takeaway/);
   assert.match(combined, /180 seconds/);
   assert.match(combined, /Narrative outline.*20 seconds/s);
-  assert.match(combined, /Theme and layout assignment.*25 seconds/s);
+  assert.match(combined, /Theme, DeckSpec, and layout preflight.*25 seconds/s);
   assert.match(combined, /generator execution.*75 seconds/s);
   assert.match(combined, /Reopen, validate, render, and inspect in parallel.*45 seconds/s);
   assert.match(combined, /repair and targeted recheck buffer.*15 seconds/si);
   assert.match(combined, /Do not browse, search, scrape, or download/);
   assert.match(combined, /at most one targeted repair/);
+  assert.match(combined, /DeckSpec/);
+  assert.match(combined, /assertDeckSpec\(\)/);
+  assert.match(combined, /connectorTransform\(\)/);
+  assert.match(combined, /scripts\/ppt-fast-qa\.mjs/);
+  assert.match(combined, /task-cold clock/);
   assert.match(combined, /If a concrete defect exists/);
   assert.match(combined, /rerender only affected slides/);
   assert.doesNotMatch(combined, /at least one concrete (?:correction|improvement)/i);
@@ -61,6 +72,33 @@ test('ppt skill has the exact documented file surface', async () => {
   assert.match(reference, /package validate/);
   assert.match(reference, /Deliberate boundaries/);
   assert.doesNotMatch(combined, /\b(?:TODO|TBD)\b|\[TODO|placeholder content/i);
+});
+
+test('documented preflight rejects the Amazon clipped-title regression', () => {
+  const spec = {
+    schemaVersion: 1,
+    slideSize: { width: inches(13.333), height: inches(7.5) },
+    safeArea: { top: inches(0.4), right: inches(0.4), bottom: inches(0.4), left: inches(0.4) },
+    gap: inches(0.3),
+    slides: [{
+      id: 'slide-7', family: 'chart-or-table',
+      regions: [{
+        id: 'title-region', collision: 'exclusive',
+        bounds: { x: inches(0.62), y: inches(0.42), width: inches(11.9), height: inches(0.64) },
+      }],
+      elements: [{
+        kind: 'text', id: 'title', regionId: 'title-region', role: 'title',
+        bounds: { x: inches(0.62), y: inches(0.42), width: inches(11.9), height: inches(0.64) },
+        text: 'Deforestation is falling — annual loss remains vast',
+        fontFamily: 'Arial', fontSize: 38, wrap: false, maxLines: 1,
+        fit: 'error', minFontSize: 36,
+      }],
+    }],
+  };
+  const report = preflightDeckSpec(spec);
+  assert.equal(report.ok, false);
+  assert.ok(report.diagnostics.some((diagnostic) => diagnostic.code === 'TEXT_HORIZONTAL_OVERFLOW'));
+  assert.throws(() => assertDeckSpec(spec), /TEXT_HORIZONTAL_OVERFLOW/);
 });
 
 test('documented core creation and edit path works at runtime', async () => {
