@@ -32,7 +32,7 @@ Do not browse, search, scrape, or download stock assets on the default path. Do 
      --sla-ms 180000
    ```
 
-2. In 20 seconds, derive the audience, purpose, narrative arc, one declarative takeaway per slide, and a compact `ThemeSpec`. In 25 seconds, write `<run-directory>/content.json` using the contract below. Do not inspect or reuse an older Amazon content file, generator, or deck during a task-cold run.
+2. In one reasoning pass and at most 45 seconds, derive the audience, purpose, narrative arc, one declarative takeaway per slide, and a compact `ThemeSpec`; then write only valid JSON to `<run-directory>/content.json`. Do not read `pptx.md`, browse the repository, search for assets, draft prose in another file, or inspect/reuse an older topic-specific content file, generator, or deck during a task-cold run. Do not ask another agent to rewrite or polish the JSON before the first build.
 3. Run `node scripts/ppt-fast-accept.mjs build --run-dir <run-directory>`. It performs one compiler execution, writes `deck-spec.json` before serialization, creates `deck.pptx`, and runs reopen, OOXML validation, rendering, overflow checks, and montage creation concurrently in `qa-1/`.
 4. Inspect every full-size PNG and the montage. Copy `review-template.json`, replace its pending values with the actual review, and preserve every supplied hash. Record exact slide coverage, query/content consistency, sources, and unresolved issues. If a concrete defect exists, make at most one targeted content/compiler repair and rerun `build` with `--force-repair`; discard the old review and use the new template for `qa-2/`.
 
@@ -59,6 +59,24 @@ The QA runner's 45-second value is a stage budget recorded as `qaBudgetPass`; it
 ## Fast compiler contract
 
 Write one JSON object with `title`, optional `author`, optional theme colors/fonts, and `slides`. Each slide requires `family`, `title`, optional `kicker`, a family-specific payload, and a `sources` URL array. Use 8–10 slides and at least five silhouettes.
+
+For the predictable nine-slide cold path, use exactly `cover → roles → stats → spotlight → branches → bands → chart → process → actions`, adapting the narrative jobs to the query. This sequence is a performance skeleton, not topic-specific content. Keep typical Latin-script prose within these operational character targets, including spaces; DeckSpec preflight remains authoritative for actual glyph widths:
+
+| Field | Maximum characters |
+|---|---:|
+| Any non-cover slide title / kicker | 48 / 42 |
+| Cover title / subtitle | 34 / 100 |
+| `bands` heading / body / detail | 18 / 72 / 36 |
+| `spotlight.hero` heading / subheading / body | 16 / 24 / 110 |
+| `spotlight.items` heading / body | 24 / 95 |
+| `roles` heading / body / footer | 20 / 90 / 48 |
+| `branches` heading / body / callout | 24 / 95 / 60 |
+| `stats` value / unit / heading / body | 10 / 22 / 22 / 85 |
+| `chart.name` / category / callout value / heading / body | 34 / 12 / 9 / 26 / 100 |
+| `process` heading / body / footer | 22 / 80 / 90 |
+| `actions` heading / body | 34 / 90 |
+
+Prefer complete short sentences over filling the budget. Make `chart.callout.value` a number, percentage, or number plus short unit; never use prose there. Never compensate for excess copy by requesting smaller fonts. All theme colors must be six-digit hexadecimal values without `#`; choose a light `background`, a readable `surface`, and a dark `deep`. The compiler selects accessible text colors automatically.
 
 - `cover`: `subtitle`.
 - `bands`: four `rows` with `heading`, `body`, and optional `detail`.

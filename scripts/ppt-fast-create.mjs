@@ -47,6 +47,21 @@ function luminance(hex) {
   }, 0);
 }
 
+export function contrastRatio(first, second) {
+  const lighter = Math.max(luminance(first), luminance(second));
+  const darker = Math.min(luminance(first), luminance(second));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+export function accessibleTextColor(background, preferred, alternatives = [], minimum = 4.5) {
+  const candidates = [...new Set([preferred, ...alternatives, 'FFFFFF', '000000'])];
+  const passing = candidates.find((candidate) => contrastRatio(background, candidate) >= minimum);
+  if (passing) return passing;
+  return candidates.sort((left, right) => (
+    contrastRatio(background, right) - contrastRatio(background, left)
+  ))[0];
+}
+
 function mixWithWhite(hex, amount) {
   return [0, 2, 4].map((offset) => {
     const channel = Number.parseInt(hex.slice(offset, offset + 2), 16);
@@ -56,8 +71,16 @@ function mixWithWhite(hex, amount) {
 
 export function normalizeFastTheme(input = {}) {
   const theme = { ...DEFAULT_THEME, ...input };
-  if (!/^[0-9A-F]{6}$/iu.test(theme.background)) throw new Error('Theme background must be a six-digit hex color');
-  if (!/^[0-9A-F]{6}$/iu.test(theme.surface)) throw new Error('Theme surface must be a six-digit hex color');
+  const colorKeys = [
+    'deep', 'primary', 'secondary', 'accent', 'background', 'surface',
+    'text', 'mutedText', 'contrast', 'danger', 'cool',
+  ];
+  for (const key of colorKeys) {
+    if (!/^[0-9A-F]{6}$/iu.test(theme[key])) {
+      throw new Error(`Theme ${key} must be a six-digit hex color`);
+    }
+    theme[key] = theme[key].toUpperCase();
+  }
   return {
     ...theme,
     background: luminance(theme.background) < 0.72 ? mixWithWhite(theme.background, 0.88) : theme.background.toUpperCase(),
@@ -92,20 +115,26 @@ function text(slide, theme, value, x, y, width, height, fontSize, color, options
 }
 
 function title(slide, theme, value, dark = false) {
-  text(slide, theme, value, 0.65, 0.45, 12, 0.7, 38, dark ? theme.contrast : theme.text, {
+  const background = dark ? theme.deep : theme.background;
+  const preferred = dark ? theme.contrast : theme.text;
+  text(slide, theme, value, 0.65, 0.45, 12, 0.7, 38,
+    accessibleTextColor(background, preferred, [theme.deep, theme.contrast, theme.surface]), {
     bold: true, wrap: false,
   });
 }
 
-function kicker(slide, theme, value, color = theme.secondary) {
-  text(slide, theme, String(value).toUpperCase(), 0.67, 1.16, 7.5, 0.24, 10.5, color, {
+function kicker(slide, theme, value, color = theme.secondary, background = theme.background) {
+  text(slide, theme, String(value).toUpperCase(), 0.67, 1.16, 7.5, 0.24, 10.5,
+    accessibleTextColor(background, color, [theme.primary, theme.deep, theme.contrast, theme.surface]), {
     bold: true, wrap: false,
   });
 }
 
 function slideNumber(slide, theme, number, dark = false) {
+  const background = dark ? theme.deep : theme.background;
   text(slide, theme, String(number).padStart(2, '0'), 12.15, 7.02, 0.5, 0.18, 10,
-    dark ? theme.surface : theme.mutedText, { align: 'right', wrap: false });
+    accessibleTextColor(background, dark ? theme.surface : theme.mutedText,
+      [theme.contrast, theme.text, theme.deep]), { align: 'right', wrap: false });
 }
 
 function leaf(slide, theme, x, y, width, height, color, rotation = 0, transparency = 0) {
@@ -175,7 +204,7 @@ function buildDeckSpec(content) {
               { role: 'label', bold: true, wrap: false, maxLines: 1 }),
             deckText(`row-${rowIndex + 1}-body`, row.body, fontFamily, 3.5, y + 0.14, 3.8, 0.78, 16,
               { role: 'body', bold: true, maxLines: 3 }),
-            deckText(`row-${rowIndex + 1}-detail`, row.detail, fontFamily, 7.55, y + 0.2, 4.6, 0.5, 16,
+            deckText(`row-${rowIndex + 1}-detail`, row.detail, fontFamily, 7.55, y + 0.16, 4.6, 0.6, 16,
               { role: 'caption', maxLines: 1 }),
           );
         });
@@ -208,7 +237,7 @@ function buildDeckSpec(content) {
               { role: 'body', maxLines: 3 }),
           );
         });
-        elements.push(deckText('footer', slide.footer, fontFamily, 4.2, 6.35, 5, 0.36, 16,
+        elements.push(deckText('footer', slide.footer, fontFamily, 3.85, 6.35, 5.7, 0.36, 16,
           { role: 'subtitle', bold: true, wrap: false, maxLines: 1 }));
       } else if (slide.family === 'branches') {
         slide.items.slice(0, 4).forEach((item, itemIndex) => {
@@ -240,9 +269,11 @@ function buildDeckSpec(content) {
         });
       } else if (slide.family === 'chart') {
         elements.push(
-          deckText('callout-value', slide.callout.value, fontFamily, 9.55, 2.25, 2.88, 0.75, 38,
+          deckText('chart-name', slide.chart.name, fontFamily, 0.82, 1.5, 8, 0.34, 16,
+            { role: 'caption', bold: true, wrap: false, maxLines: 1 }),
+          deckText('callout-value', slide.callout.value, fontFamily, 9.5, 2.25, 2.98, 0.75, 34,
             { role: 'label', bold: true, wrap: false, maxLines: 1 }),
-          deckText('callout-heading', slide.callout.heading, fontFamily, 9.8, 3.2, 2.4, 0.72, 24,
+          deckText('callout-heading', slide.callout.heading, fontFamily, 9.72, 3.14, 2.56, 0.86, 24,
             { role: 'label', bold: true, maxLines: 2 }),
           deckText('callout-body', slide.callout.body, fontFamily, 9.7, 4.45, 2.58, 1.25, 17,
             { role: 'body', maxLines: 4 }),
@@ -316,9 +347,12 @@ function addCover(document, theme, spec, number) {
     leaf(slide, theme, 0.45 + index * 1.2, 0.55 + (index % 3) * 0.32, 1.35, 0.5,
       index % 2 ? theme.surface : theme.secondary, index % 2 ? 25 : -25, 18 + index * 3);
   }
-  text(slide, theme, spec.title, 0.72, 3.85, 11.8, 0.9, 54, theme.contrast, { bold: true, wrap: false });
-  text(slide, theme, spec.subtitle ?? '', 0.76, 4.8, 9.9, 0.7, 19, theme.surface);
-  kicker(slide, theme, spec.kicker ?? '', theme.accent);
+  text(slide, theme, spec.title, 0.72, 3.85, 11.8, 0.9, 54,
+    accessibleTextColor(theme.deep, theme.contrast, [theme.surface]), { bold: true, wrap: false });
+  text(slide, theme, spec.subtitle ?? '', 0.76, 4.8, 9.9, 0.7, 19,
+    accessibleTextColor(theme.deep, theme.surface, [theme.contrast]));
+  kicker(slide, theme, spec.kicker ?? '',
+    accessibleTextColor(theme.deep, theme.accent, [theme.contrast, theme.surface]), theme.deep);
   notes(slide, spec.sources);
   slideNumber(slide, theme, number, true);
 }
@@ -332,11 +366,15 @@ function addBands(document, theme, spec, number) {
   const colors = [theme.surface, theme.secondary, theme.primary, theme.deep];
   rows.forEach((row, index) => {
     const y = 1.55 + index * 1.2;
-    const dark = index > 0;
-    slide.addShape('rect', { x: inches(0.65), y: inches(y), width: inches(12.03), height: inches(1.08), fill: solid(colors[index]), line: { kind: 'none' } });
-    text(slide, theme, row.heading, 0.9, y + 0.18, 2.45, 0.4, 24, dark ? theme.contrast : theme.deep, { bold: true, wrap: false });
-    text(slide, theme, row.body, 3.5, y + 0.14, 3.8, 0.78, 16, dark ? theme.contrast : theme.text, { bold: true });
-    text(slide, theme, row.detail ?? '', 7.55, y + 0.2, 4.6, 0.5, 16, dark ? theme.surface : theme.text);
+    const background = colors[index];
+    const primaryText = accessibleTextColor(background, index > 0 ? theme.contrast : theme.deep,
+      [theme.text, theme.surface, theme.contrast]);
+    const secondaryText = accessibleTextColor(background, index > 0 ? theme.surface : theme.text,
+      [theme.contrast, theme.deep]);
+    slide.addShape('rect', { x: inches(0.65), y: inches(y), width: inches(12.03), height: inches(1.08), fill: solid(background), line: { kind: 'none' } });
+    text(slide, theme, row.heading, 0.9, y + 0.18, 2.45, 0.4, 24, primaryText, { bold: true, wrap: false });
+    text(slide, theme, row.body, 3.5, y + 0.14, 3.8, 0.78, 16, primaryText, { bold: true });
+    text(slide, theme, row.detail ?? '', 7.55, y + 0.16, 4.6, 0.6, 16, secondaryText);
   });
   notes(slide, spec.sources);
   slideNumber(slide, theme, number);
@@ -348,13 +386,17 @@ function addSpotlight(document, theme, spec, number) {
   title(slide, theme, spec.title);
   kicker(slide, theme, spec.kicker ?? 'A keystone relationship');
   slide.addShape('ellipse', { x: inches(0.7), y: inches(1.55), width: inches(4.8), height: inches(4.8), fill: solid(theme.accent), line: { kind: 'none' } });
-  text(slide, theme, spec.hero.heading, 1.1, 2.15, 4.0, 0.7, 40, theme.deep, { bold: true, align: 'center', wrap: false });
-  text(slide, theme, spec.hero.subheading ?? '', 1.25, 2.95, 3.7, 0.5, 24, theme.deep, { bold: true, align: 'center' });
-  text(slide, theme, spec.hero.body, 1.25, 3.55, 3.7, 1.2, 16, theme.text, { align: 'center', valign: 'middle' });
+  const heroText = accessibleTextColor(theme.accent, theme.deep, [theme.text, theme.contrast]);
+  text(slide, theme, spec.hero.heading, 1.1, 2.15, 4.0, 0.7, 40, heroText, { bold: true, align: 'center', wrap: false });
+  text(slide, theme, spec.hero.subheading ?? '', 1.25, 2.95, 3.7, 0.5, 24, heroText, { bold: true, align: 'center' });
+  text(slide, theme, spec.hero.body, 1.25, 3.55, 3.7, 1.2, 16, heroText, { align: 'center', valign: 'middle' });
   spec.items.slice(0, 3).forEach((item, index) => {
     const y = 1.65 + index * 1.55;
-    text(slide, theme, item.heading, 6.05, y, 5.8, 0.42, 24, index === 0 ? theme.cool : theme.secondary, { bold: true, wrap: false });
-    text(slide, theme, item.body, 6.05, y + 0.52, 5.8, 0.7, 16, theme.text);
+    text(slide, theme, item.heading, 6.05, y, 5.8, 0.42, 24,
+      accessibleTextColor(theme.background, index === 0 ? theme.cool : theme.secondary,
+        [theme.primary, theme.deep, theme.text]), { bold: true, wrap: false });
+    text(slide, theme, item.body, 6.05, y + 0.52, 5.8, 0.7, 16,
+      accessibleTextColor(theme.background, theme.text, [theme.deep]));
     if (index < 2) slide.addShape('line', { x: inches(6.05), y: inches(y + 1.35), width: inches(5.6), height: 1, line: stroke(theme.secondary, 1, 55) });
   });
   notes(slide, spec.sources);
@@ -365,18 +407,23 @@ function addRoles(document, theme, spec, number) {
   const slide = document.addSlide();
   slide.background = solid(theme.deep);
   title(slide, theme, spec.title, true);
-  kicker(slide, theme, spec.kicker ?? 'Invisible work', theme.accent);
+  kicker(slide, theme, spec.kicker ?? 'Invisible work', theme.accent, theme.deep);
   const positions = [[0.95, 1.9], [9.0, 1.9], [0.95, 4.85], [9.0, 4.85]];
   spec.items.slice(0, 4).forEach((item, index) => {
     const [x, y] = positions[index];
-    text(slide, theme, item.heading, x, y, 3.35, 0.42, 24, [theme.accent, theme.cool, theme.danger, theme.surface][index], { bold: true, wrap: false });
-    text(slide, theme, item.body, x, y + 0.5, 3.45, 0.88, 16, theme.surface);
+    const heading = [theme.accent, theme.cool, theme.danger, theme.surface][index];
+    text(slide, theme, item.heading, x, y, 3.35, 0.42, 24,
+      accessibleTextColor(theme.deep, heading, [theme.contrast, theme.surface, theme.accent]),
+      { bold: true, wrap: false });
+    text(slide, theme, item.body, x, y + 0.5, 3.45, 0.88, 16,
+      accessibleTextColor(theme.deep, theme.surface, [theme.contrast]));
   });
   slide.addShape('ellipse', { x: inches(5.55), y: inches(2.75), width: inches(2.2), height: inches(1.35), fill: solid(theme.accent), line: { kind: 'none' } });
   for (const [x, y, rotation] of [[4.9, 2.0, -25], [7.0, 2.0, 25], [4.9, 4.0, 25], [7.0, 4.0, -25]]) {
     slide.addShape('ellipse', { x: inches(x), y: inches(y), width: inches(1.55), height: inches(1.05), rotation: degrees(rotation), fill: solid(theme.secondary), line: { kind: 'none' } });
   }
-  text(slide, theme, spec.footer ?? '', 4.2, 6.35, 5.0, 0.36, 16, theme.contrast, { bold: true, align: 'center' });
+  text(slide, theme, spec.footer ?? '', 3.85, 6.35, 5.7, 0.36, 16,
+    accessibleTextColor(theme.deep, theme.contrast, [theme.surface]), { bold: true, align: 'center' });
   notes(slide, spec.sources);
   slideNumber(slide, theme, number, true);
 }
@@ -397,12 +444,16 @@ function addBranches(document, theme, spec, number) {
   items.forEach((item, index) => {
     const [x, y] = BRANCH_POSITIONS[index];
     text(slide, theme, item.heading, x, y, 4.3, 0.42, 24,
-      [theme.primary, theme.secondary, theme.cool, theme.danger][index],
+      accessibleTextColor(theme.background,
+        [theme.primary, theme.secondary, theme.cool, theme.danger][index],
+        [theme.deep, theme.text]),
       { bold: true, wrap: false });
-    text(slide, theme, item.body, x, y + 0.58, 4.45, 0.9, 16, theme.text);
+    text(slide, theme, item.body, x, y + 0.58, 4.45, 0.9, 16,
+      accessibleTextColor(theme.background, theme.text, [theme.deep]));
   });
   if (items.length < 4) {
-    text(slide, theme, spec.callout ?? '', 8.1, 5.1, 4.2, 0.8, 24, theme.danger, { bold: true });
+    text(slide, theme, spec.callout ?? '', 8.1, 5.1, 4.2, 0.8, 24,
+      accessibleTextColor(theme.background, theme.danger, [theme.deep, theme.text]), { bold: true });
   }
   notes(slide, spec.sources);
   slideNumber(slide, theme, number);
@@ -416,11 +467,17 @@ function addStats(document, theme, spec, number) {
   const colors = [theme.primary, theme.cool, theme.accent];
   spec.items.slice(0, 3).forEach((item, index) => {
     const x = 0.78 + index * 3.98;
+    const circleColor = colors[index];
+    const circleText = accessibleTextColor(circleColor,
+      index === 2 ? theme.deep : theme.contrast, [theme.text, theme.contrast]);
     slide.addShape('ellipse', { x: inches(x), y: inches(1.65), width: inches(3.2), height: inches(3.2), fill: solid(colors[index]), line: { kind: 'none' } });
-    text(slide, theme, item.value, x + 0.2, 2.15, 2.8, 0.7, 38, index === 2 ? theme.deep : theme.contrast, { bold: true, align: 'center', wrap: false });
-    text(slide, theme, item.unit ?? '', x + 0.3, 2.95, 2.6, 0.36, 16, index === 2 ? theme.deep : theme.contrast, { bold: true, align: 'center' });
-    text(slide, theme, item.heading, x - 0.05, 5.08, 3.4, 0.42, 24, colors[index], { bold: true, align: 'center', wrap: false });
-    text(slide, theme, item.body, x - 0.05, 5.58, 3.4, 0.8, 16, theme.text, { align: 'center' });
+    text(slide, theme, item.value, x + 0.2, 2.15, 2.8, 0.7, 38, circleText, { bold: true, align: 'center', wrap: false });
+    text(slide, theme, item.unit ?? '', x + 0.3, 2.95, 2.6, 0.36, 16, circleText, { bold: true, align: 'center' });
+    text(slide, theme, item.heading, x - 0.05, 5.08, 3.4, 0.42, 24,
+      accessibleTextColor(theme.background, circleColor, [theme.deep, theme.text]),
+      { bold: true, align: 'center', wrap: false });
+    text(slide, theme, item.body, x - 0.05, 5.58, 3.4, 0.8, 16,
+      accessibleTextColor(theme.background, theme.text, [theme.deep]), { align: 'center' });
   });
   notes(slide, spec.sources);
   slideNumber(slide, theme, number);
@@ -431,29 +488,37 @@ async function addChart(document, theme, spec, number) {
   slide.background = solid(theme.background);
   title(slide, theme, spec.title);
   kicker(slide, theme, spec.kicker ?? 'Evidence over time');
+  text(slide, theme, spec.chart.name, 0.82, 1.5, 8, 0.34, 16,
+    accessibleTextColor(theme.background, theme.mutedText, [theme.text, theme.deep]),
+    { bold: true, wrap: false });
   const chart = await slide.addChart('bar', [{
     name: spec.chart.name,
     categories: spec.chart.categories,
     values: spec.chart.values,
-  }], { x: inches(0.72), y: inches(1.65), width: inches(8.3), height: inches(4.9) });
+  }], { x: inches(0.72), y: inches(1.84), width: inches(8.3), height: inches(4.71) });
   await chart.replaceDefinition({
     groups: [{
       type: 'bar',
       series: [{ name: spec.chart.name, categories: spec.chart.categories, values: spec.chart.values }],
-      options: { direction: 'column', gapWidth: 58, dataLabels: { showValue: true, position: 'outsideEnd', face: theme.font, size: 11, color: { kind: 'srgb', value: theme.text } }, series: [{ fill: solid(theme.secondary), line: { kind: 'none' } }] },
+      options: { direction: 'column', gapWidth: 58, dataLabels: { showValue: true, position: 'outsideEnd', face: theme.font, size: 11, color: { kind: 'srgb', value: accessibleTextColor(theme.background, theme.text, [theme.deep]) } }, series: [{ fill: solid(theme.secondary), line: { kind: 'none' } }] },
     }],
     options: {
       legend: { visible: false },
       chartArea: { fill: { kind: 'none' }, line: { kind: 'none' } },
       plotArea: { fill: { kind: 'none' }, line: { kind: 'none' } },
-      categoryAxis: { face: theme.font, size: 11, color: { kind: 'srgb', value: theme.text }, line: stroke(theme.mutedText, 1, 55), majorTickMark: 'none' },
+      categoryAxis: { face: theme.font, size: 11, color: { kind: 'srgb', value: accessibleTextColor(theme.background, theme.text, [theme.deep]) }, line: stroke(theme.mutedText, 1, 55), majorTickMark: 'none' },
       valueAxis: { visible: false, majorGridLine: stroke(theme.mutedText, 1, 75) },
     },
   });
   slide.addShape('rect', { x: inches(9.45), y: inches(1.78), width: inches(3.08), height: inches(4.62), fill: solid(theme.deep), line: { kind: 'none' } });
-  text(slide, theme, spec.callout.value, 9.55, 2.25, 2.88, 0.75, 38, theme.accent, { bold: true, align: 'center', wrap: false });
-  text(slide, theme, spec.callout.heading, 9.8, 3.2, 2.4, 0.72, 24, theme.contrast, { bold: true, align: 'center' });
-  text(slide, theme, spec.callout.body, 9.7, 4.45, 2.58, 1.25, 17, theme.surface, { align: 'center', valign: 'middle' });
+  text(slide, theme, spec.callout.value, 9.5, 2.25, 2.98, 0.75, 34,
+    accessibleTextColor(theme.deep, theme.accent, [theme.contrast, theme.surface]),
+    { bold: true, align: 'center', wrap: false });
+  text(slide, theme, spec.callout.heading, 9.72, 3.14, 2.56, 0.86, 24,
+    accessibleTextColor(theme.deep, theme.contrast, [theme.surface]), { bold: true, align: 'center' });
+  text(slide, theme, spec.callout.body, 9.7, 4.45, 2.58, 1.25, 17,
+    accessibleTextColor(theme.deep, theme.surface, [theme.contrast]),
+    { align: 'center', valign: 'middle' });
   notes(slide, spec.sources);
   slideNumber(slide, theme, number);
 }
@@ -474,6 +539,8 @@ function addProcess(document, theme, spec, number) {
   steps.forEach((item, index) => {
     const x = PROCESS_LAYOUT.positions[index];
     const color = [theme.accent, theme.danger, '9E3A2A', theme.deep][index];
+    const cardText = accessibleTextColor(color,
+      index === 0 ? theme.deep : theme.contrast, [theme.text, theme.surface, theme.contrast]);
     slide.addShape('roundRect', {
       x: inches(x), y: inches(PROCESS_LAYOUT.card.y),
       width: inches(PROCESS_LAYOUT.card.width), height: inches(PROCESS_LAYOUT.card.height),
@@ -482,15 +549,17 @@ function addProcess(document, theme, spec, number) {
     text(slide, theme, item.heading,
       x + PROCESS_LAYOUT.heading.dx, PROCESS_LAYOUT.heading.y,
       PROCESS_LAYOUT.heading.width, PROCESS_LAYOUT.heading.height,
-      PROCESS_LAYOUT.heading.fontSize, index === 0 ? theme.deep : theme.contrast,
+      PROCESS_LAYOUT.heading.fontSize, cardText,
       { bold: true, wrap: true, fit: 'none' });
     text(slide, theme, item.body,
       x + PROCESS_LAYOUT.body.dx, PROCESS_LAYOUT.body.y,
       PROCESS_LAYOUT.body.width, PROCESS_LAYOUT.body.height,
-      PROCESS_LAYOUT.body.fontSize, index === 0 ? theme.deep : theme.contrast,
+      PROCESS_LAYOUT.body.fontSize, cardText,
       { fit: 'none' });
   });
-  text(slide, theme, spec.footer ?? '', 1.6, 5.4, 10.1, 0.8, 24, theme.primary, { bold: true, align: 'center' });
+  text(slide, theme, spec.footer ?? '', 1.6, 5.4, 10.1, 0.8, 24,
+    accessibleTextColor(theme.background, theme.primary, [theme.deep, theme.text]),
+    { bold: true, align: 'center' });
   notes(slide, spec.sources);
   slideNumber(slide, theme, number);
 }
@@ -499,13 +568,16 @@ function addActions(document, theme, spec, number) {
   const slide = document.addSlide();
   slide.background = solid(theme.deep);
   title(slide, theme, spec.title, true);
-  kicker(slide, theme, spec.kicker ?? 'What changes the trajectory', theme.accent);
+  kicker(slide, theme, spec.kicker ?? 'What changes the trajectory', theme.accent, theme.deep);
   const items = spec.items.slice(0, 4);
   items.forEach((item, index) => {
     const y = ACTION_LAYOUT.startY + index * ACTION_LAYOUT.stepY;
-    text(slide, theme, String(index + 1).padStart(2, '0'), 0.85, y, 0.55, 0.4, 20, theme.accent, { bold: true });
-    text(slide, theme, item.heading, 1.65, y, 4.5, 0.8, 24, theme.contrast, { bold: true });
-    text(slide, theme, item.body, 6.2, y, 5.7, 0.72, 16, theme.surface);
+    text(slide, theme, String(index + 1).padStart(2, '0'), 0.85, y, 0.55, 0.4, 20,
+      accessibleTextColor(theme.deep, theme.accent, [theme.contrast, theme.surface]), { bold: true });
+    text(slide, theme, item.heading, 1.65, y, 4.5, 0.8, 24,
+      accessibleTextColor(theme.deep, theme.contrast, [theme.surface]), { bold: true });
+    text(slide, theme, item.body, 6.2, y, 5.7, 0.72, 16,
+      accessibleTextColor(theme.deep, theme.surface, [theme.contrast]));
     if (index < items.length - 1) slide.addShape('line', { x: inches(1.65), y: inches(y + 0.98), width: inches(10.2), height: 1, line: stroke(theme.secondary, 1, 55) });
   });
   for (let index = 0; index < 7; index += 1) leaf(slide, theme, 0.55 + index * 1.75, 6.35, 1.3, 0.42, index % 2 ? theme.secondary : theme.surface, index % 2 ? 20 : -20, 30);

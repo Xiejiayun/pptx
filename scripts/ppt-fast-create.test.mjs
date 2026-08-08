@@ -5,13 +5,133 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { PptxDocument } from '../packages/pptx/dist/index.js';
-import { createFastPresentation, normalizeFastTheme } from './ppt-fast-create.mjs';
+import {
+  accessibleTextColor,
+  contrastRatio,
+  createFastPresentation,
+  normalizeFastTheme,
+} from './ppt-fast-create.mjs';
+
+function textShape(slide, value) {
+  return slide.shapes.find((shape) => (shape.richText ?? [])
+    .flatMap((paragraph) => paragraph.runs)
+    .map((run) => run.text)
+    .join('') === value);
+}
+
+function textColor(slide, value) {
+  const shape = textShape(slide, value);
+  assert.ok(shape, `Expected rendered text shape: ${value}`);
+  const color = shape.richText[0]?.runs[0]?.style?.color;
+  assert.equal(color?.kind, 'srgb');
+  return color.value;
+}
 
 test('fast compiler normalizes dark content backgrounds to a readable light field', () => {
   const theme = normalizeFastTheme({ background: '071F17', surface: '123D2A' });
   assert.ok(Number.parseInt(theme.background.slice(0, 2), 16) > 200);
   assert.ok(Number.parseInt(theme.surface.slice(2, 4), 16) > 150);
   assert.equal(theme.deep, '0B2E22');
+});
+
+test('accessible text selection guarantees WCAG AA contrast for cold-run theme colors', () => {
+  const theme = normalizeFastTheme({
+    deep: '062C20', background: 'EFF5E9', accent: 'F2C14E',
+    cool: '2A7F8E', danger: 'B4472D', surface: 'CFE4C3',
+  });
+  for (const preferred of [theme.cool, theme.danger, theme.surface]) {
+    const selected = accessibleTextColor(theme.deep, preferred, [theme.contrast, theme.accent]);
+    assert.ok(contrastRatio(theme.deep, selected) >= 4.5);
+  }
+  const statsHeading = accessibleTextColor(theme.background, theme.accent, [theme.deep, theme.text]);
+  assert.ok(contrastRatio(theme.background, statsHeading) >= 4.5);
+});
+
+test('rendered text across every layout family retains accessible contrast', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'ppt-fast-contrast-'));
+  const inputTheme = {
+    deep: '062C20', primary: '0B5B3A', secondary: '2F7D4A', accent: 'F2C14E',
+    background: 'EFF5E9', surface: 'CFE4C3', text: '143126', mutedText: '5A6F63',
+    contrast: 'FFFFFA', danger: 'B4472D', cool: '2A7F8E', font: 'Arial',
+  };
+  const item = (heading) => ({ heading, body: `${heading} supports the system.` });
+  const slides = [
+    { family: 'cover', title: 'LIVING SYSTEMS', kicker: 'FIELD GUIDE', subtitle: 'A connected natural world.' },
+    { family: 'roles', title: 'Roles sustain the system', kicker: 'SYSTEM ROLES', items: ['RAIN', 'CARBON', 'RIVERS', 'CLIMATE'].map(item), footer: 'Benefits cross borders.' },
+    { family: 'stats', title: 'Three signals reveal the system', kicker: 'SYSTEM SIGNALS', items: [
+      { ...item('GLOBAL SHARE'), value: '10%', unit: 'species' },
+      { ...item('INSECT REALM'), value: '2.5M', unit: 'species' },
+      { ...item('TREE DIVERSITY'), value: '16,000', unit: 'tree species' },
+    ] },
+    { family: 'spotlight', title: 'One actor anchors the story', kicker: 'KEYSTONE SPECIES', hero: { heading: 'JAGUAR', subheading: 'Apex predator', body: 'A wide-ranging forest hunter.' }, items: ['TAPIR', 'DOLPHIN', 'MONKEY'].map(item) },
+    { family: 'branches', title: 'Small species power large systems', kicker: 'HIDDEN WORKERS', items: ['ANTS', 'BEES', 'BEETLES', 'BUTTERFLIES'].map(item) },
+    { family: 'bands', title: 'Layers organize the forest', kicker: 'VERTICAL SYSTEM', rows: [
+      { heading: 'EMERGENT', body: 'Crowns meet open sun.', detail: 'Eagles patrol above.' },
+      { heading: 'CANOPY', body: 'Leaves capture light.', detail: 'Fruit feeds animals.' },
+      { heading: 'UNDERSTORY', body: 'Saplings wait below.', detail: 'Shade shapes growth.' },
+      { heading: 'FLOOR', body: 'Fungi recycle matter.', detail: 'Nutrients return.' },
+    ] },
+    { family: 'chart', title: 'Loss changes over time', kicker: 'ANNUAL TREND', chart: { name: 'Annual loss (km²)', categories: ['2022', '2023', '2024'], values: [11, 9, 6] }, callout: { value: '6 km²', heading: 'Lower, not over', body: 'The remaining loss still matters.' } },
+    { family: 'process', title: 'Pressure compounds in sequence', kicker: 'CHAIN REACTION', items: ['ACCESS', 'CLEARING', 'FIRE', 'DECLINE'].map(item), footer: 'Prevention interrupts the chain.' },
+    { family: 'actions', title: 'Four moves protect the system', kicker: 'ACT TOGETHER', items: ['PROTECT', 'ENFORCE', 'RESTORE', 'FINANCE'].map(item) },
+  ];
+  const output = path.join(directory, 'contrast.pptx');
+  await createFastPresentation({ title: 'Contrast', theme: inputTheme, slides }, output, path.join(directory, 'deck-spec.json'));
+  const reopened = await PptxDocument.open(output);
+  const theme = normalizeFastTheme(inputTheme);
+  const expectContrast = (slideIndex, value, background) => {
+    assert.ok(contrastRatio(background, textColor(reopened.slides[slideIndex], value)) >= 4.5,
+      `Expected ${value} to meet contrast on slide ${slideIndex + 1}`);
+  };
+
+  for (const value of ['LIVING SYSTEMS', 'FIELD GUIDE', 'A connected natural world.']) {
+    expectContrast(0, value, theme.deep);
+  }
+  for (const heading of ['RAIN', 'CARBON', 'RIVERS', 'CLIMATE']) {
+    expectContrast(1, heading, theme.deep);
+    expectContrast(1, `${heading} supports the system.`, theme.deep);
+  }
+  expectContrast(1, 'Benefits cross borders.', theme.deep);
+  for (const heading of ['GLOBAL SHARE', 'INSECT REALM', 'TREE DIVERSITY']) {
+    expectContrast(2, heading, theme.background);
+    expectContrast(2, `${heading} supports the system.`, theme.background);
+  }
+  for (const [value, background] of [['10%', theme.primary], ['2.5M', theme.cool], ['16,000', theme.accent]]) {
+    expectContrast(2, value, background);
+  }
+  for (const value of ['JAGUAR', 'Apex predator', 'A wide-ranging forest hunter.']) {
+    expectContrast(3, value, theme.accent);
+  }
+  for (const heading of ['TAPIR', 'DOLPHIN', 'MONKEY', 'ANTS', 'BEES', 'BEETLES', 'BUTTERFLIES']) {
+    const slideIndex = ['TAPIR', 'DOLPHIN', 'MONKEY'].includes(heading) ? 3 : 4;
+    expectContrast(slideIndex, heading, theme.background);
+    expectContrast(slideIndex, `${heading} supports the system.`, theme.background);
+  }
+  const bandBackgrounds = [theme.surface, theme.secondary, theme.primary, theme.deep];
+  for (const [index, row] of slides[5].rows.entries()) {
+    for (const value of [row.heading, row.body, row.detail]) expectContrast(5, value, bandBackgrounds[index]);
+  }
+  for (const value of ['Annual loss (km²)']) expectContrast(6, value, theme.background);
+  for (const value of ['6 km²', 'Lower, not over', 'The remaining loss still matters.']) {
+    expectContrast(6, value, theme.deep);
+  }
+  const processBackgrounds = [theme.accent, theme.danger, '9E3A2A', theme.deep];
+  for (const [index, processItem] of slides[7].items.entries()) {
+    expectContrast(7, processItem.heading, processBackgrounds[index]);
+    expectContrast(7, processItem.body, processBackgrounds[index]);
+  }
+  expectContrast(7, 'Prevention interrupts the chain.', theme.background);
+  for (const actionItem of slides[8].items) {
+    expectContrast(8, actionItem.heading, theme.deep);
+    expectContrast(8, actionItem.body, theme.deep);
+  }
+  expectContrast(8, '01', theme.deep);
+
+  const titleBackgrounds = [theme.deep, theme.deep, theme.background, theme.background, theme.background,
+    theme.background, theme.background, theme.background, theme.deep];
+  slides.forEach((slide, index) => expectContrast(index, slide.title, titleBackgrounds[index]));
+  slides.forEach((slide, index) => expectContrast(index, slide.kicker,
+    index === 0 || index === 1 || index === 8 ? theme.deep : theme.background));
 });
 
 test('fast compiler creates and reopens a preflighted deck', async () => {
@@ -99,7 +219,7 @@ test('fast compiler rejects unsafe body copy outside the process family', async 
   }, '/tmp/never-written-stats.pptx'), /item-1-body/);
 });
 
-test('Amazon-sized bands, chart, and four-action copy passes full text preflight', async () => {
+test('cold-run bands, roles footer, chart labels, and four-action copy pass full text preflight', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'ppt-fast-amazon-copy-'));
   const content = {
     title: 'Amazon biodiversity',
@@ -107,16 +227,26 @@ test('Amazon-sized bands, chart, and four-action copy passes full text preflight
       {
         family: 'bands', title: 'A vertical city of plants',
         rows: [
-          { heading: 'Emergents', body: 'Kapok and Brazil-nut crowns rise into fierce sun and wind.', detail: '45–60 m' },
-          { heading: 'Canopy', body: 'A dense green roof where leaves, fruit and epiphytes concentrate life.', detail: 'Primary engine' },
-          { heading: 'Understory', body: 'Palms and saplings thrive in filtered light with oversized leaves.', detail: 'Low light' },
-          { heading: 'Forest floor', body: 'Fungi and roots rapidly reclaim nutrients from fallen material.', detail: 'Fast cycling' },
+          { heading: 'Emergents', body: 'Kapok and Brazil-nut crowns rise into fierce sun and wind.', detail: 'Harpy eagles patrol the upper air.' },
+          { heading: 'Canopy', body: 'A dense green roof where leaves, fruit and epiphytes concentrate life.', detail: 'Monkeys, sloths, birds, insects.' },
+          { heading: 'Understory', body: 'Palms and saplings thrive in filtered light with oversized leaves.', detail: 'Frogs, cats, palms, and saplings.' },
+          { heading: 'Forest floor', body: 'Fungi and roots rapidly reclaim nutrients from fallen material.', detail: 'Roots and fungi recycle nutrients.' },
         ],
       },
       {
+        family: 'roles', title: 'The Amazon moves water and carbon',
+        items: [
+          { heading: 'RECYCLE RAIN', body: 'Trees release water vapor that helps sustain rainfall across the basin.' },
+          { heading: 'STORE CARBON', body: 'Wood, roots, and soils hold carbon accumulated over decades.' },
+          { heading: 'COOL THE LAND', body: 'Evapotranspiration moves heat from the surface into the atmosphere.' },
+          { heading: 'LINK CONTINENTS', body: 'Moisture transport influences farms, cities, and rivers beyond the forest.' },
+        ],
+        footer: 'The forest is living climate infrastructure.',
+      },
+      {
         family: 'chart', title: 'Brazilian Amazon loss remains immense',
-        chart: { name: 'Deforested area', categories: ['2020', '2021', '2022', '2023'], values: [10851, 13038, 11594, 9001] },
-        callout: { value: '9,001 km²', heading: 'Lost in 2023', body: 'A sharp decline from 2022, yet an area larger than many major cities.' },
+        chart: { name: 'Annual deforestation (km²)', categories: ['2021', '2022', '2023', '2024'], values: [13038, 11594, 9064, 6288] },
+        callout: { value: '6,288 km²', heading: 'Three-year decline', body: 'Progress that still leaves a vast annual scar.' },
       },
       {
         family: 'actions', title: 'Keep the forest standing — and thriving',
@@ -134,8 +264,25 @@ test('Amazon-sized bands, chart, and four-action copy passes full text preflight
     path.join(directory, 'deck.pptx'),
     path.join(directory, 'deck-spec.json'),
   );
-  assert.equal(result.slideCount, 3);
-  assert.equal(result.deckSpec.slides[2].elements.some((element) => element.id === 'item-4-heading'), true);
+  assert.equal(result.slideCount, 4);
+  const bandsDetail = result.deckSpec.slides[0].elements.find((element) => element.id === 'row-1-detail');
+  assert.equal(bandsDetail.bounds.height, 548640);
+  const rolesFooter = result.deckSpec.slides[1].elements.find((element) => element.id === 'footer');
+  assert.equal(rolesFooter.bounds.width, 5212080);
+  const chartName = result.deckSpec.slides[2].elements.find((element) => element.id === 'chart-name');
+  assert.equal(chartName.text, 'Annual deforestation (km²)');
+  const chartHeading = result.deckSpec.slides[2].elements.find((element) => element.id === 'callout-heading');
+  assert.equal(chartHeading.bounds.height, 786384);
+  assert.equal(result.deckSpec.slides[3].elements.some((element) => element.id === 'item-4-heading'), true);
+
+  const reopened = await PptxDocument.open(path.join(directory, 'deck.pptx'));
+  const chartText = reopened.slides[2].shapes
+    .flatMap((shape) => shape.richText ?? [])
+    .flatMap((paragraph) => paragraph.runs)
+    .map((run) => run.text)
+    .join(' ');
+  assert.match(chartText, /Annual deforestation \(km²\)/u);
+  assert.match(chartText, /6,288 km²/u);
 });
 
 test('fast compiler materializes every registered layout family', async () => {
